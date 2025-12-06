@@ -4,48 +4,167 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Models\Project;
-use App\Models\FiscalYear;
 use App\Models\Budget;
-use App\Models\BudgetQuaterAllocation;
-use App\Models\ProjectExpenseQuarter;
-use App\Models\ProjectExpenseFundingAllocation;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
+use App\Models\Project;
 use Illuminate\View\View;
+use App\Models\FiscalYear;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use App\Models\ProjectExpenseQuarter;
+use App\Models\BudgetQuaterAllocation;
+use Illuminate\Support\Facades\Validator;
+use App\Models\ProjectExpenseFundingAllocation;
 
 class ProjectExpenseFundingAllocationController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
-        $projects = Project::with('budgets.fiscalYear')->get();
-        $projectOptions = $projects->mapWithKeys(function ($project) {
-            return [$project->id => $project->title];
+
+        $user = Auth::user();
+        $projects = $user->projects;
+        $fiscalYearOptionsBase = FiscalYear::getFiscalYearOptions();
+
+        // Get selected project ID from request or use first project
+        $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
+
+        // Get selected fiscal year ID from request or use the auto-selected from options
+        $selectedFiscalYearId = $request->integer('fiscal_year_id')
+            ?: collect($fiscalYearOptionsBase)->firstWhere('selected', true)['value'] ?? null;
+
+        // Cast to int to ensure type consistency (handles string from options)
+        $selectedProjectId = (int) ($selectedProjectId ?? 0);
+        $selectedFiscalYearId = (int) ($selectedFiscalYearId ?? 0);
+
+        // Validate fiscal year ID exists (optional, to prevent invalid selections)
+        if ($selectedFiscalYearId && !collect($fiscalYearOptionsBase)->firstWhere('value', (string) $selectedFiscalYearId)) {
+            session()->flash('warning', 'Invalid fiscal year selected. Defaulting to current fiscal year.');
+            $selectedFiscalYearId = 0;  // Reset to 0 (falsy)
+        }
+
+        // Fetch model instances for display
+        $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
+        $currentFiscalYear = FiscalYear::currentFiscalYear();
+        if (!$currentFiscalYear) {
+            abort(404, 'No current fiscal year found.');
+        }
+        $selectedFiscalYear = FiscalYear::find($selectedFiscalYearId) ?: $currentFiscalYear;
+
+        // Update fiscal year options to reflect the actual selected (override base 'selected')
+        $fiscalYearOptions = collect($fiscalYearOptionsBase)->map(function ($option) use ($selectedFiscalYearId) {
+            $option['selected'] = $option['value'] == (string) $selectedFiscalYearId;
+            return $option;
+        })->values()->toArray();
+
+        // Prepare project options with 'selected' flag (matching working example)
+        $projectOptions = $projects->map(function (Project $project) use ($selectedProjectId) {
+            return [
+                'value' => (string) $project->id,  // Cast to string for consistency with component
+                'label' => $project->title,
+                'selected' => $project->id == $selectedProjectId,
+            ];
         })->toArray();
 
-        $fiscalYears = FiscalYear::orderBy('start_date', 'desc')->get();
-        $fiscalYearOptions = $fiscalYears->mapWithKeys(function ($fy) {
-            return [$fy->id => $fy->title];
-        })->toArray();
+        // Determine the default quarter to select (string 'q1'-'q4' to match working example)
+        $selectedQuarter = $request->input('selected_quarter');  // Use 'selected_quarter' key to match working example
 
-        $selectedProjectId = request()->get('project_id');
-        $selectedFiscalYearId = request()->get('fiscal_year_id');
-        $selectedQuarter = request()->get('quarter');
+        if (!$selectedQuarter && $selectedProjectId && $selectedFiscalYearId) {
+            // Auto-select the first unfilled quarter
+            $selectedQuarter = $this->getNextUnfilledQuarter($selectedProjectId, $selectedFiscalYearId);
+        }
 
-        $firstProject = $selectedProjectId ? $projects->find($selectedProjectId) : $projects->first();
-        $selectedFiscalYear = $selectedFiscalYearId ? $fiscalYears->find($selectedFiscalYearId) : $fiscalYears->first();
+        // Preload expense data if both project and fiscal year are selected (and quarter if needed)
+        $preloadData = !empty($selectedProjectId) && !empty($selectedFiscalYearId) && !empty($selectedQuarter);
+
+        // Get quarter completion status for UI hints (matching working example)
+        $quarterStatus = null;
+        if ($selectedProjectId && $selectedFiscalYearId) {
+            $quarterStatus = $this->getQuarterCompletionStatus($selectedProjectId, $selectedFiscalYearId);
+        }
+
+        // If preloading, fetch initial data (implement loadExpenseDataForView to mirror your AJAX loadData)
+        $expenseData = [];
+        $budgetRemainings = [];
+        $projectName = $selectedProject?->title ?? '';
+        $fiscalYearTitle = $selectedFiscalYear?->title ?? 'Current Fiscal Year';
+        if ($preloadData) {
+            $initialData = $this->loadExpenseDataForView($selectedProjectId, $selectedFiscalYearId, $selectedQuarter);
+            $expenseData = $initialData['expenseData'] ?? [];
+            $budgetRemainings = $initialData['budgetRemainings'] ?? [];
+        }
 
         return view('admin.projectExpenseFundingAllocations.create', compact(
             'projectOptions',
             'fiscalYearOptions',
-            'firstProject',
+            'selectedProject',  // Use instead of 'firstProject' – update view title to {{ $selectedProject->title ?? '' }}
             'selectedFiscalYear',
             'selectedProjectId',
             'selectedFiscalYearId',
-            'selectedQuarter'
+            'selectedQuarter',
+            'quarterStatus',     // For quarter indicators if added to view
+            'preloadData',       // Bool for JS to skip initial load if true
+            'expenseData',       // Preloaded rows for @forelse
+            'budgetRemainings',  // Preloaded remainings for displayBudgetRemainings
+            'projectName',       // For title
+            'fiscalYearTitle'    // For title
         ));
+    }
+
+    /**
+     * Get the next unfilled quarter for the given project and fiscal year
+     * Returns 'q1', 'q2', 'q3', 'q4', or 'q4' if all are filled
+     */
+    private function getNextUnfilledQuarter($projectId, $fiscalYearId)
+    {
+        $filledQuarters = ProjectExpenseFundingAllocation::getFilledQuartersForProjectFiscalYear($projectId, $fiscalYearId);
+
+        if (empty($filledQuarters)) {
+            return 'q1'; // Default to Q1 if no allocations exist
+        }
+
+        // Return the first unfilled quarter
+        for ($q = 1; $q <= 4; $q++) {
+            if (!in_array($q, $filledQuarters)) {
+                return "q{$q}";
+            }
+        }
+
+        // If all quarters are filled, return Q4 (or you could return 'q1' to edit)
+        return 'q4';
+    }
+
+    /**
+     * Get completion status for all quarters (for UI display)
+     * Returns array like: ['q1' => true, 'q2' => false, 'q3' => false, 'q4' => false]
+     */
+    private function getQuarterCompletionStatus($projectId, $fiscalYearId)
+    {
+        $filledQuarters = ProjectExpenseFundingAllocation::getFilledQuartersForProjectFiscalYear($projectId, $fiscalYearId);
+
+        $status = ['q1' => false, 'q2' => false, 'q3' => false, 'q4' => false];
+        foreach ($filledQuarters as $q) {
+            if (is_numeric($q) && $q >= 1 && $q <= 4) {
+                $status["q{$q}"] = true;
+            }
+        }
+
+        return $status;
+    }
+
+    /**
+     * Load expense data for preloading (mirror your loadData route/method logic).
+     */
+    private function loadExpenseDataForView($projectId, $fiscalYearId, $selectedQuarter): array
+    {
+        // Duplicate the query/logic from your 'admin.projectExpenseFundingAllocations.loadData' route
+        // e.g., Fetch expenses, calculate remainings, etc. Note: $selectedQuarter is now 'q1', etc.
+        // Adjust quarter parsing in your loadData if needed (e.g., intval(substr($selectedQuarter, 1)) to get 1)
+        // Return ['expenseData' => [rows...], 'budgetRemainings' => ['internal' => 1000, ...], 'projectName' => ..., 'fiscalYearTitle' => ...]
+        return [
+            'expenseData' => [],  // Replace with actual data
+            'budgetRemainings' => []  // Replace with actual remainings
+        ];
     }
 
     public function store(Request $request)

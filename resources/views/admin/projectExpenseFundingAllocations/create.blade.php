@@ -13,7 +13,7 @@
         action="{{ route('admin.projectExpenseFundingAllocation.store') }}" method="POST" enctype="multipart/form-data">
         @csrf
 
-        {{-- <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="w-full md:w-1/3 relative z-50">
                     <x-forms.select label="{{ trans('global.project.fields.title') }}" name="project_id" id="project_id"
@@ -23,7 +23,7 @@
 
                 <div class="w-full md:w-1/3 relative z-50">
                     <x-forms.select label="{{ trans('global.fiscal_year.fields.title') }}" name="fiscal_year_id"
-                        id="fiscal_year_id" :options="$fiscalYears" :selected="$selectedFiscalYearId ?? ''"
+                        id="fiscal_year_id" :options="$fiscalYearOptions" :selected="$selectedFiscalYearId ?? ''"
                         placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('fiscal_year_id')" class="js-single-select"
                         required />
                 </div>
@@ -40,7 +40,7 @@
                     Select a project, fiscal year, and quarter to view quarterly budget remainings and expenses.
                 </span>
             </div>
-        </div> --}}
+        </div>
 
         <div
             class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden p-6">
@@ -540,12 +540,12 @@
                                     <input type="hidden" name="total_amounts[]" value="${row.total_amount}">
                                 </td>
                                 ${sources.map(source => `
-                                                            <td class="border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 relative">
-                                                                <input type="number" name="${source.replace('_', '-')}_allocations[]" min="0" step="0.01"
-                                                                    value="${(parseFloat(row[source] || 0)).toFixed(2)}" placeholder="0" class="excel-input source-input"
-                                                                    data-source="${source}" required>
-                                                            </td>
-                                                        `).join('')}
+                                                                            <td class="border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 relative">
+                                                                                <input type="number" name="${source.replace('_', '-')}_allocations[]" min="0" step="0.01"
+                                                                                    value="${(parseFloat(row[source] || 0)).toFixed(2)}" placeholder="0" class="excel-input source-input"
+                                                                                    data-source="${source}" required>
+                                                                            </td>
+                                                                        `).join('')}
                             `;
                             tbody.appendChild(tr);
 

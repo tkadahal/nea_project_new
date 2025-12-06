@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class ProjectExpenseFundingAllocation extends Model
 {
@@ -41,34 +42,16 @@ class ProjectExpenseFundingAllocation extends Model
         return $this->belongsTo(ProjectExpenseQuarter::class, 'project_expense_quarter_id');
     }
 
-    // Derived: Expense via quarter
-    public function expense(): BelongsTo
-    {
-        return $this->quarter()->withDefault()->expense();
-    }
-
-    // Derived: Plan, Project, FiscalYear chain
-    public function plan(): BelongsTo
-    {
-        return $this->expense()->withDefault()->plan();
-    }
-
-    public function project(): BelongsTo
-    {
-        return $this->expense()->withDefault()->project();
-    }
-
-    public function fiscalYear(): BelongsTo
-    {
-        return $this->plan()->withDefault()->fiscalYear();
-    }
-
-    // Scoped queries for segregation/reporting
+    // Scoped queries for segregation/reporting (using joins to avoid multi-level HasOneThrough issues)
     public function scopeForProjectQuarterFiscalYear(Builder $query, int $projectId, int $quarter, int $fiscalYearId): void
     {
-        $query->whereHas('project', fn($q) => $q->where('id', $projectId))
-            ->whereHas('fiscalYear', fn($q) => $q->where('id', $fiscalYearId))
-            ->whereHas('quarter', fn($q) => $q->where('quarter', $quarter));
+        $query->join('project_expense_quarters', 'project_expense_funding_allocations.project_expense_quarter_id', '=', 'project_expense_quarters.id')
+            ->join('project_expenses', 'project_expense_quarters.project_expense_id', '=', 'project_expenses.id')
+            ->join('project_activity_plans', 'project_expenses.project_activity_plan_id', '=', 'project_activity_plans.id')
+            ->join('project_activity_definitions', 'project_activity_plans.activity_definition_id', '=', 'project_activity_definitions.id')
+            ->where('project_activity_definitions.project_id', $projectId)
+            ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+            ->where('project_expense_quarters.quarter', $quarter);
     }
 
     public function scopeByFundingSource(Builder $query, string $source): void
@@ -82,12 +65,19 @@ class ProjectExpenseFundingAllocation extends Model
         return self::where('project_expense_quarter_id', $quarterId)->sum('amount');
     }
 
-    // Sum spent for project/quarter/fiscal year by source (for remaining calcs)
+    // Sum spent for project/quarter/fiscal year by source (for remaining calcs) - using join
     public static function sumSpentForProjectQuarterBySource(int $projectId, int $quarter, int $fiscalYearId, string $source): float
     {
-        return self::forProjectQuarterFiscalYear($projectId, $quarter, $fiscalYearId)
-            ->byFundingSource($source)
-            ->sum('amount');
+        return (float) DB::table('project_expense_funding_allocations')
+            ->join('project_expense_quarters', 'project_expense_funding_allocations.project_expense_quarter_id', '=', 'project_expense_quarters.id')
+            ->join('project_expenses', 'project_expense_quarters.project_expense_id', '=', 'project_expenses.id')
+            ->join('project_activity_plans', 'project_expenses.project_activity_plan_id', '=', 'project_activity_plans.id')
+            ->join('project_activity_definitions', 'project_activity_plans.activity_definition_id', '=', 'project_activity_definitions.id')
+            ->where('project_activity_definitions.project_id', $projectId)
+            ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+            ->where('project_expense_quarters.quarter', $quarter)
+            ->where('project_expense_funding_allocations.funding_source', $source)
+            ->sum('project_expense_funding_allocations.amount');
     }
 
     // Validate allocations sum to quarter's total and don't exceed quarterly budget per source
@@ -129,5 +119,21 @@ class ProjectExpenseFundingAllocation extends Model
         }
 
         return true;
+    }
+
+    // Helper: Get filled quarters for project/fiscal year (used in controller)
+    public static function getFilledQuartersForProjectFiscalYear(int $projectId, int $fiscalYearId): array
+    {
+        return (array) DB::table('project_expense_funding_allocations')
+            ->join('project_expense_quarters', 'project_expense_funding_allocations.project_expense_quarter_id', '=', 'project_expense_quarters.id')
+            ->join('project_expenses', 'project_expense_quarters.project_expense_id', '=', 'project_expenses.id')
+            ->join('project_activity_plans', 'project_expenses.project_activity_plan_id', '=', 'project_activity_plans.id')
+            ->join('project_activity_definitions', 'project_activity_plans.activity_definition_id', '=', 'project_activity_definitions.id')
+            ->where('project_activity_definitions.project_id', $projectId)
+            ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+            ->where('project_expense_funding_allocations.amount', '>', 0) // Only if allocated amount > 0
+            ->pluck('project_expense_quarters.quarter')
+            ->unique()
+            ->toArray();
     }
 }

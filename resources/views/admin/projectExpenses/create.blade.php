@@ -29,57 +29,41 @@
                         required />
                 </div>
 
-                <div class="w-full md:w-1/3 relative z-40">
+                <div class="w-full md:w-1/3 relative z-50">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Select Quarter <span class="text-red-500">*</span>
+                        Quarter <span class="text-red-500">*</span>
                     </label>
                     <select id="quarter_selector" name="selected_quarter"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
                         required>
                         <option value="">{{ trans('global.pleaseSelect') }}</option>
-                        <option value="q1" {{ ($selectedQuarter ?? '') === 'q1' ? 'selected' : '' }}>
-                            Quarter 1
-                            @if (isset($quarterStatus) && $quarterStatus['q1'])
-                                <span class="text-green-600">✓</span>
-                            @endif
-                        </option>
-                        <option value="q2" {{ ($selectedQuarter ?? '') === 'q2' ? 'selected' : '' }}>
-                            Quarter 2
-                            @if (isset($quarterStatus) && $quarterStatus['q2'])
-                                <span class="text-green-600">✓</span>
-                            @endif
-                        </option>
-                        <option value="q3" {{ ($selectedQuarter ?? '') === 'q3' ? 'selected' : '' }}>
-                            Quarter 3
-                            @if (isset($quarterStatus) && $quarterStatus['q3'])
-                                <span class="text-green-600">✓</span>
-                            @endif
-                        </option>
-                        <option value="q4" {{ ($selectedQuarter ?? '') === 'q4' ? 'selected' : '' }}>
-                            Quarter 4
-                            @if (isset($quarterStatus) && $quarterStatus['q4'])
-                                <span class="text-green-600">✓</span>
-                            @endif
-                        </option>
+                        <option value="q1" {{ ($selectedQuarter ?? '') === 'q1' ? 'selected' : '' }}>Q1</option>
+                        <option value="q2" {{ ($selectedQuarter ?? '') === 'q2' ? 'selected' : '' }}>Q2</option>
+                        <option value="q3" {{ ($selectedQuarter ?? '') === 'q3' ? 'selected' : '' }}>Q3</option>
+                        <option value="q4" {{ ($selectedQuarter ?? '') === 'q4' ? 'selected' : '' }}>Q4</option>
                     </select>
+                    @error('selected_quarter')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                    {{-- Optional: Re-add status dots if you compute $quarterStatus later --}}
                     @if (isset($quarterStatus))
-                        <div class="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        <div class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex gap-2">
                             <span class="inline-flex items-center gap-1">
                                 <span
                                     class="w-2 h-2 rounded-full {{ $quarterStatus['q1'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
                                 Q1
                             </span>
-                            <span class="inline-flex items-center gap-1 ml-2">
+                            <span class="inline-flex items-center gap-1">
                                 <span
                                     class="w-2 h-2 rounded-full {{ $quarterStatus['q2'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
                                 Q2
                             </span>
-                            <span class="inline-flex items-center gap-1 ml-2">
+                            <span class="inline-flex items-center gap-1">
                                 <span
                                     class="w-2 h-2 rounded-full {{ $quarterStatus['q3'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
                                 Q3
                             </span>
-                            <span class="inline-flex items-center gap-1 ml-2">
+                            <span class="inline-flex items-center gap-1">
                                 <span
                                     class="w-2 h-2 rounded-full {{ $quarterStatus['q4'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
                                 Q4
@@ -530,7 +514,7 @@
                     tbody.empty();
 
                     function buildActivityRows(activity, depth = 0, parentNumber = '', childIndex = 0, parentId =
-                    null) {
+                        null) {
                         parentMap[activity.id] = parentId;
                         const displayNumber = parentNumber ? `${parentNumber}.${childIndex}` : (childIndex + 1)
                             .toString();
@@ -808,7 +792,7 @@
                     if (hierarchyErrors) {
                         showError(
                             'Child values must sum to exactly match parent values. Please correct all mismatches.'
-                            );
+                        );
                         return;
                     }
 
