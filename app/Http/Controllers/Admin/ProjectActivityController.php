@@ -110,8 +110,8 @@ class ProjectActivityController extends Controller
 
             return response()->json([
                 'success' => true,
-                'capital_rows' => $capitalRows,
-                'recurrent_rows' => $recurrentRows,
+                'capital' => $capitalRows,
+                'recurrent' => $recurrentRows,
                 'capital_index_next' => $capitalNextIndex,
                 'recurrent_index_next' => $recurrentNextIndex,
             ]);
@@ -172,7 +172,6 @@ class ProjectActivityController extends Controller
             'label' => $project->title,
         ])->toArray();
 
-        // MODIFIED: buildRowsForEdit now loads total_budget/total_quantity from definitions for fixed values
         [$capitalRows, $recurrentRows] = $this->activityService->buildRowsForEdit(
             $project,
             $fiscalYearId
@@ -201,7 +200,6 @@ class ProjectActivityController extends Controller
         }
 
         try {
-            // MODIFIED: updateActivities now updates total_budget/total_quantity in definitions if changed; planned in plans
             $this->activityService->updateActivities($validated, $projectId, $fiscalYearId);
 
             return redirect()
@@ -216,7 +214,6 @@ class ProjectActivityController extends Controller
     {
         abort_if(Gate::denies('projectActivity_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        // MODIFIED: deleteActivity now cascades to remove related plans; definitions' total_budget/total_quantity unaffected unless full delete
         $this->repository->deleteActivity($id);
 
         return response()->json(['message' => 'Project activity deleted successfully'], 200);
@@ -239,7 +236,6 @@ class ProjectActivityController extends Controller
             ]);
         }
 
-        // MODIFIED: getBudgetData now joins definitions for total_budget/total_quantity; uses planned_budget for year allocation
         $budgetData = $this->repository->getBudgetData(
             $request->integer('project_id'),
             $fiscalYearId
@@ -270,7 +266,6 @@ class ProjectActivityController extends Controller
 
         $project = $this->repository->findProjectWithAccessCheck($request->integer('project_id'));
 
-        // MODIFIED: getActivityDataForAjax uses total_budget/total_quantity from definitions in row data
         [$capitalRows, $recurrentRows] = $this->activityService->getActivityDataForAjax(
             $project,
             $request->integer('fiscal_year_id')
@@ -293,7 +288,6 @@ class ProjectActivityController extends Controller
         $project = Project::findOrFail($request->integer('project_id'));
         $fiscalYear = FiscalYear::findOrFail($request->integer('fiscal_year_id'));
 
-        // MODIFIED: TemplateExport now includes columns for total_budget/total_quantity from definitions; planned_budget separate
         return Excel::download(
             new ProjectActivityTemplateExport($project, $fiscalYear),
             "project_activity_{$project->title}_template.xlsx"
@@ -304,7 +298,6 @@ class ProjectActivityController extends Controller
     {
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        // MODIFIED: Upload form/view updated to reflect new structure (total_budget/total_quantity in definitions sheet/processing)
         return view('admin.project-activities.upload');
     }
 
@@ -317,7 +310,6 @@ class ProjectActivityController extends Controller
         ]);
 
         try {
-            // MODIFIED: processUpload now maps total_budget/total_quantity to definitions; planned_budget to plans during import
             $this->excelService->processUpload($request->file('excel_file'));
 
             return redirect()
@@ -337,7 +329,6 @@ class ProjectActivityController extends Controller
 
         $filename = $this->generateDownloadFilename($project->title, $fiscalYear->title);
 
-        // MODIFIED: Export now pulls total_budget/total_quantity from definitions; includes planned_budget from plans
         return Excel::download(
             new ProjectActivityExport($projectId, $fiscalYearId, $project, $fiscalYear),
             $filename
@@ -348,7 +339,6 @@ class ProjectActivityController extends Controller
 
     private function getTableHeaders(): array
     {
-        // MODIFIED: Headers unchanged, but underlying data now uses definitions for fixed totals where aggregated
         return [
             'Id',
             'Fiscal Year',
@@ -362,11 +352,10 @@ class ProjectActivityController extends Controller
 
     private function formatActivitiesForTable($activities): array
     {
-        // MODIFIED: total_budget now reflects sum of planned_budget (year-specific) or total from definitions based on repo aggregation; adjust if needed for fixed totals
         return $activities->map(fn($activity) => [
             'project_id' => $activity->project_id,
             'fiscal_year_id' => $activity->fiscal_year_id,
-            'project' => $activity->project_title ?? 'N/A',  // CHANGED: Use direct attribute
+            'project' => $activity->project_title ?? 'N/A',
             'fiscal_year' => $activity->fiscalYear->title ?? 'N/A',
             'capital_budget' => $activity->capital_budget,
             'recurrent_budget' => $activity->recurrent_budget,
@@ -376,7 +365,6 @@ class ProjectActivityController extends Controller
 
     private function resolveFiscalYearId(?int $fiscalYearId): ?int
     {
-        // MODIFIED: Unchanged, but ensures fiscal year context for loading planned vs. total budgets
         if ($fiscalYearId && FiscalYear::where('id', $fiscalYearId)->exists()) {
             return $fiscalYearId;
         }
@@ -393,7 +381,6 @@ class ProjectActivityController extends Controller
 
     private function generateDownloadFilename(string $projectTitle, string $fiscalYearTitle): string
     {
-        // MODIFIED: Unchanged, but filename reflects export including fixed totals from definitions
         $safeProject = preg_replace('/[\/\\\\:*?"<>|]/', '_', $projectTitle);
         $safeFiscalYear = preg_replace('/[\/\\\\:*?"<>|]/', '_', $fiscalYearTitle);
 

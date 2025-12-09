@@ -336,7 +336,10 @@ class ProjectExpenseController extends Controller
             DB::commit();
 
             return redirect()
-                ->route('admin.projectExpense.index')
+                ->route('admin.projectExpenseFundingAllocation.create', [
+                    'project_id' => $projectId,
+                    'fiscal_year_id' => $fiscalYearId,
+                ])
                 ->with('success', "Quarter {$quarterNumber} expenses saved successfully.");
         } catch (\Exception $e) {
             DB::rollBack();

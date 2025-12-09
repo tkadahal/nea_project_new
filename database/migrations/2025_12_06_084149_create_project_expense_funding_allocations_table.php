@@ -12,13 +12,16 @@ return new class extends Migration
     {
         Schema::create('project_expense_funding_allocations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_expense_quarter_id')->constrained()->onDelete('cascade');
-            $table->enum('funding_source', ['internal', 'government_share', 'government_loan', 'foreign_loan', 'foreign_subsidy']);
-            $table->decimal('amount', 15, 2);
-            $table->text('notes')->nullable();
+            $table->foreignId('project_id')->nullable()->constrained('projects')->onDelete('cascade');
+            $table->foreignId('fiscal_year_id')->nullable()->constrained('fiscal_years')->onDelete('cascade');
+            $table->unsignedTinyInteger('quarter')->nullable(); // 1-4
+            $table->decimal('internal_budget', 15, 2)->default(0);
+            $table->decimal('government_share', 15, 2)->default(0);
+            $table->decimal('government_loan', 15, 2)->default(0);
+            $table->decimal('foreign_loan_budget', 15, 2)->default(0);
+            $table->decimal('foreign_subsidy_budget', 15, 2)->default(0);
             $table->timestamps();
             $table->softDeletes();
-            $table->index(['project_expense_quarter_id', 'funding_source']);
         });
     }
 };

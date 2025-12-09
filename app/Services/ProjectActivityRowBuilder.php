@@ -79,7 +79,7 @@ class ProjectActivityRowBuilder
             $rows[] = [
                 'depth' => $depth,
                 'index' => $index,
-                'parent_index' => $parentIndex,
+                'parent_id' => $parentIndex, // FIXED: Changed from parent_index to parent_id
                 'program' => $plan?->program_override ?? $node->program,
                 // CHANGED: Fixed totals from DEFINITION (not plan)
                 'total_budget_quantity' => $node->total_quantity ?? '',
@@ -115,7 +115,7 @@ class ProjectActivityRowBuilder
         return [
             'index' => $index,
             'depth' => $depth,
-            'parent_index' => $parentIndex,
+            'parent_id' => $parentIndex, // FIXED: Changed from parent_index to parent_id
             'number' => (string) $index,
             'program' => $def->program,  // Or use $plan->effective_program if override
             // CHANGED: Fixed totals from DEFINITION (not plan)
@@ -146,7 +146,7 @@ class ProjectActivityRowBuilder
             $rows[] = [
                 'index' => count($rows) + 1,
                 'depth' => $depth,
-                'parent_index' => $parentIndex,
+                'parent_id' => $parentIndex, // FIXED: Changed from parent_index to parent_id
                 'number' => '',
                 'program' => $child->program,  // Or $plan?->program_override if exists
                 // CHANGED: Fixed totals from DEFINITION (not plan)
@@ -180,29 +180,33 @@ class ProjectActivityRowBuilder
 
         foreach ($rows as &$row) {
             $depth = $row['depth'];
-            $parentIndex = $row['parent_index'];
+            $parentId = $row['parent_id']; // FIXED: Changed from parent_index to parent_id
 
             if ($depth === 0) {
                 $topLevelCount++;
                 $row['number'] = (string) $topLevelCount;
                 $levelOneCounts[$topLevelCount] = 0;
             } elseif ($depth === 1) {
-                $parentNumber = $this->findParentNumber($rows, $parentIndex);
+                $parentNumber = $this->findParentNumber($rows, $parentId); // FIXED: Changed variable name
                 $levelOneCounts[$parentNumber] = ($levelOneCounts[$parentNumber] ?? 0) + 1;
                 $row['number'] = $parentNumber . '.' . $levelOneCounts[$parentNumber];
                 $levelTwoCounts[$row['number']] = 0;
             } elseif ($depth === 2) {
-                $parentNumber = $this->findParentNumber($rows, $parentIndex);
+                $parentNumber = $this->findParentNumber($rows, $parentId); // FIXED: Changed variable name
                 $levelTwoCounts[$parentNumber] = ($levelTwoCounts[$parentNumber] ?? 0) + 1;
                 $row['number'] = $parentNumber . '.' . $levelTwoCounts[$parentNumber];
             }
         }
     }
 
-    private function findParentNumber(array $rows, int $parentIndex): string
+    private function findParentNumber(array $rows, ?int $parentId): string // FIXED: Changed parameter name
     {
+        if ($parentId === null) {
+            return '';
+        }
+
         foreach ($rows as $row) {
-            if ($row['index'] === $parentIndex) {
+            if ($row['index'] === $parentId) {
                 return $row['number'];
             }
         }

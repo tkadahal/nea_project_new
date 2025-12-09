@@ -156,15 +156,21 @@ class ProjectActivityExcelService
         }
 
         foreach ($data as $row) {
-            // Validate quarter sums
+            // Validate quarter sums for amounts
             $quarterAmountSum = $row['q1'] + $row['q2'] + $row['q3'] + $row['q4'];
             if (abs($row['planned_budget'] - $quarterAmountSum) > 0.01) {
                 $errors[] = "Row #{$row['hash']}: Quarter amounts don't match planned budget.";
             }
 
-            // Validate non-negative values
-            if ($row['total_budget'] < 0 || $row['planned_budget'] < 0) {
-                $errors[] = "Row #{$row['hash']}: Budget values cannot be negative.";
+            // Validate quarter sums for quantities (ADDED)
+            $quarterQuantitySum = $row['q1_quantity'] + $row['q2_quantity'] + $row['q3_quantity'] + $row['q4_quantity'];
+            if (abs($row['planned_quantity'] - $quarterQuantitySum) > 0.01) {
+                $errors[] = "Row #{$row['hash']}: Quarter quantities don't match planned quantity.";
+            }
+
+            // Validate non-negative values (EXTENDED to include quantities)
+            if ($row['total_budget'] < 0 || $row['planned_budget'] < 0 || $row['total_quantity'] < 0 || $row['planned_quantity'] < 0) {
+                $errors[] = "Row #{$row['hash']}: Budget and quantity values cannot be negative.";
             }
 
             // Validate program

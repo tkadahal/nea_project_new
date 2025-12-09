@@ -53,7 +53,7 @@ class InstructionsSheet implements FromCollection, WithStyles, WithColumnWidths
             ['# कलममा पदानुक्रमको लागि प्रयोग गर्नुहोस् (उदाहरण: १, १.१, १.१.१)।'],
             [],
             ['मान्यता नियमहरू:'],
-            ['- **वार्षिक बजेट** (H) = Q1 + Q2 + Q3 + Q4 (J+L+N+P) प्रत्येक पङ्क्तिमा **स्वत: गणना हुन्छ**।'],
+            ['- **वार्षिक बजेट** (H): Q1 + Q2 + Q3 + Q4 (J+L+N+P) प्रत्येक पङ्क्तिमा **मैनुअल रूपमा** गणना गरी भर्नुहोस्।'],
             ['- अभिभावक पङ्क्तिहरू (जस्तै १, १.१) ले प्रत्यक्ष सन्तानहरूको योग समान हुनुपर्छ, र यो **मैनुअल रूपमा** जाँच गरी भर्नुपर्नेछ।'],
             ['- सबै अङ्कहरू गैर-नकारात्मक।'],
             [],
@@ -300,7 +300,8 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                 $sheet->setCellValue('A4', '');
                 $sheet->setCellValue('B4', '');
 
-                // Dynamic calculations
+                // Dynamic calculations - REMOVED (no formulas)
+
                 $highestRow = $sheet->getHighestRow();
                 $lastDataRow = $highestRow;
                 $dataStartRow = 5;
@@ -316,24 +317,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                 // Borders for table (A3:P lastDataRow)
                 $sheet->getStyle('A3:P' . $lastDataRow)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
-                // --- FORMULA MODIFICATION ---
-
-                // 1. Set H = J + L + N + P for ALL data rows (Planned Amount = sum Q Amounts)
-                $dataEndRow = $lastDataRow - 1;
-                for ($row = $dataStartRow; $row <= $dataEndRow; $row++) {
-                    $sheet->setCellValue('H' . $row, "=J{$row}+L{$row}+N{$row}+P{$row}");
-                }
-
-                // 2. Parent/Hierarchy aggregation formulas are REMOVED (manual).
-
-                // 3. Total row formulas (sum top-level only for C,D,E,F,G,H,I,J,K,L,M,N,O,P) - DYNAMIC
-                // MODIFIED: C:D now sums fixed total_budget/total_quantity from definitions (top-level)
-                $qtyCols = ['C', 'E', 'G', 'I', 'K', 'M', 'O'];
-                $amtCols = ['D', 'F', 'H', 'J', 'L', 'N', 'P'];
-                foreach (array_merge($qtyCols, $amtCols) as $col) {
-                    $formula = "=SUMPRODUCT((ISNUMBER(VALUE(A{$dataStartRow}:A{$dataEndRow})))*(ISERROR(FIND(\".\",A{$dataStartRow}:A{$dataEndRow})))*({$col}{$dataStartRow}:{$col}{$dataEndRow}))";
-                    $sheet->setCellValue($col . $lastDataRow, $formula);
-                }
+                // --- FORMULA MODIFICATION - REMOVED ---
 
                 // --- VALIDATION ---
                 // Validation for # column (rows from dataStartRow to allow additions below total)
@@ -354,9 +338,9 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                 $sheet->setCellValue('A' . $footerStart, 'नोट:');
                 $sheet->getStyle('A' . $footerStart)->getFont()->setBold(true);
                 $sheet->setCellValue('A' . ($footerStart + 1), '१. अभिभावक पङ्क्तिहरूमा (जस्तै १, १.१) **मैनुअल रूपमा** सन्तानको योगफल (C,D,E,F,G,H,I,J,K,L,M,N,O,P कलमहरू) भर्नुपर्नेछ।');
-                $sheet->setCellValue('A' . ($footerStart + 2), '२. वार्षिक बजेट (H) = Q1 + Q2 + Q3 + Q4 (J+L+N+P) प्रत्येक पङ्क्तिमा **स्वत: गणना हुन्छ**।');
+                $sheet->setCellValue('A' . ($footerStart + 2), '२. वार्षिक बजेट (H) = Q1 + Q2 + Q3 + Q4 (J+L+N+P) प्रत्येक पङ्क्तिमा **मैनुअल रूपमा** गणना गरी भर्नुहोस्।');
                 $sheet->setCellValue('A' . ($footerStart + 3), '३. अभिभावक = सन्तानहरूको योग **मैनुअल रूपमा** भर्नुपर्नेछ।');
-                $sheet->setCellValue('A' . ($footerStart + 4), '४. कुल जम्मा = शीर्ष स्तर पङ्क्तिहरूको योग मात्र (१, २, ३, ...) **स्वत: गणना हुन्छ**।');
+                $sheet->setCellValue('A' . ($footerStart + 4), '४. कुल जम्मा = शीर्ष स्तर पङ्क्तिहरूको योग मात्र (१, २, ३, ...) **मैनुअल रूपमा** भर्नुहोस्।');
                 $sheet->setCellValue('A' . ($footerStart + 5), '५. नयाँ पङ्क्ति थप्न: कुल जम्मा पङ्क्तिमाथि नयाँ पङ्क्ति घुसाउनुहोस् र क्र.सं. भर्नुहोस्।');
 
                 $sheet->mergeCells('A' . $footerStart . ':B' . $footerStart);

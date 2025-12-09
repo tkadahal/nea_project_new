@@ -14,6 +14,7 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Models\ProjectActivityDefinition;
 use App\Models\ProjectActivityPlan;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEvents
 {
@@ -23,6 +24,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
     protected $fiscalYear;
     protected $totalRows = [];
     protected $headerRows = [];
+    protected $parentRows = [];
     protected $footerStart;
     protected $globalXCapital;
     protected $globalXRecurrent;
@@ -37,21 +39,15 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $this->project->load('projectManager');
     }
 
+    private function toNepaliDigits($num): string
+    {
+        $arabic = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+        return str_replace($arabic, $devanagari, (string) $num);
+    }
+
     public function array(): array
     {
-        // MODIFIED: Compute global x for capital and recurrent from definitions (fixed totals for roots)
-        $this->globalXCapital = ProjectActivityDefinition::where('project_id', $this->projectId)
-            ->whereNull('parent_id')
-            ->where('expenditure_id', 1)
-            ->sum('total_budget');
-        $this->globalXCapital = (float) $this->globalXCapital;
-
-        $this->globalXRecurrent = ProjectActivityDefinition::where('project_id', $this->projectId)
-            ->whereNull('parent_id')
-            ->where('expenditure_id', 2)
-            ->sum('total_budget');
-        $this->globalXRecurrent = (float) $this->globalXRecurrent;
-
         $data = [];
 
         // ========== HEADER SECTION (Refined: Removed all blank rows for compactness) ==========
@@ -205,7 +201,39 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             'कैफियत'
         ];
 
-        // Capital Section
+        // Sub-sub header row (new: detailed labels for each column group)
+        $subSubHeader = array_fill(0, 25, '');
+        $subSubHeader[3] = 'परिमाण'; // D
+        $subSubHeader[4] = 'लागत'; // E
+        $subSubHeader[5] = 'भार'; // F
+        $subSubHeader[6] = 'सम्पन्न परिमाण'; // G
+        $subSubHeader[7] = 'खर्च'; // H
+        $subSubHeader[8] = 'भारित प्रगति'; // I
+        $subSubHeader[9] = 'परिमाण'; // J
+        $subSubHeader[10] = 'भार'; // K
+        $subSubHeader[11] = 'बजेट'; // L
+        $subSubHeader[12] = 'परिमाण'; // M
+        $subSubHeader[13] = 'भार'; // N
+        $subSubHeader[14] = 'बजेट'; // O
+        $subSubHeader[15] = 'परिमाण'; // P
+        $subSubHeader[16] = 'भार'; // Q
+        $subSubHeader[17] = 'बजेट'; // R
+        $subSubHeader[18] = 'परिमाण'; // S
+        $subSubHeader[19] = 'भार'; // T
+        $subSubHeader[20] = 'बजेट'; // U
+        $subSubHeader[21] = 'परिमाण'; // V
+        $subSubHeader[22] = 'भार'; // W
+        $subSubHeader[23] = 'बजेट'; // X
+        $data[] = $subSubHeader;
+
+        // Numbers row with Nepali digits
+        $subHeader = [];
+        for ($i = 1; $i <= 25; $i++) {
+            $subHeader[] = $this->toNepaliDigits($i);
+        }
+        $data[] = $subHeader;
+
+        // Capital Section (REFINED: Compute totals first to derive globalX from sum of leaves for accurate weights)
         $capitalTotals = [];
         $capitalDefinitions = ProjectActivityDefinition::forProject($this->projectId)
             ->whereNull('parent_id')
@@ -225,13 +253,15 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             ->keyBy('activity_definition_id');
 
         if ($capitalDefinitions->isNotEmpty()) {
+            $capitalTotals = $this->calculateOverallTotals($capitalDefinitions, $capitalPlans);
+            $this->globalXCapital = (float) $capitalTotals['total_budget'];  // REFINED: Use calculated sum from leaves as denominator for weights
+
             $row = count($data) + 1;
             $data[] = ['पूँजीगत खर्च अन्तर्गतका कार्यक्रमहरूः'];
             $this->headerRows[] = $row;
 
             $activityStartRow = count($data) + 1;
             $data = array_merge($data, $this->buildActivityRows($capitalDefinitions, $capitalPlans, 'capital', $activityStartRow, $this->globalXCapital));
-            $capitalTotals = $this->calculateOverallTotals($capitalDefinitions, $capitalPlans);
             $row = count($data) + 1;
             $data[] = $this->buildTotalRow('(क)', 'पूँजीगत कार्यक्रम हरूको जम्मा', $capitalTotals, $this->globalXCapital, true);
             $this->totalRows[] = $row;
@@ -257,13 +287,15 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             ->keyBy('activity_definition_id');
 
         if ($recurrentDefinitions->isNotEmpty()) {
+            $recurrentTotals = $this->calculateOverallTotals($recurrentDefinitions, $recurrentPlans);
+            $this->globalXRecurrent = (float) $recurrentTotals['total_budget'];  // REFINED: Use calculated sum from leaves as denominator for weights
+
             $row = count($data) + 1;
             $data[] = ['चालू खर्च अन्तर्गतका कार्यक्रमहरुः'];
             $this->headerRows[] = $row;
 
             $activityStartRow = count($data) + 1;
             $data = array_merge($data, $this->buildActivityRows($recurrentDefinitions, $recurrentPlans, 'recurrent', $activityStartRow, $this->globalXRecurrent));
-            $recurrentTotals = $this->calculateOverallTotals($recurrentDefinitions, $recurrentPlans);
             $row = count($data) + 1;
             $data[] = $this->buildTotalRow('(ख)', 'चालू खर्च अन्तर्गित का कार्यक्रम हरू को जम्मा', $recurrentTotals, $this->globalXRecurrent, false);
             $this->totalRows[] = $row;
@@ -344,14 +376,18 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         return $data;
     }
 
-    private function buildActivityRows(Collection $rootDefinitions, Collection $plans, string $expenditureType, int $startRow, float $globalX): array
+    private function buildActivityRows(Collection $rootDefinitions, SupportCollection $plans, string $expenditureType, int $activityStartRow, float $globalX): array
     {
         $rows = [];
         $parentCounter = 1;
 
         foreach ($rootDefinitions as $parentDef) {
             $parentPlan = $plans->get($parentDef->id);
-            $rows[] = $this->buildActivityRow($parentPlan, $parentDef, (string)$parentCounter, $expenditureType, $globalX);
+            $rows[] = $this->buildActivityRow($parentPlan, $parentDef, $this->toNepaliDigits($parentCounter), $expenditureType, $globalX);
+            $currentLocalRow = count($rows);
+            if (($parentDef->children ?? collect())->isNotEmpty()) {
+                $this->parentRows[] = $activityStartRow + $currentLocalRow - 1;
+            }
 
             $children = $parentDef->children ?? collect();
             $hasChildren = $children->isNotEmpty();
@@ -360,14 +396,18 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $childCounter = 1;
                 foreach ($children as $childDef) {
                     $childPlan = $plans->get($childDef->id);
-                    $childNumber = $parentCounter . '.' . $childCounter;
+                    $childNumber = $this->toNepaliDigits($parentCounter) . '.' . $this->toNepaliDigits($childCounter);
                     $rows[] = $this->buildActivityRow($childPlan, $childDef, $childNumber, $expenditureType, $globalX);
+                    $childCurrentLocalRow = count($rows);
+                    if (($childDef->children ?? collect())->isNotEmpty()) {
+                        $this->parentRows[] = $activityStartRow + $childCurrentLocalRow - 1;
+                    }
 
                     $grandchildren = $childDef->children ?? collect();
                     $grandchildCounter = 1;
                     foreach ($grandchildren as $grandchildDef) {
                         $grandchildPlan = $plans->get($grandchildDef->id);
-                        $grandchildNumber = $parentCounter . '.' . $childCounter . '.' . $grandchildCounter;
+                        $grandchildNumber = $this->toNepaliDigits($parentCounter) . '.' . $this->toNepaliDigits($childCounter) . '.' . $this->toNepaliDigits($grandchildCounter);
                         $rows[] = $this->buildActivityRow($grandchildPlan, $grandchildDef, $grandchildNumber, $expenditureType, $globalX);
                         $grandchildCounter++;
                     }
@@ -377,7 +417,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $parentTotals = $this->calculateTotalsForParent($parentDef, $plans);
                 $localRow = count($rows) + 1;
                 $rows[] = $this->buildTotalRow('', 'Total of ' . $parentCounter, $parentTotals, $globalX, $expenditureType === 'capital');
-                $this->totalRows[] = $startRow + $localRow - 1;
+                $this->totalRows[] = $activityStartRow + $localRow - 1;
             }
 
             $parentCounter++;
@@ -389,38 +429,91 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
     private function buildActivityRow(?ProjectActivityPlan $plan, ProjectActivityDefinition $definition, string $number, string $expenditureType, float $globalX): array
     {
         $hasChildren = ($definition->children ?? collect())->isNotEmpty();
-        // MODIFIED: Use definition's fixed total_quantity/total_budget for base display
-        $displayTotalQuantity = $hasChildren ? 0.00 : $definition->total_quantity ?? 0;
-        $displayTotalBudget = $hasChildren ? 0.00 : $definition->total_budget ?? 0;
-        $displayCompletedQuantity = $hasChildren ? 0.00 : ($plan->completed_quantity ?? 0);
-        $displayPlannedQuantity = $hasChildren ? 0.00 : ($plan->planned_quantity ?? 0);
-        $displayQ1Quantity = $hasChildren ? 0.00 : ($plan->q1_quantity ?? 0);
-        $displayQ2Quantity = $hasChildren ? 0.00 : ($plan->q2_quantity ?? 0);
-        $displayQ3Quantity = $hasChildren ? 0.00 : ($plan->q3_quantity ?? 0);
-        $displayQ4Quantity = $hasChildren ? 0.00 : ($plan->q4_quantity ?? 0);
+        $program = $plan->effective_program ?? $definition->program ?? '';
 
-        $displayTotalExpense = $hasChildren ? 0.00 : ($plan->total_expense ?? 0);
-        $displayPlannedBudget = $hasChildren ? 0.00 : ($plan->planned_budget ?? 0);
-        $displayQ1 = $hasChildren ? 0.00 : ($plan->q1_amount ?? 0);
-        $displayQ2 = $hasChildren ? 0.00 : ($plan->q2_amount ?? 0);
-        $displayQ3 = $hasChildren ? 0.00 : ($plan->q3_amount ?? 0);
-        $displayQ4 = $hasChildren ? 0.00 : ($plan->q4_amount ?? 0);
+        if ($hasChildren) {
+            // REFINED: For parents with children, show totally blank from C to Y
+            return [
+                $number,
+                $program,
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                ''
+            ];
+        }
 
-        // MODIFIED: Weight budget from definition's total_budget (fixed)
-        $weightBudget = $hasChildren ? '0.00' : number_format(($definition->total_budget ?? 0) / $globalX * 100, 2);
+        // For leaves: Use definition/plan raw fields, but derive var-like weights locally (no DB var_ dependency)
+        $displayTotalQuantity = $definition->total_quantity ?? 0;
+        $displayTotalBudget = $definition->total_budget ?? 0;
+        $displayCompletedQuantity = $plan->completed_quantity ?? 0;
+        $displayPlannedQuantity = $plan->planned_quantity ?? 0;
+        $displayQ1Quantity = $plan->q1_quantity ?? 0;
+        $displayQ2Quantity = $plan->q2_quantity ?? 0;
+        $displayQ3Quantity = $plan->q3_quantity ?? 0;
+        $displayQ4Quantity = $plan->q4_quantity ?? 0;
+        $displayTotalExpense = $plan->total_expense ?? 0;
+        $displayPlannedBudget = $plan->planned_budget ?? 0;
+        $displayQ1 = $plan->q1_amount ?? 0;
+        $displayQ2 = $plan->q2_amount ?? 0;
+        $displayQ3 = $plan->q3_amount ?? 0;
+        $displayQ4 = $plan->q4_amount ?? 0;
 
         $isCapital = $expenditureType === 'capital';
-        // MODIFIED: Weights use plan's vars, which now base on definition totals (per model update)
-        $weightExpense = $hasChildren || !$isCapital ? '0.00' : number_format(($plan->var_total_expense ?? 0) * 100, 2);
-        $weightPlanned = $hasChildren || !$isCapital ? '0.00' : number_format(($plan->var_planned_budget ?? 0) * 100, 2);
-        $weightQ1 = $hasChildren || !$isCapital ? '0.00' : number_format(($plan->var_q1 ?? 0) * 100, 2);
-        $weightQ2 = $hasChildren || !$isCapital ? '0.00' : number_format(($plan->var_q2 ?? 0) * 100, 2);
-        $weightQ3 = $hasChildren || !$isCapital ? '0.00' : number_format(($plan->var_q3 ?? 0) * 100, 2);
-        $weightQ4 = $hasChildren || !$isCapital ? '0.00' : number_format(($plan->var_q4 ?? 0) * 100, 2);
+        $budget = $displayTotalBudget;
+        $weightBudget = $globalX > 0 ? number_format($budget / $globalX * 100, 2) : '0.00';  // REFINED: Uses calculated globalX (sum of leaves) for accurate (E full / section total full) * 100
+
+        if (!$isCapital) {
+            $weightExpense = $weightPlanned = $weightQ1 = $weightQ2 = $weightQ3 = $weightQ4 = '0.00';
+        } else {
+            // REFINED: Explicitly compute column I as (G / D) * F
+            $progressRatio = $displayTotalQuantity > 0 ? $displayCompletedQuantity / $displayTotalQuantity : 0;
+            $weightExpense = number_format($progressRatio * (float) str_replace(',', '', $weightBudget), 2);  // (G / D) * F
+
+            // REFINED: Similarly for planned (K = (J / D) * F)
+            $plannedRatio = $displayTotalQuantity > 0 ? $displayPlannedQuantity / $displayTotalQuantity : 0;
+            $weightPlanned = number_format($plannedRatio * (float) str_replace(',', '', $weightBudget), 2);
+
+            // REFINED: Quarterly weights as (quarter_qty / D) * F
+            if ($displayPlannedQuantity > 0 && $displayTotalQuantity > 0) {
+                $q1Ratio = $displayQ1Quantity / $displayTotalQuantity;
+                $weightQ1 = number_format($q1Ratio * (float) str_replace(',', '', $weightBudget), 2);
+
+                $q2Ratio = $displayQ2Quantity / $displayTotalQuantity;
+                $weightQ2 = number_format($q2Ratio * (float) str_replace(',', '', $weightBudget), 2);
+
+                $q3Ratio = $displayQ3Quantity / $displayTotalQuantity;
+                $weightQ3 = number_format($q3Ratio * (float) str_replace(',', '', $weightBudget), 2);
+
+                $q4Ratio = $displayQ4Quantity / $displayTotalQuantity;
+                $weightQ4 = number_format($q4Ratio * (float) str_replace(',', '', $weightBudget), 2);
+            } else {
+                $weightQ1 = $weightQ2 = $weightQ3 = $weightQ4 = '0.00';
+            }
+        }
 
         return [
             $number,
-            $plan->effective_program ?? $definition->program ?? '',
+            $program,
             '',
             number_format($displayTotalQuantity, 2),
             number_format($displayTotalBudget / 1000, 0),
@@ -449,8 +542,8 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
     private function buildTotalRow(string $prefix, string $label, array $totals, float $globalX, bool $calculateVar): array
     {
-        $budgetWeight = $globalX > 0 ? ($totals['total_budget'] / $globalX) * 100 : 0;
-        $expenseWeight = $calculateVar && $globalX > 0 ? ($totals['weighted_expense_contrib'] / $globalX * 100) : 0;
+        $budgetWeight = $globalX > 0 ? ($totals['total_budget'] / $globalX) * 100 : 0;  // REFINED: For section total, this will be 100.00; for subtotals, proportional
+        $expenseWeight = $calculateVar && $globalX > 0 ? ($totals['weighted_expense_contrib'] / $globalX * 100) : 0;  // Aggregated equivalent of sum((G/D)*F)
         $plannedWeight = $calculateVar && $globalX > 0 ? ($totals['weighted_planned_contrib'] / $globalX * 100) : 0;
         $q1Weight = $calculateVar && $globalX > 0 ? ($totals['weighted_q1_contrib'] / $globalX * 100) : 0;
         $q2Weight = $calculateVar && $globalX > 0 ? ($totals['weighted_q2_contrib'] / $globalX * 100) : 0;
@@ -486,7 +579,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         ];
     }
 
-    private function calculateTotalsForParent(ProjectActivityDefinition $parentDef, Collection $plans): array
+    private function calculateTotalsForParent(ProjectActivityDefinition $parentDef, SupportCollection $plans): array
     {
         $totals = [
             'total_quantity' => 0,
@@ -514,7 +607,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         return $totals;
     }
 
-    private function sumLeafNodes(ProjectActivityDefinition $def, array &$totals, Collection $plans): void
+    private function sumLeafNodes(ProjectActivityDefinition $def, array &$totals, SupportCollection $plans): void
     {
         $children = $def->children ?? collect();
         if ($children->isEmpty()) {
@@ -573,7 +666,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         }
     }
 
-    private function calculateOverallTotals(Collection $rootDefinitions, Collection $plans): array
+    private function calculateOverallTotals(Collection $rootDefinitions, SupportCollection $plans): array
     {
         $totals = [
             'total_quantity' => 0,
@@ -671,6 +764,11 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 ];
                 $sheet->getStyle("A1:Y3")->applyFromArray($noBorder);
 
+                // Set reduced height for top header rows (rows 1-3)
+                for ($r = 1; $r <= 3; $r++) {
+                    $sheet->getRowDimension($r)->setRowHeight(18);
+                }
+
                 // ========== FORM SECTION STYLING (Rows 4-21, FIXED alignments + borders + heights) ==========
                 $formStart = 4;
                 $formEnd = 21;
@@ -700,9 +798,9 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->getStyle("P4")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
                 $sheet->getStyle("P14")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
 
-                // FIXED: Taller rows for long concatenated text
+                // REFINED: Reduced row height for form section (from 28 to 20 for compactness)
                 for ($r = $formStart; $r <= $formEnd; $r++) {
-                    $sheet->getRowDimension($r)->setRowHeight(28);  // FIXED: +4px
+                    $sheet->getRowDimension($r)->setRowHeight(20);
                 }
 
                 // Note row (adjusted, no blank before)
@@ -713,6 +811,9 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 ]);
                 // FIXED: No border for note row
                 $sheet->getStyle("A{$noteRowNum}:Y{$noteRowNum}")->applyFromArray($noBorder);
+
+                // REFINED: Reduced height for note row to match compactness
+                $sheet->getRowDimension($noteRowNum)->setRowHeight(16);
 
                 // ========== TABLE SECTION STYLING ==========
                 $tableStart = $this->tableHeaderRow;
@@ -749,6 +850,49 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 // Set header row height (taller for wrap)
                 $sheet->getRowDimension($tableStart)->setRowHeight(35);
 
+                // Sub-sub header row styling (new)
+                $subSubRow = $tableStart + 1;
+                $sheet->getStyle("A{$subSubRow}:Y{$subSubRow}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 8],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                        'wrapText' => true
+                    ],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'F8F8F8']
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['rgb' => '000000']
+                        ]
+                    ]
+                ]);
+                $sheet->getRowDimension($subSubRow)->setRowHeight(20);
+
+                // Sub-header row styling (numbers)
+                $subRow = $tableStart + 2;
+                $sheet->getStyle("A{$subRow}:Y{$subRow}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 8],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER
+                    ],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'F0F0F0']
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['rgb' => '000000']
+                        ]
+                    ]
+                ]);
+                $sheet->getRowDimension($subRow)->setRowHeight(20);
+
                 // ========== SECTION HEADERS STYLING ==========
                 foreach ($this->headerRows as $row) {
                     $sheet->mergeCells("A{$row}:Y{$row}");
@@ -783,8 +927,14 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                     ]);
                 }
 
+                // ========== PARENT ROWS MERGING ==========
+                foreach ($this->parentRows as $row) {
+                    $sheet->mergeCells("C{$row}:X{$row}");
+                    $sheet->getStyle("C{$row}:X{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                }
+
                 // ========== TABLE DATA STYLING ==========
-                $tableDataStart = $tableStart + 1;
+                $tableDataStart = $tableStart + 3;
                 $borderEndRow = $this->footerStart ? ($this->footerStart - 1) : $sheet->getHighestRow();
 
                 if ($borderEndRow >= $tableDataStart) {

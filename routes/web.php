@@ -200,9 +200,10 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('budgetQuaterAllocation', BudgetQuaterAllocationController::class);
 
         // Project Expense Funding Allocations
-        Route::get('project-expense-funding-allocation/create', [ProjectExpenseFundingAllocationController::class, 'create'])->name('projectExpenseFundingAllocation.create');
-        Route::post('project-expense-funding-allocation', [ProjectExpenseFundingAllocationController::class, 'store'])->name('projectExpenseFundingAllocation.store');
         Route::post('project-expense-funding-allocations/load-data', [ProjectExpenseFundingAllocationController::class, 'loadData'])->name('projectExpenseFundingAllocations.loadData');
+        Route::resource('project-expense-funding-allocation', ProjectExpenseFundingAllocationController::class)
+            ->names('projectExpenseFundingAllocation') // Custom name prefix
+            ->only(['index', 'create', 'store']);
 
         // Expenses
         Route::controller(ExpenseController::class)->group(function () {
