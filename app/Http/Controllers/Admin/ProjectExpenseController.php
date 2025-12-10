@@ -10,16 +10,19 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Models\ProjectExpense;
 use Illuminate\Support\Facades\DB;
+use App\Models\ProjectActivityPlan;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\ImportProjectExpense;
+use App\Models\ProjectActivityDefinition;
+use Illuminate\Database\Eloquent\Collection;
 use App\Exports\ProgramExpenseTemplateExport;
 use Symfony\Component\HttpFoundation\Response;
+use App\Exports\Templates\ExpenseTemplateExport;
 use App\Http\Requests\ProjectExpense\StoreProjectExpenseRequest;
-use App\Models\ProjectActivityDefinition;
-use App\Models\ProjectActivityPlan;
-use Illuminate\Database\Eloquent\Collection;
 
 class ProjectExpenseController extends Controller
 {
@@ -768,14 +771,48 @@ class ProjectExpenseController extends Controller
         })->filter()->values()->toArray();
     }
 
+    /**
+     * Download the expense template Excel for the given project, fiscal year, and quarter.
+     * Pre-populates with activity hierarchy, budgets, and existing quarter data.
+     */
+    public function downloadTemplate(Request $request, int $projectId, int $fiscalYearId)
+    {
+        $project = Project::findOrFail($projectId);
+        $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
+
+        $quarter = $request->query('quarter', 1); // e.g., 'q1' -> 1; default to Q1
+        $quarterNumber = (int) substr($quarter, 1); // Extract number (1-4)
+        if (!in_array($quarterNumber, [1, 2, 3, 4])) {
+            abort(400, 'Invalid quarter selected.');
+        }
+
+        // Sanitize filename
+        $safeProjectTitle = str_replace(['/', '\\'], '_', Str::slug($project->title));
+        $safeFiscalTitle = str_replace(['/', '\\'], '_', $fiscalYear->title);
+        $quarterLabel = 'Q' . $quarterNumber;
+
+        // Generate the Excel template (no 6th arg needed; handle 'template' mode inside export if required)
+        return Excel::download(
+            new ExpenseTemplateExport(
+                $project->title,
+                $fiscalYear->title,
+                $projectId,
+                $fiscalYearId,
+                $quarterNumber
+            ),
+            "Expense_Template_{$safeProjectTitle}_{$safeFiscalTitle}_{$quarterLabel}.xlsx"
+        );
+    }
+
     public function downloadExcel(Request $request, int $projectId, int $fiscalYearId)
     {
         $project = Project::findOrFail($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
-        $quarter = $request->query('quarter', 1);
+        $quarterStr = $request->query('quarter', 'q1'); // Default to 'q1' string
+        $quarter = (int) substr($quarterStr, 1); // Extract e.g., '4' from 'q4'
         if (!in_array($quarter, [1, 2, 3, 4])) {
-            $quarter = 1;
+            $quarter = 1; // Fallback to Q1
         }
 
         $safeProjectTitle = str_replace(['/', '\\'], '_', Str::slug($project->title));
@@ -785,5 +822,294 @@ class ProjectExpenseController extends Controller
             new ProgramExpenseTemplateExport($project->title, $fiscalYear->title, $projectId, $fiscalYearId, $quarter),
             'ExpenseReport_' . $project->title . '_' . $safeFiscalTitle . '.xlsx'
         );
+    }
+
+    /**
+     * Show the Excel upload view for a specific project, fiscal year, and quarter.
+     */
+    public function uploadView(Request $request, int $project, int $fiscalYear)
+    {
+        abort_if(Gate::denies('expense_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
+        $projectModel = Project::findOrFail($project);
+        $fiscalYearModel = FiscalYear::findOrFail($fiscalYear);
+
+        $quarter = $request->query('quarter', 'q1'); // From redirect query param
+        if (!in_array($quarter, ['q1', 'q2', 'q3', 'q4'])) {
+            abort(400, 'Invalid quarter selected.');
+        }
+
+        Log::info('Upload view loaded', ['project' => $project, 'fiscalYear' => $fiscalYear, 'quarter' => $quarter]); // Debug
+
+        return view('admin.projectExpenses.upload', compact('projectModel', 'fiscalYearModel', 'quarter'));
+    }
+
+    /**
+     * Process uploaded Excel (quarter auto-detected from file).
+     */
+    public function upload(Request $request, int $project, int $fiscalYear)
+    {
+        abort_if(Gate::denies('expense_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
+        $projectModel = Project::findOrFail($project);
+        $fiscalYearModel = FiscalYear::findOrFail($fiscalYear);
+
+        $request->validate([
+            // FIXED: Removed 'quarter' validation—extract from file
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:5120',
+        ]);
+
+        // NEW: PRIMARY - Extract quarter from Excel A3 header
+        $file = $request->file('excel_file');
+        $quarterNumber = $this->extractQuarterFromExcel($file);
+        if (!$quarterNumber) {
+            throw new \InvalidArgumentException('Invalid template: Could not detect quarter from file header (row 3, column A). Please re-download the template.');
+        }
+        $quarterStr = 'q' . $quarterNumber; // e.g., 'q4'
+
+        // Optional: Cross-check with POST if provided (ignore if missing)
+        $formQuarter = $request->input('quarter');
+        if ($formQuarter && substr($formQuarter, 1) != $quarterNumber) {
+            Log::warning('Quarter mismatch: Form vs file', [
+                'form' => $formQuarter,
+                'file' => $quarterStr
+            ]);
+            // Don't throw—prefer file, but log for audit
+        }
+
+        Log::info('Upload started (quarter from file)', [
+            'project' => $project,
+            'fiscalYear' => $fiscalYear,
+            'quarter_str' => $quarterStr,
+            'quarter_num' => $quarterNumber,
+            'file' => $file->getClientOriginalName()
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Load Excel as collection (ImportProjectExpense slices headers)
+            $rowsCollection = Excel::toCollection(new ImportProjectExpense($project, $fiscalYear, $quarterNumber), $file);
+            $sheetRows = $rowsCollection->first(); // First sheet
+            $allActivityData = $sheetRows->toArray(); // Data rows only (post-slice)
+
+            Log::info('Excel loaded', [
+                'total_rows' => $rowsCollection->count(),
+                'data_rows_count' => count($allActivityData),
+                'sample_row' => $allActivityData[0] ?? 'empty'
+            ]);
+
+            if (empty($allActivityData)) {
+                throw new \Exception('Empty Excel sheet. Check file format.');
+            }
+
+            // Process rows (start at 0: import already skipped 7 headers)
+            $processedData = [];
+            for ($rowIndex = 0; $rowIndex < count($allActivityData); $rowIndex++) {
+                $row = $allActivityData[$rowIndex];
+                $depth = $row[8] ?? 0; // Column I (depth)
+                $title = trim($row[1] ?? ''); // Column B
+                if ($depth < 0 || str_contains($title, 'जम्मा') || empty($title)) continue; // Skip sections/totals
+
+                $serial = $row[0] ?? ''; // A
+                $planId = $row[9] ?? null; // J (hidden plan ID)
+                $qty = (float) ($row[6] ?? 0); // G (quarter qty)
+                $amt = (float) ($row[7] ?? 0); // H (quarter amt)
+
+                Log::info('Row processed', [
+                    'row_index' => $rowIndex,
+                    'serial' => $serial,
+                    'title' => $title,
+                    'planId' => $planId,
+                    'qty' => $qty,
+                    'amt' => $amt,
+                    'quarter_number' => $quarterNumber  // From file
+                ]);
+
+                // Fallback: Title match if no planId (case-insensitive)
+                if (!$planId) {
+                    $plan = ProjectActivityPlan::where('fiscal_year_id', $fiscalYear)
+                        ->whereHas('activityDefinition', function ($q) use ($project, $title) {
+                            $q->where('project_id', $project)
+                                ->whereRaw('LOWER(program) LIKE ?', ['%' . strtolower($title) . '%']);
+                        })
+                        ->first();
+                    $planId = $plan?->id;
+                    Log::info('Fallback planId matched', ['title' => $title, 'planId' => $planId]);
+                }
+
+                if ($planId) {
+                    $processedData[] = [
+                        'activity_id' => $planId,
+                        'title' => $title,
+                        'qty' => $qty,
+                        'amt' => $amt,
+                        'depth' => $depth,
+                        'parent_activity_id' => $this->deriveParentIdFromRow($rowIndex, $allActivityData, $project, $fiscalYear),
+                    ];
+                } else {
+                    Log::warning('Skipped row (no planId)', ['title' => $title, 'serial' => $serial]);
+                }
+            }
+
+            Log::info('Processed complete', [
+                'valid_rows' => count($processedData),
+                'quarter_number' => $quarterNumber
+            ]);
+
+            if (empty($processedData)) {
+                throw new \Exception('No valid activity rows found. Ensure titles match plans and column J has IDs.');
+            }
+
+            // Save expenses/quarters (using $quarterNumber from file)
+            $userId = Auth::id();
+            $activityToExpenseMap = [];
+            foreach ($processedData as $data) {
+                $plan = ProjectActivityPlan::findOrFail($data['activity_id']);
+                Log::info('Saving plan', [
+                    'planId' => $data['activity_id'],
+                    'project_match' => $plan->activityDefinition->project_id == $project
+                ]);
+
+                $expense = ProjectExpense::firstOrCreate(
+                    ['project_activity_plan_id' => $data['activity_id']],
+                    ['user_id' => $userId, 'description' => null, 'effective_date' => now(), 'grand_total' => 0.00]
+                );
+
+                // Update/create quarter (or delete if zero)
+                if ($data['qty'] == 0 && $data['amt'] == 0) {
+                    $expense->quarters()->where('quarter', $quarterNumber)->delete();
+                    Log::info('Cleared zero quarter', ['expenseId' => $expense->id, 'quarter' => $quarterNumber]);
+                } else {
+                    $expense->quarters()->updateOrCreate(
+                        ['quarter' => $quarterNumber],
+                        ['quantity' => $data['qty'], 'amount' => $data['amt']]
+                    );
+                    Log::info('Saved to quarter (from file)', [
+                        'expenseId' => $expense->id,
+                        'quarter' => $quarterNumber,
+                        'qty' => $data['qty'],
+                        'amt' => $data['amt']
+                    ]);
+                }
+
+                // Recalc grand_total from all quarters
+                $totalAmount = $expense->quarters()->sum('amount');
+                $expense->update(['grand_total' => $totalAmount]);
+
+                $activityToExpenseMap[$data['activity_id']] = $expense->id;
+            }
+
+            // Set parent_id hierarchy
+            foreach ($processedData as $data) {
+                if ($data['parent_activity_id']) {
+                    $parentExpenseId = $activityToExpenseMap[$data['parent_activity_id']] ?? null;
+                    if ($parentExpenseId) {
+                        ProjectExpense::where('id', $activityToExpenseMap[$data['activity_id']])
+                            ->update(['parent_id' => $parentExpenseId]);
+                        Log::info('Parent set', [
+                            'child' => $data['activity_id'],
+                            'parent' => $parentExpenseId
+                        ]);
+                    } else {
+                        Log::warning('Parent skipped', ['child' => $data['activity_id']]);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            Log::info('Upload success (quarter from file)', [
+                'processed' => count($processedData),
+                'quarter' => $quarterNumber
+            ]);
+
+            return redirect()->route('admin.projectExpense.show', [$project, $fiscalYear])
+                ->with('success', "Excel uploaded for Q{$quarterNumber} (detected from file). " . count($processedData) . " rows processed.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Upload failed', [
+                'project' => $project,
+                'fiscalYear' => $fiscalYear,
+                'quarter_from_file' => $quarterNumber ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->withInput()->withErrors(['error' => 'Upload failed: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Extract quarter number from Excel A3 header (PRIMARY source now).
+     * e.g., "त्रैमास: चौथो त्रैमास" → 4
+     * Returns int (1-4) or null if invalid.
+     */
+    private function extractQuarterFromExcel($file): ?int
+    {
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $header = trim((string) $sheet->getCell('A3')->getValue());
+
+            Log::info('Extracting quarter from Excel A3', ['header' => $header]);
+
+            // Map Nepali to number (matches ExpenseTemplateExport::getQuarterNepali())
+            $nepaliMap = [
+                'पहिलो' => 1,
+                'दोस्रो' => 2,
+                'तेस्रो' => 3,
+                'चौथो' => 4,
+            ];
+
+            foreach ($nepaliMap as $nepali => $num) {
+                if (strpos($header, $nepali) !== false && strpos($header, 'त्रैमास') !== false) {
+                    Log::info('Quarter detected from file', ['nepali' => $nepali, 'number' => $num]);
+                    return $num;
+                }
+            }
+
+            Log::warning('Unrecognized quarter header in Excel', ['header' => $header]);
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Failed to read Excel header', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Helper: Derive parent plan ID from row serial/depth.
+     * FIXED: Cast serial to string for explode().
+     */
+    private function deriveParentIdFromRow($rowIndex, $allActivityData, $project, $fiscalYear)
+    {
+        $currentRow = $allActivityData[$rowIndex];
+        $currentDepth = $currentRow[8] ?? 0;
+        $currentSerial = (string) ($currentRow[0] ?? ''); // FIXED: Cast to string
+        if ($currentDepth <= 0 || $currentSerial === '') return null;
+
+        // Parse serial for parent prefix (e.g., '1.1' -> parent serial '1')
+        $parts = explode('.', $currentSerial);
+        if (count($parts) > 1) {
+            array_pop($parts); // Remove last
+            $parentSerial = implode('.', $parts);
+            // Find row with matching serial (cast to string for comparison)
+            foreach ($allActivityData as $prevIndex => $prevRow) {
+                $prevSerial = (string) ($prevRow[0] ?? '');
+                if (($prevIndex < $rowIndex) && $prevSerial === $parentSerial) {
+                    return $prevRow[9] ?? null; // Plan ID from J
+                }
+            }
+        }
+
+        // Fallback: Scan up for depth -1
+        for ($i = $rowIndex - 1; $i >= 0; $i--) {
+            $prevRow = $allActivityData[$i];
+            if (($prevRow[8] ?? 0) == $currentDepth - 1) {
+                return $prevRow[9] ?? null;
+            }
+        }
+
+        return null;
     }
 }

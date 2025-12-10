@@ -45,7 +45,6 @@
                     @error('selected_quarter')
                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
-                    {{-- Optional: Re-add status dots if you compute $quarterStatus later --}}
                     @if (isset($quarterStatus))
                         <div class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex gap-2">
                             <span class="inline-flex items-center gap-1">
@@ -71,6 +70,19 @@
                         </div>
                     @endif
                 </div>
+            </div>
+
+            <div class="flex justify-end mt-4 gap-2">
+                <button id="download-template" type="button"
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg shadow-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                    Download Template
+                </button>
+                <label for="excel-upload"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 cursor-pointer">
+                    Upload Excel
+                </label>
+                <input type="file" id="excel-upload" accept=".xlsx,.xls" class="hidden">
             </div>
 
             <div id="budget-display"
@@ -128,20 +140,16 @@
                                 <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-12">
-                                        #
-                                    </th>
+                                        #</th>
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-64">
-                                        Activity/Program
-                                    </th>
+                                        Activity/Program</th>
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                        Quantity
-                                    </th>
+                                        Quantity</th>
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                        Amount
-                                    </th>
+                                        Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="capital-tbody">
@@ -180,20 +188,16 @@
                                 <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-12">
-                                        #
-                                    </th>
+                                        #</th>
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-64">
-                                        Activity/Program
-                                    </th>
+                                        Activity/Program</th>
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                        Quantity
-                                    </th>
+                                        Quantity</th>
                                     <th
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                        Amount
-                                    </th>
+                                        Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="recurrent-tbody">
@@ -310,6 +314,11 @@
 
                 function parseNumeric(val) {
                     return parseFloat((val || '0').replace(/,/g, '')) || 0;
+                }
+
+                function checkSelections() {
+                    const hasAll = !!(lastProjectValue && lastFiscalValue && selectedQuarter);
+                    $('#download-template').prop('disabled', !hasAll);
                 }
 
                 function initializeTooltips($elements) {
@@ -491,6 +500,7 @@
 
                             populateActivities('capital', response.capital || []);
                             populateActivities('recurrent', response.recurrent || []);
+                            checkSelections();
                         },
                         error: function(xhr) {
                             $('#loading-indicator').addClass('hidden');
@@ -522,36 +532,33 @@
                         const bgClass = hasChildren ? 'bg-gray-100 dark:bg-gray-700' : '';
                         const fontClass = depth === 0 ? 'font-bold' : depth === 1 ? 'font-medium' : '';
 
-                        // Pre-fill from existing expense data (assumes controller includes quarterly expense fields in JSON, e.g., 'q1_qty', 'q1_amt' from loaded expenses)
-                        let qQty = parseNumeric(activity[`${selectedQuarter}_qty`] || activity[
-                            `q${selectedQuarter.charAt(1)}_qty`] || '0');
-                        let qAmt = parseNumeric(activity[`${selectedQuarter}_amt`] || activity[
-                            `q${selectedQuarter.charAt(1)}_amt`] || '0');
+                        let qQty = parseNumeric(activity[`q${selectedQuarter.charAt(1)}_qty`] || '0');
+                        let qAmt = parseNumeric(activity[`q${selectedQuarter.charAt(1)}_amt`] || '0');
 
                         const qtyValue = qQty === 0 ? '' : Math.round(qQty).toLocaleString();
                         const amtValue = qAmt === 0 ? '' : qAmt.toFixed(2);
                         const isDisabled = hasChildren;
 
                         let row = `<tr class="projectExpense-row ${bgClass}" data-depth="${depth}" data-index="${activity.id}">
-                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm">${displayNumber}</td>
-                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: ${depth * 20}px;">
-                    <input type="hidden" name="${section}[${activity.id}][activity_id]" value="${activity.id}">
-                    <input type="hidden" name="${section}[${activity.id}][parent_id]" value="${activity.parent_id || ''}">
-                    <span class="${fontClass}">${activity.title || activity.program || 'Untitled'}</span>
-                </td>
-                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
-                    <input type="text" name="${section}[${activity.id}][${selectedQuarter}_qty]" value="${qtyValue}"
-                        placeholder="0" pattern="[0-9]+"
-                        class="expense-input tooltip-error numeric-input w-full ${isDisabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
-                        data-type="qty" ${isDisabled ? 'disabled readonly' : ''}>
-                </td>
-                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
-                    <input type="text" name="${section}[${activity.id}][${selectedQuarter}_amt]" value="${amtValue}"
-                        placeholder="0.00" pattern="[0-9]+(\\.[0-9]{1,2})?"
-                        class="expense-input tooltip-error numeric-input w-full ${isDisabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
-                        data-type="amt" ${isDisabled ? 'disabled readonly' : ''}>
-                </td>
-            </tr>`;
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm">${displayNumber}</td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: ${depth * 20}px;">
+                                <input type="hidden" name="${section}[${activity.id}][activity_id]" value="${activity.id}">
+                                <input type="hidden" name="${section}[${activity.id}][parent_id]" value="${activity.parent_id || ''}">
+                                <span class="${fontClass}">${activity.title || activity.program || 'Untitled'}</span>
+                            </td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
+                                <input type="text" name="${section}[${activity.id}][${selectedQuarter}_qty]" value="${qtyValue}"
+                                    placeholder="0" pattern="[0-9]+"
+                                    class="expense-input tooltip-error numeric-input w-full ${isDisabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
+                                    data-type="qty" ${isDisabled ? 'disabled readonly' : ''}>
+                            </td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
+                                <input type="text" name="${section}[${activity.id}][${selectedQuarter}_amt]" value="${amtValue}"
+                                    placeholder="0.00" pattern="[0-9]+(\\.[0-9]{1,2})?"
+                                    class="expense-input tooltip-error numeric-input w-full ${isDisabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
+                                    data-type="amt" ${isDisabled ? 'disabled readonly' : ''}>
+                            </td>
+                        </tr>`;
 
                         const tr = $(row);
                         tbody.append(tr);
@@ -564,15 +571,15 @@
                             });
 
                             let totalRow = `<tr class="projectExpense-total-row bg-blue-50 dark:bg-blue-900/30 border-t-2 border-blue-300 dark:border-blue-600" data-parent-id="${activity.id}">
-                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 font-bold text-blue-700 dark:text-blue-300" style="padding-left: ${(depth + 1) * 20}px;">Total of ${displayNumber}</td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
-                        <span class="total-display" data-parent-id="${activity.id}" data-type="qty">0</span>
-                    </td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
-                        <span class="total-display" data-parent-id="${activity.id}" data-type="amt">0.00</span>
-                    </td>
-                </tr>`;
+                                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
+                                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 font-bold text-blue-700 dark:text-blue-300" style="padding-left: ${(depth + 1) * 20}px;">Total of ${displayNumber}</td>
+                                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
+                                    <span class="total-display" data-parent-id="${activity.id}" data-type="qty">0</span>
+                                </td>
+                                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
+                                    <span class="total-display" data-parent-id="${activity.id}" data-type="amt">0.00</span>
+                                </td>
+                            </tr>`;
                             tbody.append(totalRow);
                         }
                     }
@@ -596,12 +603,12 @@
                     $('#error-message').removeClass('hidden');
                 }
 
-                // NEW: Reset quarter on project or FY change
                 function resetQuarterAndReload() {
-                    $('#quarter_selector').val(''); // Clear selection
+                    $('#quarter_selector').val('');
+                    selectedQuarter = '';
                     $('#capital-quarter-label').text('Select Quarter');
                     $('#recurrent-quarter-label').text('Select Quarter');
-                    loadProjectActivities(lastProjectValue, lastFiscalValue, ''); // Clear tables
+                    loadProjectActivities(lastProjectValue, lastFiscalValue, '');
                 }
 
                 // Event handlers
@@ -616,9 +623,41 @@
                 // Quarter selector change
                 $('#quarter_selector').on('change', function() {
                     const quarter = $(this).val();
+                    selectedQuarter = quarter;
+                    checkSelections();
                     if (lastProjectValue && lastFiscalValue && quarter) {
                         loadProjectActivities(lastProjectValue, lastFiscalValue, quarter);
+                    } else if (quarter) {
+                        showError('Please select both Project and Fiscal Year first');
+                        $(this).val('');
+                        selectedQuarter = '';
+                        checkSelections();
                     }
+                });
+
+                // Download template
+                $('#download-template').on('click', function(e) {
+                    e.preventDefault();
+                    if (lastProjectValue && lastFiscalValue && selectedQuarter) {
+                        window.location.href =
+                            `/admin/projectExpense/downloadExcel/${lastProjectValue}/${lastFiscalValue}?quarter=${selectedQuarter}`;
+                    } else {
+                        showError('Please select Project, Fiscal Year, and Quarter first');
+                    }
+                });
+
+                $('#excel-upload').on('click', function(e) { // Changed to 'click' on label (triggers redirect)
+                    e.preventDefault();
+                    const projectId = lastProjectValue;
+                    const fyId = lastFiscalValue;
+                    const quarter = selectedQuarter;
+                    if (!projectId || !fyId || !quarter) {
+                        showError('Please select Project, Fiscal Year, and Quarter first');
+                        return;
+                    }
+                    // Redirect to upload view with params
+                    window.location.href =
+                        `/admin/projectExpense/${projectId}/${fyId}/upload?quarter=${quarter}`;
                 });
 
                 if (projectHidden) {
@@ -629,6 +668,7 @@
                                 if (newValue !== lastProjectValue) {
                                     lastProjectValue = newValue;
                                     resetQuarterAndReload();
+                                    checkSelections();
                                 }
                             }
                         });
@@ -640,6 +680,7 @@
                     projectHidden.addEventListener('change', function() {
                         lastProjectValue = this.value;
                         resetQuarterAndReload();
+                        checkSelections();
                     });
                 }
 
@@ -651,6 +692,7 @@
                                 if (newValue !== lastFiscalValue) {
                                     lastFiscalValue = newValue;
                                     resetQuarterAndReload();
+                                    checkSelections();
                                 }
                             }
                         });
@@ -662,6 +704,7 @@
                     fiscalHidden.addEventListener('change', function() {
                         lastFiscalValue = this.value;
                         resetQuarterAndReload();
+                        checkSelections();
                     });
                 }
 

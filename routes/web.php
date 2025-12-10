@@ -214,9 +214,13 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('expense', ExpenseController::class);
 
         // Project Expenses
+        // Project Expenses
         Route::controller(ProjectExpenseController::class)->prefix('projectExpense')->name('projectExpense.')->group(function () {
+            Route::get('downloadExcel/{projectId}/{fiscalYearId}', 'downloadTemplate')->name('template.download');
+            Route::get('{project}/{fiscalYear}/upload', 'uploadView')->name('upload.view');
+            Route::post('{project}/{fiscalYear}/upload', 'upload')->name('upload');
             Route::get('download/excel/{projectId}/{fiscalYearId}', 'downloadExcel')->name('excel.download');
-            Route::get('show/{projectId}/{fiscalyearId}', 'show')->name('show');
+            Route::get('show/{projectId}/{fiscalYearId}', 'show')->name('show');
 
             Route::get('{projectId}/{fiscalYearId}', 'getForProject')->name('getForProject');
         });

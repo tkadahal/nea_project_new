@@ -651,1070 +651,634 @@
         <script src="https://unpkg.com/@popperjs/core@2"></script>
         <script src="https://unpkg.com/tippy.js@6"></script>
         <script>
+            // Refined Project Activity Scripts - Consolidated & Optimized
             $(document).ready(function() {
-                const $ = jQuery;
-                let capitalIndex = 2;
-                let recurrentIndex = 2;
+                let capitalIndex = 2,
+                    recurrentIndex = 2;
                 const tippyInstances = new WeakMap();
-                // Helper to parse numeric input safely (handle integers/decimals)
-                function parseNumeric(val) {
-                    return parseFloat(val.replace(/,/g, '')) || 0;
-                }
-                // Updated selector for project_id change
-                $('.js-single-select[data-name="project_id"] .js-hidden-input').on('change', function() {
-                    $('#projectActivity-form').attr('action', '{{ route('admin.projectActivity.store') }}');
+
+                // ===== UTILITIES =====
+                const parse = val => parseFloat((val || '').replace(/,/g, '')) || 0;
+                const getField = $el => {
+                    const n = $el.attr('name');
+                    return n?.match(/\[([\w_]+)\]$/)?.[1] || null;
+                };
+                const tooltip = ($el, msg) => {
+                    const t = tippyInstances.get($el[0]);
+                    if (t) {
+                        t.setContent(msg);
+                        msg ? t.show() : t.hide();
+                    }
+                };
+                const initTippy = $els => $els.each(function() {
+                    if (!tippyInstances.has(this))
+                        tippyInstances.set(this, tippy(this, {
+                            content: '',
+                            trigger: 'manual',
+                            placement: 'top',
+                            arrow: true,
+                            duration: [200, 0]
+                        }));
                 });
-                // Check for partial exceeds (sum of entered quarters > planned, empty as 0)
-                function hasPartialExceed(section) {
-                    let hasExceed = false;
-                    $(`#${section}-activities .projectActivity-row`).each(function() {
-                        const $row = $(this);
-                        const $plannedBudget = $row.find('.planned-budget-input');
-                        const plannedBudget = parseNumeric($plannedBudget.val());
-                        if (plannedBudget === 0) return true; // Skip if planned not entered
-                        let quarterSum = 0;
-                        $row.find('.quarter-input').each(function() {
-                            quarterSum += parseNumeric($(this).val());
+
+                // ===== ROW MANAGEMENT =====
+                const updateNumbers = sec => {
+                    const $rows = $(`#${sec}-activities tbody tr`);
+                    let top = 0,
+                        l1 = {},
+                        l2 = {};
+                    $rows.each(function() {
+                        const d = $(this).data('depth'),
+                            p = $(this).data('parent'),
+                            idx = $(this).data('index');
+                        let num = '';
+                        if (d === 0) {
+                            top++;
+                            num = top + '';
+                            l1[idx] = {
+                                num: num,
+                                count: 0
+                            };
+                        } else if (d === 1) {
+                            const pinfo = l1[p];
+                            if (pinfo) {
+                                pinfo.count++;
+                                num = `${pinfo.num}.${pinfo.count}`;
+                                l2[idx] = {
+                                    num: num,
+                                    count: 0
+                                };
+                            }
+                        } else if (d === 2) {
+                            const pinfo = l2[p];
+                            if (pinfo) {
+                                pinfo.count++;
+                                num = `${pinfo.num}.${pinfo.count}`;
+                            }
+                        }
+                        $(this).find('td:first').text(num);
+                    });
+                };
+
+                const updateTotals = () => {
+                    const calc = sel => {
+                        let s = 0;
+                        $(sel).each(function() {
+                            s += parse($(this).val())
                         });
-                        if (quarterSum > plannedBudget + 0.01) {
-                            hasExceed = true;
-                            const message =
-                                `Partial quarters sum (${quarterSum.toFixed(2)}) already exceeds planned budget (${plannedBudget.toFixed(2)})`;
-                            $plannedBudget.addClass('error-border');
-                            $row.find('.quarter-input').addClass('error-border');
-                            updateTooltip($plannedBudget, message);
-                            $row.find('.quarter-input').each(function() {
-                                updateTooltip($(this), message);
-                            });
-                        }
-                    });
-                    return hasExceed;
-                }
-                // Check if table is valid
-                function isTableValid(section) {
-                    $(`#${section}-activities .projectActivity-row`).each(function() {
-                        const index = $(this).data('index');
-                        validateRow(section, index);
-                    });
-                    validateParentRows(section);
-                    const hasFullErrors = $(`#${section}-activities .error-border`).length > 0;
-                    const hasPartial = hasPartialExceed(section);
-                    const hasErrors = hasFullErrors || hasPartial;
-                    console.log(`Table ${section} validation: ${!hasErrors}`);
-                    return !hasErrors;
-                }
+                        return s;
+                    };
+                    const ct = calc('#capital-activities .projectActivity-row[data-depth="0"] .total-budget-input');
+                    const cp = calc(
+                        '#capital-activities .projectActivity-row[data-depth="0"] .planned-budget-input');
+                    const rt = calc(
+                        '#recurrent-activities .projectActivity-row[data-depth="0"] .total-budget-input');
+                    const rp = calc(
+                        '#recurrent-activities .projectActivity-row[data-depth="0"] .planned-budget-input');
+                    $('#capital-total').text(ct.toFixed(2));
+                    $('#capital-planned-total').text(cp.toFixed(2));
+                    $('#recurrent-total').text(rt.toFixed(2));
+                    $('#recurrent-planned-total').text(rp.toFixed(2));
+                    const ot = ct + rt,
+                        op = cp + rp;
+                    $('#overall-total').text(ot.toFixed(2));
+                    $('#hidden-total-budget').val(ot.toFixed(2));
+                    $('#overall-planned-total').text(op.toFixed(2));
+                    $('#hidden-total-planned-budget').val(op.toFixed(2));
+                };
 
-                function addRow(section, parentIndex = null, depth = 0) {
-                    if (!isTableValid(section)) {
-                        $("#error-message").removeClass("hidden");
-                        $("#error-text").text(
-                            "Cannot add row: Please correct validation errors (Planned Budget must equal sum of quarters; child sums must not exceed parent)."
-                        );
-                        console.warn(`Cannot add row in ${section}: Validation errors present`);
-                        return;
-                    }
-                    if (depth > 2) {
-                        console.warn(`Cannot add row in ${section}: Maximum depth (2) reached`);
-                        return;
-                    }
-                    const type = section === 'capital' ? 'capital' : 'recurrent';
-                    const index = type === 'capital' ? capitalIndex++ : recurrentIndex++;
-                    const $tbody = $(`#${section}-tbody`);
-                    if (!$tbody.length) {
-                        console.error(`tbody for ${section} not found`);
-                        return;
-                    }
-                    let hiddenParentInput = '';
-                    if (parentIndex !== null) {
-                        hiddenParentInput =
-                            `<input type="hidden" name="${type}[${index}][parent_id]" value="${parentIndex}">`;
-                    }
-                    const html = `
-                    <tr class="projectActivity-row" data-depth="${depth}" data-index="${index}" ${parentIndex !== null ? `data-parent="${parentIndex}"` : ''}>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-700 dark:text-gray-200 w-12 sticky left-0 z-30 bg-white dark:bg-gray-800 left-sticky"></td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 w-80 sticky left-12 z-30 bg-white dark:bg-gray-800 left-sticky">
-                            ${hiddenParentInput}
-                            <input name="${type}[${index}][program]" type="text" class="w-full border-0 p-1 tooltip-error" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][total_budget_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right total-budget-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                            <input name="${type}[${index}][total_budget]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right total-budget-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][total_expense_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right total-expense-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                            <input name="${type}[${index}][total_expense]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right expenses-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][planned_budget_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right planned-budget-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                            <input name="${type}[${index}][planned_budget]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right planned-budget-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                            <input name="${type}[${index}][q1_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right q1-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][q1]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                            <input name="${type}[${index}][q2_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right q2-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][q2]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                            <input name="${type}[${index}][q3_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right q3-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][q3]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                            <input name="${type}[${index}][q4_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right q4-quantity-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                            <input name="${type}[${index}][q4]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center w-28 sticky right-0 z-30 bg-white dark:bg-gray-800 right-sticky">
-                            <div class="flex space-x-2 justify-center">
-                                ${depth < 2 ? `<span class="add-sub-row cursor-pointer text-2xl text-blue-500">+</span>` : ''}
-                                ${(depth > 0 || index > 1) ? `<span class="remove-row cursor-pointer text-2xl text-red-500">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </span>` : ''}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                    if (parentIndex !== null) {
-                        const $parentRow = $tbody.find(`tr[data-index="${parentIndex}"]`);
-                        if (!$parentRow.length) {
-                            console.error(`Parent row ${parentIndex} not found for insertion in ${section}`);
-                            return;
-                        }
-                        const subTreeRows = [];
-                        const collectSubTree = (idx) => {
-                            const $children = $tbody.find(`tr[data-parent="${idx}"]`);
-                            $children.each(function() {
-                                const childIdx = $(this).data('index');
-                                subTreeRows.push($(this));
-                                collectSubTree(childIdx);
-                            });
-                        };
-                        collectSubTree(parentIndex);
-                        const $lastRow = subTreeRows.length ? subTreeRows[subTreeRows.length - 1] : $parentRow;
-                        console.log(
-                            `Inserting row ${index} in ${section} after ${$lastRow.data('index')} (depth: ${depth})`
-                        );
-                        $lastRow.after(html);
+                // ===== VALIDATION =====
+                const validateRow = (sec, idx) => {
+                    const $r = $(`#${sec}-activities tr[data-index="${idx}"]`);
+                    const $pb = $r.find('.planned-budget-input'),
+                        $qs = $r.find('.quarter-input');
+                    let qSum = 0;
+                    $qs.each(function() {
+                        qSum += parse($(this).val())
+                    });
+                    const pb = parse($pb.val()),
+                        q4Fill = $r.find('.quarter-input[name*="[q4]"]').val().trim() !== '';
+                    if (q4Fill && Math.abs(qSum - pb) > 0.01) {
+                        const msg = qSum > pb ?
+                            `Quarters sum (${qSum.toFixed(2)}) exceeds planned (${pb.toFixed(2)})` :
+                            `Quarters sum (${qSum.toFixed(2)}) < planned (${pb.toFixed(2)}). Must equal.`;
+                        $pb.addClass('error-border');
+                        $qs.addClass('error-border');
+                        tooltip($pb, msg);
+                        $qs.each(function() {
+                            tooltip($(this), msg)
+                        });
                     } else {
-                        console.log(`Appending row ${index} to ${section}`);
-                        $tbody.append(html);
+                        $pb.removeClass('error-border');
+                        $qs.removeClass('error-border');
+                        tooltip($pb, '');
+                        $qs.each(function() {
+                            tooltip($(this), '')
+                        });
                     }
-                    const $newRow = $tbody.find(`tr[data-index="${index}"]`);
-                    console.log(`New row ${index} added, depth: ${depth}`);
-                    updateRowNumbers(section);
-                    updateTotals();
-                    if (parentIndex !== null) {
-                        validateParentRow(section, parentIndex);
-                    }
-                    initializeTooltips($newRow.find('.tooltip-error'));
-                }
 
-                function addSubRow($row) {
-                    const section = $row.closest('table').attr('id').replace('-activities', '');
-                    const parentIndex = $row.data('index');
-                    const depth = $row.data('depth') + 1;
-                    if (depth > 2) {
-                        console.warn(`Max depth reached for ${parentIndex}`);
-                        return;
+                    const $pbq = $r.find('.planned-budget-quantity-input'),
+                        $qqs = $r.find(
+                            '.q1-quantity-input,.q2-quantity-input,.q3-quantity-input,.q4-quantity-input');
+                    let qqSum = 0;
+                    $qqs.each(function() {
+                        qqSum += parse($(this).val())
+                    });
+                    const pbq = parse($pbq.val()),
+                        q4qFill = $r.find('.q4-quantity-input').val().trim() !== '';
+                    if (q4qFill && Math.abs(qqSum - pbq) > 0.01) {
+                        const msg = qqSum > pbq ?
+                            `Qty sum (${qqSum.toFixed(0)}) exceeds planned (${pbq.toFixed(0)})` :
+                            `Qty sum (${qqSum.toFixed(0)}) < planned (${pbq.toFixed(0)}). Must equal.`;
+                        $pbq.addClass('error-border');
+                        $qqs.addClass('error-border');
+                        tooltip($pbq, msg);
+                        $qqs.each(function() {
+                            tooltip($(this), msg)
+                        });
+                    } else {
+                        $pbq.removeClass('error-border');
+                        $qqs.removeClass('error-border');
+                        tooltip($pbq, '');
+                        $qqs.each(function() {
+                            tooltip($(this), '')
+                        });
                     }
-                    if (!isTableValid(section)) {
+                };
+
+                const validateParent = (sec, pidx) => {
+                    if (!pidx) return;
+                    const $pr = $(`#${sec}-activities tr[data-index="${pidx}"]`),
+                        $crs = $(`#${sec}-activities tr[data-parent="${pidx}"]`);
+                    if (!$pr.length || !$crs.length) return;
+                    const sels = {
+                        total_budget: '.total-budget-input',
+                        total_expense: '.expenses-input',
+                        planned_budget: '.planned-budget-input',
+                        q1: '.quarter-input[name*="[q1]"]',
+                        q2: '.quarter-input[name*="[q2]"]',
+                        q3: '.quarter-input[name*="[q3]"]',
+                        q4: '.quarter-input[name*="[q4]"]'
+                    };
+                    for (const [f, s] of Object.entries(sels)) {
+                        const $pi = $pr.find(s);
+                        if (!$pi.length) continue;
+                        let cs = 0;
+                        $crs.each(function() {
+                            cs += parse($(this).find(s).val())
+                        });
+                        const pv = parse($pi.val());
+                        if (Math.abs(cs - pv) > 0.01) {
+                            const msg = cs > pv ? `Children (${cs.toFixed(2)}) > parent ${f} (${pv.toFixed(2)})` :
+                                `Children (${cs.toFixed(2)}) < parent ${f} (${pv.toFixed(2)})`;
+                            $pi.addClass('error-border');
+                            $crs.find(s).addClass('error-border');
+                            tooltip($pi, msg);
+                            $crs.each(function() {
+                                tooltip($(this).find(s), msg)
+                            });
+                        } else {
+                            $pi.removeClass('error-border');
+                            $crs.find(s).removeClass('error-border');
+                            tooltip($pi, '');
+                            $crs.each(function() {
+                                tooltip($(this).find(s), '')
+                            });
+                        }
+                    }
+                    validateParent(sec, $pr.data('parent'));
+                };
+
+                const validateParents = sec => {
+                    const ps = new Set();
+                    $(`#${sec}-activities tr[data-parent]`).each(function() {
+                        ps.add($(this).data('parent'))
+                    });
+                    ps.forEach(i => validateParent(sec, i));
+                };
+
+                const isValid = sec => {
+                    $(`#${sec}-activities .projectActivity-row`).each(function() {
+                        validateRow(sec, $(this).data('index'))
+                    });
+                    validateParents(sec);
+                    return $(`#${sec}-activities .error-border`).length === 0;
+                };
+
+                // ===== ROW CREATION =====
+                const mkRow = (sec, idx, d = 0, p = null) => {
+                    const t = sec === 'capital' ? 'capital' : 'recurrent';
+                    const hp = p !== null ? `<input type="hidden" name="${t}[${idx}][parent_id]" value="${p}">` :
+                        '';
+                    const fields = ['total_budget_quantity', 'total_budget', 'total_expense_quantity',
+                            'total_expense', 'planned_budget_quantity', 'planned_budget'
+                        ]
+                        .map(f =>
+                            `<td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right ${f.includes('quantity')?'w-24':'w-28'}">
+                <input name="${t}[${idx}][${f}]" type="text" placeholder="${f.includes('quantity')?'0':'0.00'}"
+                    class="w-full border-0 p-1 text-right ${f.replace(/_/g,'-')}-input tooltip-error numeric-input" /></td>`
+                            )
+                        .join('');
+                    const qs = ['q1', 'q2', 'q3', 'q4'].map(q =>
+                        `<td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
+                <input name="${t}[${idx}][${q}_quantity]" type="text" placeholder="0" class="w-full border-0 p-1 text-right ${q}-quantity-input tooltip-error numeric-input" /></td>
+                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
+                <input name="${t}[${idx}][${q}]" type="text" placeholder="0.00" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" /></td>`
+                    ).join('');
+                    const acts =
+                        `<div class="flex space-x-2 justify-center">${d<2?'<span class="add-sub-row cursor-pointer text-2xl text-blue-500">+</span>':''}
+            ${(d>0||idx>1)?'<span class="remove-row cursor-pointer text-2xl text-red-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></span>':''}</div>`;
+                    return `<tr class="projectActivity-row" data-depth="${d}" data-index="${idx}" ${p!==null?`data-parent="${p}"`:''}><td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-700 dark:text-gray-200 w-12 sticky left-0 z-30 bg-white dark:bg-gray-800 left-sticky"></td>
+            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 w-80 sticky left-12 z-30 bg-white dark:bg-gray-800 left-sticky">${hp}<input name="${t}[${idx}][program]" type="text" class="w-full border-0 p-1 tooltip-error" /></td>
+            ${fields}${qs}<td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center w-28 sticky right-0 z-30 bg-white dark:bg-gray-800 right-sticky">${acts}</td></tr>`;
+                };
+
+                const addRow = (sec, p = null, d = 0) => {
+                    // Check validation BEFORE doing anything
+                    if (!isValid(sec)) {
                         $("#error-message").removeClass("hidden");
-                        $("#error-text").text(
-                            "Cannot add sub-row: Please correct validation errors (Planned Budget must equal sum of quarters; child sums must not exceed parent)."
-                        );
-                        console.warn(`Cannot add sub-row in ${section}: Validation errors present`);
-                        return;
+                        $("#error-text").text("Correct errors first.");
+                        return false; // Explicitly return false
                     }
-                    console.log(`Adding sub-row under ${parentIndex} at depth ${depth}`);
-                    addRow(section, parentIndex, depth);
-                }
-                $(document).off('click', '.add-sub-row').on('click', '.add-sub-row', function(e) {
+                    if (d > 2) {
+                        $("#error-message").removeClass("hidden");
+                        $("#error-text").text("Maximum depth (2 levels) reached.");
+                        return false;
+                    }
+                    const t = sec === 'capital' ? 'capital' : 'recurrent',
+                        idx = t === 'capital' ? capitalIndex++ : recurrentIndex++;
+                    const $tb = $(`#${sec}-tbody`),
+                        h = mkRow(sec, idx, d, p);
+                    if (p !== null) {
+                        const $pr = $tb.find(`tr[data-index="${p}"]`);
+                        if (!$pr.length) {
+                            $("#error-message").removeClass("hidden");
+                            $("#error-text").text(`Parent row ${p} not found.`);
+                            return false;
+                        }
+                        const sts = [];
+                        const cst = i => $tb.find(`tr[data-parent="${i}"]`).each(function() {
+                            sts.push($(this));
+                            cst($(this).data('index'))
+                        });
+                        cst(p);
+                        (sts.length ? sts[sts.length - 1] : $pr).after(h);
+                    } else $tb.append(h);
+                    updateNumbers(sec);
+                    updateTotals();
+                    if (p) validateParent(sec, p);
+                    // Only initialize tooltips on the NEW row, not all rows
+                    initTippy($tb.find(`tr[data-index="${idx}"] .tooltip-error`));
+                    return true;
+                };
+
+                // ===== EVENTS =====
+                $('.js-single-select[data-name="project_id"] .js-hidden-input').on('change', () => $(
+                    '#projectActivity-form').attr('action', '{{ route('admin.projectActivity.store') }}'));
+
+                // Remove ALL previous handlers completely and use ONE delegated handler
+                $(document).off('click.addsubrow').on('click.addsubrow', '.add-sub-row', function(e) {
                     e.preventDefault();
-                    addSubRow($(this).closest('tr'));
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    // Check if button is already processing
+                    if ($(this).data('processing')) return false;
+                    $(this).data('processing', true);
+
+                    const $row = $(this).closest('tr');
+                    const sec = $row.closest('table').attr('id').replace('-activities', '');
+                    const parentIdx = parseInt($row.data('index'));
+                    const currentDepth = parseInt($row.data('depth'));
+                    const newDepth = currentDepth + 1;
+
+                    const success = addRow(sec, parentIdx, newDepth);
+
+                    // Re-enable after short delay
+                    setTimeout(() => {
+                        $(this).data('processing', false);
+                    }, 500);
+
+                    return false;
                 });
-                $('#add-capital-row').on('click', function() {
+
+                // Remove row handler
+                $(document).off('click.removerow').on('click.removerow', '.remove-row', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    const $r = $(this).closest('tr'),
+                        sec = $r.closest('table').attr('id').replace('-activities', ''),
+                        idx = $r.data('index'),
+                        p = $r.data('parent');
+                    $(`tr[data-parent="${idx}"]`).remove();
+                    $r.remove();
+                    updateNumbers(sec);
+                    updateTotals();
+                    validateParents(sec);
+                    if (p) validateParent(sec, p);
+
+                    return false;
+                });
+
+                $('#add-capital-row').off('click').on('click', function(e) {
+                    e.preventDefault();
                     addRow('capital');
                 });
-                $('#add-recurrent-row').on('click', function() {
+                $('#add-recurrent-row').off('click').on('click', function(e) {
+                    e.preventDefault();
                     addRow('recurrent');
                 });
-                $(document).on('click', '.remove-row', function() {
-                    const $row = $(this).closest('tr');
-                    const section = $row.closest('table').attr('id').replace('-activities', '');
-                    const parentIndex = $row.data('parent');
-                    const index = $row.data('index');
-                    $(`tr[data-parent="${index}"]`).remove();
-                    $row.remove();
-                    console.log(`Removed row ${index} in ${section}`);
-                    updateRowNumbers(section);
+
+
+                $(document).on('input', '.numeric-input', function() {
+                    const $i = $(this),
+                        $r = $i.closest('tr'),
+                        sec = $r.closest('table').attr('id').replace('-activities', ''),
+                        idx = $r.data('index'),
+                        d = $r.data('depth') || 0,
+                        f = getField($i);
+                    if (d > 0 && f && !f.endsWith('_quantity') && ['total_budget', 'total_expense',
+                            'planned_budget', 'q1', 'q2', 'q3', 'q4'
+                        ].includes(f)) {
+                        const p = $r.data('parent'),
+                            $pr = $(`#${sec}-activities tr[data-index="${p}"]`),
+                            $sibs = $(`#${sec}-activities tr[data-parent="${p}"]`).not($r);
+                        const sm = {
+                            total_budget: '.total-budget-input',
+                            total_expense: '.expenses-input',
+                            planned_budget: '.planned-budget-input',
+                            q1: '.quarter-input[name*="[q1]"]',
+                            q2: '.quarter-input[name*="[q2]"]',
+                            q3: '.quarter-input[name*="[q3]"]',
+                            q4: '.quarter-input[name*="[q4]"]'
+                        } [f];
+                        const pv = parse($pr.find(sm).val());
+                        let cv = parse($i.val()),
+                            ss = 0;
+                        $sibs.each(function() {
+                            ss += parse($(this).find(sm).val())
+                        });
+                        const mx = Math.max(0, pv - ss);
+                        if (cv > mx + 0.01) {
+                            cv = mx;
+                            $i.val(cv.toFixed(cv % 1 === 0 ? 0 : 2));
+                            $i.addClass('error-border');
+                            tooltip($i, `Capped at ${mx.toFixed(2)}`);
+                            $pr.find(sm).addClass('error-border');
+                            tooltip($pr.find(sm), 'Exceeded');
+                        } else {
+                            $i.removeClass('error-border');
+                            tooltip($i, '');
+                        }
+                    }
+                    validateParents(sec);
+                    validateRow(sec, idx);
                     updateTotals();
-                    validateParentRows(section);
-                    if (parentIndex) {
-                        validateParentRow(section, parentIndex);
-                    }
                 });
 
-                function updateRowNumbers(section) {
-                    const $rows = $(`#${section}-activities tbody tr`);
-                    let topLevelCount = 0;
-                    let levelOneCounts = {};
-                    let levelTwoCounts = {};
-                    $rows.each(function() {
-                        const $row = $(this);
-                        const depth = $row.data('depth');
-                        const parentIndex = $row.data('parent');
-                        let number = '';
-                        if (depth === 0) {
-                            topLevelCount++;
-                            number = topLevelCount.toString();
-                            levelOneCounts[topLevelCount] = 0;
-                        } else if (depth === 1) {
-                            const parentRow = $rows.filter(`[data-index="${parentIndex}"]`);
-                            const parentNumber = parentRow.find('td:first').text();
-                            levelOneCounts[parentNumber] = (levelOneCounts[parentNumber] || 0) + 1;
-                            number = `${parentNumber}.${levelOneCounts[parentNumber]}`;
-                            levelTwoCounts[number] = 0;
-                        } else if (depth === 2) {
-                            const parentRow = $rows.filter(`[data-index="${parentIndex}"]`);
-                            const parentNumber = parentRow.find('td:first').text();
-                            levelTwoCounts[parentNumber] = (levelTwoCounts[parentNumber] || 0) + 1;
-                            number = `${parentNumber}.${levelTwoCounts[parentNumber]}`;
-                        }
-                        $row.find('td:first').text(number);
-                    });
-                }
-
-                function updateTotals() {
-                    let capitalTotal = 0;
-                    $('#capital-activities .projectActivity-row[data-depth="0"] .total-budget-input').each(function() {
-                        capitalTotal += parseNumeric($(this).val());
-                    });
-                    $('#capital-total').text(capitalTotal.toFixed(2));
-                    let capitalPlannedTotal = 0;
-                    $('#capital-activities .projectActivity-row[data-depth="0"] .planned-budget-input').each(
-                        function() {
-                            capitalPlannedTotal += parseNumeric($(this).val());
-                        });
-                    $('#capital-planned-total').text(capitalPlannedTotal.toFixed(2));
-                    let recurrentTotal = 0;
-                    $('#recurrent-activities .projectActivity-row[data-depth="0"] .total-budget-input').each(
-                        function() {
-                            recurrentTotal += parseNumeric($(this).val());
-                        });
-                    $('#recurrent-total').text(recurrentTotal.toFixed(2));
-                    let recurrentPlannedTotal = 0;
-                    $('#recurrent-activities .projectActivity-row[data-depth="0"] .planned-budget-input').each(
-                        function() {
-                            recurrentPlannedTotal += parseNumeric($(this).val());
-                        });
-                    $('#recurrent-planned-total').text(recurrentPlannedTotal.toFixed(2));
-                    let overallTotal = capitalTotal + recurrentTotal;
-                    $('#overall-total').text(overallTotal.toFixed(2));
-                    $('#hidden-total-budget').val(overallTotal.toFixed(2));
-                    let overallPlannedTotal = capitalPlannedTotal + recurrentPlannedTotal;
-                    $('#overall-planned-total').text(overallPlannedTotal.toFixed(2));
-                    $('#hidden-total-planned-budget').val(overallPlannedTotal.toFixed(2));
-                }
-                // Updated validateRow: Handles both amounts and quantities
-                function validateRow(section, index) {
-                    const $row = $(`#${section}-activities tr[data-index="${index}"]`);
-                    // Amount validation (existing)
-                    const $plannedBudget = $row.find('.planned-budget-input');
-                    const $quarters = $row.find('.quarter-input');
-                    const $q4Amount = $row.find('.quarter-input[name*="[q4]"]');
-                    let quarterAmountSum = 0;
-                    $quarters.each(function() {
-                        quarterAmountSum += parseNumeric($(this).val());
-                    });
-                    const plannedBudget = parseNumeric($plannedBudget.val());
-                    let amountMessage = '';
-                    let amountIsError = false;
-                    const q4AmountFilled = $q4Amount.val().trim() !== '';
-                    if (q4AmountFilled && Math.abs(quarterAmountSum - plannedBudget) > 0.01) {
-                        amountIsError = true;
-                        if (quarterAmountSum > plannedBudget) {
-                            amountMessage =
-                                `Quarters sum (${quarterAmountSum.toFixed(2)}) exceeds planned budget (${plannedBudget.toFixed(2)})`;
-                        } else {
-                            amountMessage =
-                                `Quarters sum (${quarterAmountSum.toFixed(2)}) is less than planned budget (${plannedBudget.toFixed(2)}). Planned budget must equal sum of quarters.`;
-                        }
-                    }
-                    // Quantity validation (new)
-                    const $plannedBudgetQuantity = $row.find('.planned-budget-quantity-input');
-                    const $quarterQuantities = $row.find(
-                        '.q1-quantity-input, .q2-quantity-input, .q3-quantity-input, .q4-quantity-input');
-                    const $q4Quantity = $row.find('.q4-quantity-input');
-                    let quarterQuantitySum = 0;
-                    $quarterQuantities.each(function() {
-                        quarterQuantitySum += parseNumeric($(this).val());
-                    });
-                    const plannedBudgetQuantity = parseNumeric($plannedBudgetQuantity.val());
-                    let quantityMessage = '';
-                    let quantityIsError = false;
-                    const q4QuantityFilled = $q4Quantity.val().trim() !== '';
-                    if (q4QuantityFilled && Math.abs(quarterQuantitySum - plannedBudgetQuantity) > 0.01) {
-                        quantityIsError = true;
-                        if (quarterQuantitySum > plannedBudgetQuantity) {
-                            quantityMessage =
-                                `Quarter quantities sum (${quarterQuantitySum.toFixed(0)}) exceeds planned quantity (${plannedBudgetQuantity.toFixed(0)})`;
-                        } else {
-                            quantityMessage =
-                                `Quarter quantities sum (${quarterQuantitySum.toFixed(0)}) is less than planned quantity (${plannedBudgetQuantity.toFixed(0)}). Planned quantity must equal sum of quarter quantities.`;
-                        }
-                    }
-                    // Apply errors for amounts
-                    if (amountIsError) {
-                        $plannedBudget.addClass('error-border');
-                        $quarters.addClass('error-border');
-                        updateTooltip($plannedBudget, amountMessage);
-                        $quarters.each(function() {
-                            updateTooltip($(this), amountMessage);
-                        });
-                    } else {
-                        $plannedBudget.removeClass('error-border');
-                        $quarters.removeClass('error-border');
-                        updateTooltip($plannedBudget, '');
-                        $quarters.each(function() {
-                            updateTooltip($(this), '');
-                        });
-                    }
-                    // Apply errors for quantities
-                    if (quantityIsError) {
-                        $plannedBudgetQuantity.addClass('error-border');
-                        $quarterQuantities.addClass('error-border');
-                        updateTooltip($plannedBudgetQuantity, quantityMessage);
-                        $quarterQuantities.each(function() {
-                            updateTooltip($(this), quantityMessage);
-                        });
-                    } else {
-                        $plannedBudgetQuantity.removeClass('error-border');
-                        $quarterQuantities.removeClass('error-border');
-                        updateTooltip($plannedBudgetQuantity, '');
-                        $quarterQuantities.each(function() {
-                            updateTooltip($(this), '');
-                        });
-                    }
-                    console.log(
-                        `Row ${index} validated: amounts ${quarterAmountSum} vs ${plannedBudget} (Q4 filled: ${q4AmountFilled}, error: ${amountIsError}); quantities ${quarterQuantitySum} vs ${plannedBudgetQuantity} (Q4 filled: ${q4QuantityFilled}, error: ${quantityIsError})`
-                    );
-                }
-
-                function getFieldFromInput($input) {
-                    const name = $input.attr('name');
-                    if (name.includes('[total_budget]')) return 'total_budget';
-                    if (name.includes('[total_budget_quantity]')) return 'total_budget_quantity';
-                    if (name.includes('[total_expense]')) return 'total_expense';
-                    if (name.includes('[total_expense_quantity]')) return 'total_expense_quantity';
-                    if (name.includes('[planned_budget]')) return 'planned_budget';
-                    if (name.includes('[planned_budget_quantity]')) return 'planned_budget_quantity';
-                    if (name.includes('[q1]')) return 'q1';
-                    if (name.includes('[q1_quantity]')) return 'q1_quantity';
-                    if (name.includes('[q2]')) return 'q2';
-                    if (name.includes('[q2_quantity]')) return 'q2_quantity';
-                    if (name.includes('[q3]')) return 'q3';
-                    if (name.includes('[q3_quantity]')) return 'q3_quantity';
-                    if (name.includes('[q4]')) return 'q4';
-                    if (name.includes('[q4_quantity]')) return 'q4_quantity';
-                    return null;
-                }
-
-                function validateParentRow(section, parentIndex) {
-                    if (!parentIndex) return;
-                    const $parentRow = $(`#${section}-activities tr[data-index="${parentIndex}"]`);
-                    if (!$parentRow.length) {
-                        console.error(`Parent ${parentIndex} not found`);
-                        return;
-                    }
-                    const $childRows = $(`#${section}-activities tr[data-parent="${parentIndex}"]`);
-                    if ($childRows.length === 0) return;
-                    // FIXED: Only validate amounts (remove quantity fields)
-                    const childInputs = {
-                        'total_budget': '.total-budget-input',
-                        'total_expense': '.expenses-input',
-                        'planned_budget': '.planned-budget-input',
-                        'q1': '.quarter-input[name*="[q1]"]',
-                        'q2': '.quarter-input[name*="[q2]"]',
-                        'q3': '.quarter-input[name*="[q3]"]',
-                        'q4': '.quarter-input[name*="[q4]"]'
-                    };
-                    for (const [field, selector] of Object.entries(childInputs)) {
-                        const $parentInput = $parentRow.find(selector);
-                        if (!$parentInput.length) continue;
-                        let childSum = 0;
-                        $childRows.each(function() {
-                            const $childInput = $(this).find(selector);
-                            childSum += parseNumeric($childInput.val());
-                        });
-                        const parentValue = parseNumeric($parentInput.val());
-                        // FIXED: Enforce equality (not just >) for amounts, as per "equal to the sum"
-                        if (Math.abs(childSum - parentValue) > 0.01) {
-                            let message;
-                            if (childSum > parentValue) {
-                                message =
-                                    `Children sum (${childSum.toFixed(2)}) exceeds parent ${field} (${parentValue.toFixed(2)}). Parent must equal sum of children.`;
-                            } else {
-                                message =
-                                    `Children sum (${childSum.toFixed(2)}) is less than parent ${field} (${parentValue.toFixed(2)}). Parent must equal sum of children.`;
-                            }
-                            $parentInput.addClass('error-border');
-                            $childRows.find(selector).addClass('error-border');
-                            updateTooltip($parentInput, message);
-                            $childRows.each(function() {
-                                const $childInput = $(this).find(selector);
-                                updateTooltip($childInput, message);
-                            });
-                        } else {
-                            // Clear errors on parent and children for this field
-                            $parentInput.removeClass('error-border');
-                            $childRows.find(selector).removeClass('error-border');
-                            updateTooltip($parentInput, '');
-                            $childRows.each(function() {
-                                const $childInput = $(this).find(selector);
-                                updateTooltip($childInput, '');
-                            });
-                        }
-                    }
-                    validateParentRow(section, $parentRow.data('parent')); // Recurse
-                }
-
-                function validateParentRows(section) {
-                    const $rows = $(`#${section}-activities tr[data-parent]`);
-                    const parentIndexes = new Set();
-                    $rows.each(function() {
-                        parentIndexes.add($(this).data('parent'));
-                    });
-                    parentIndexes.forEach(idx => validateParentRow(section, idx));
-                }
-
-                function initializeTooltips($elements) {
-                    $elements.each(function() {
-                        if (!tippyInstances.has(this)) {
-                            tippyInstances.set(this, tippy(this, {
-                                content: '',
-                                trigger: 'manual',
-                                placement: 'top',
-                                arrow: true,
-                                duration: [200, 0]
-                            }));
-                        }
-                    });
-                }
-
-                function updateTooltip($element, message) {
-                    const tippyInstance = tippyInstances.get($element[0]);
-                    if (tippyInstance) {
-                        tippyInstance.setContent(message);
-                        if (message) {
-                            tippyInstance.show();
-                        } else {
-                            tippyInstance.hide();
-                        }
-                    }
-                }
-                // REFACTORED: Single global handler for all validation + capping (no auto-calc)
-                $(document).on('input',
-                    '.total-budget-quantity-input, .total-budget-input, .total-expense-quantity-input, .expenses-input, .planned-budget-quantity-input, .planned-budget-input, .q1-quantity-input, .quarter-input[name*="[q1]"], .q2-quantity-input, .quarter-input[name*="[q2]"], .q3-quantity-input, .quarter-input[name*="[q3]"], .q4-quantity-input, .quarter-input[name*="[q4]"]',
-                    function() {
-                        const $input = $(this);
-                        const $row = $input.closest('tr');
-                        const section = $row.closest('table').attr('id').replace('-activities', '');
-                        const index = $row.data('index');
-                        const depth = $row.data('depth') || 0;
-                        const field = getFieldFromInput($input);
-                        console.log(
-                            `Global input in ${section} row ${index} (depth ${depth}): ${field} = ${$input.val()}`
-                        );
-                        // CAPS FOR CHILDREN ONLY (merged from restrictChildInputs) - FIXED: Skip quantities
-                        if (depth > 0 && field && !field.endsWith('_quantity') && ['total_budget',
-                                'total_expense', 'planned_budget', 'q1', 'q2', 'q3',
-                                'q4'
-                            ].includes(field)) {
-                            const parentIndex = $row.data('parent');
-                            const $parentRow = $(`#${section}-activities tr[data-index="${parentIndex}"]`);
-                            const $siblingRows = $(`#${section}-activities tr[data-parent="${parentIndex}"]`).not(
-                                $row);
-                            let selector;
-                            if (field === 'total_budget') selector = '.total-budget-input';
-                            else if (field === 'total_expense') selector = '.expenses-input';
-                            else if (field === 'planned_budget') selector = '.planned-budget-input';
-                            else if (field === 'q1') selector = '.quarter-input[name*="[q1]"]';
-                            else if (field === 'q2') selector = '.quarter-input[name*="[q2]"]';
-                            else if (field === 'q3') selector = '.quarter-input[name*="[q3]"]';
-                            else if (field === 'q4') selector = '.quarter-input[name*="[q4]"]';
-                            const $parentInput = $parentRow.find(selector);
-                            const parentValue = parseNumeric($parentInput.val());
-                            let childValue = parseNumeric($input.val());
-                            let sumSiblings = 0;
-                            $siblingRows.each(function() {
-                                sumSiblings += parseNumeric($(this).find(selector).val());
-                            });
-                            const maxAllowed = Math.max(0, parentValue - sumSiblings);
-                            if (childValue > maxAllowed + 0.01) {
-                                childValue = maxAllowed;
-                                $input.val(childValue.toFixed(childValue % 1 === 0 ? 0 : 2));
-                                $input.addClass('error-border');
-                                updateTooltip($input,
-                                    `Capped at remaining (${maxAllowed.toFixed(2)}) for ${field}`);
-                                $parentInput.addClass('error-border');
-                                updateTooltip($parentInput, `Children sum for ${field} exceeds parent`);
-                            } else {
-                                $input.removeClass('error-border');
-                                updateTooltip($input, '');
-                            }
-                            console.log(
-                                `Child capping applied for ${field}: max ${maxAllowed}, set to ${childValue}`);
-                        }
-                        // ALWAYS VALIDATE PARENTS FIRST (hierarchy)
-                        validateParentRows(section);
-                        // THEN VALIDATE ROW (equality: sum == planned, catches < and >)
-                        // This ensures row validation happens after parent-child validation
-                        validateRow(section, index);
-                        // UPDATE TOTALS
-                        updateTotals();
-                    });
-                // Validate numerics on blur (optional, for submission)
                 $(document).on('blur', '.numeric-input', function() {
-                    const val = $(this).val();
-                    const num = parseNumeric(val);
-                    if (!isNaN(num) && num >= 0) {
-                        $(this).val(num.toFixed(num % 1 === 0 ? 0 : 2)); // Format without forced decimals
-                    }
+                    const n = parse($(this).val());
+                    if (!isNaN(n) && n >= 0) $(this).val(n.toFixed(n % 1 === 0 ? 0 : 2))
                 });
-                initializeTooltips($('.tooltip-error'));
-                // FORCE VALIDATE ALL ON LOAD (catches existing mismatches)
-                ['capital', 'recurrent'].forEach(section => {
-                    $(`#${section}-activities .projectActivity-row`).each(function() {
-                        const index = $(this).data('index');
-                        validateRow(section, index);
-                    });
-                    validateParentRows(section);
+                $("#close-error").on('click', () => {
+                    $("#error-message").addClass("hidden");
+                    $("#error-text").text("");
+                    $('.tooltip-error').removeClass('error-border').each(function() {
+                        tooltip($(this), '')
+                    })
                 });
-                // Form submission
-                const $form = $('#projectActivity-form');
-                const $submitButton = $('#submit-button');
-                $form.on('submit', function(e) {
+
+                // ===== FORM SUBMIT =====
+                $('#projectActivity-form').on('submit', function(e) {
                     e.preventDefault();
-                    if ($submitButton.prop('disabled')) return;
-                    let hasErrors = false;
-                    ['capital', 'recurrent'].forEach(section => {
-                        $(`#${section}-activities .projectActivity-row`).each(function() {
-                            const $row = $(this);
-                            const index = $row.data('index');
-                            const $inputs = $row.find(
-                                'input[name*="[program]"], .numeric-input');
-                            $inputs.each(function() {
-                                const $input = $(this);
-                                const value = $input.val().trim();
-                                if (!$input.is('[name*="[program]"]') && (!value ||
-                                        isNaN(parseNumeric(value)) || parseNumeric(
-                                            value) < 0)) {
-                                    $input.addClass('error-border');
-                                    updateTooltip($input,
-                                        'Valid non-negative number required');
-                                    hasErrors = true;
-                                } else if (!$input.is('[name*="[program]"]') && value &&
-                                    !/^[0-9]+(\.[0-9]{1,2})?$/.test(value)) {
-                                    $input.addClass('error-border');
-                                    updateTooltip($input,
-                                        'Invalid format (up to 2 decimals)');
-                                    hasErrors = true;
+                    const $sb = $('#submit-button');
+                    if ($sb.prop('disabled')) return;
+                    let err = false;
+                    ['capital', 'recurrent'].forEach(sec => {
+                        $(`#${sec}-activities .projectActivity-row`).each(function() {
+                            const $r = $(this);
+                            $r.find('input[name*="[program]"],.numeric-input').each(function() {
+                                const $i = $(this),
+                                    v = $i.val().trim();
+                                if (!$i.is('[name*="[program]"]') && (!v || isNaN(parse(
+                                        v)) || parse(v) < 0)) {
+                                    $i.addClass('error-border');
+                                    tooltip($i, 'Required');
+                                    err = true;
+                                } else if (!$i.is('[name*="[program]"]') && v && !
+                                    /^[0-9]+(\.[0-9]{1,2})?$/.test(v)) {
+                                    $i.addClass('error-border');
+                                    tooltip($i, 'Invalid format');
+                                    err = true;
                                 } else {
-                                    $input.removeClass('error-border');
-                                    updateTooltip($input, '');
+                                    $i.removeClass('error-border');
+                                    tooltip($i, '');
                                 }
                             });
-                            // For submission, force validation treating empty quarters as 0
-                            const $quarters = $row.find('.quarter-input');
-                            const $quarterQuantities = $row.find(
-                                '.q1-quantity-input, .q2-quantity-input, .q3-quantity-input, .q4-quantity-input'
-                            );
-                            const originalsAmounts = {};
-                            const originalsQuantities = {};
-                            $quarters.each(function() {
-                                originalsAmounts[$(this).attr('name')] = $(this).val();
-                                if ($(this).val().trim() === '') $(this).val('0');
-                            });
-                            $quarterQuantities.each(function() {
-                                originalsQuantities[$(this).attr('name')] = $(this)
-                                    .val();
-                                if ($(this).val().trim() === '') $(this).val('0');
-                            });
-                            validateRow(section, index);
-                            // Restore originals
-                            $quarters.each(function() {
-                                const name = $(this).attr('name');
-                                $(this).val(originalsAmounts[name] || '');
-                            });
-                            $quarterQuantities.each(function() {
-                                const name = $(this).attr('name');
-                                $(this).val(originalsQuantities[name] || '');
-                            });
-                            if ($row.find('.error-border').length > 0) hasErrors = true;
+                            const origs = {};
+                            $r.find(
+                                    '.quarter-input,.q1-quantity-input,.q2-quantity-input,.q3-quantity-input,.q4-quantity-input'
+                                    )
+                                .each(function() {
+                                    origs[$(this).attr('name')] = $(this).val();
+                                    if ($(this).val().trim() === '') $(this).val('0')
+                                });
+                            validateRow(sec, $r.data('index'));
+                            Object.entries(origs).forEach(([n, v]) => $r.find(
+                                `input[name="${n}"]`).val(v));
+                            if ($r.find('.error-border').length > 0) err = true;
                         });
-                        validateParentRows(section);
-                        if ($(`#${section}-activities .error-border`).length > 0) hasErrors = true;
+                        validateParents(sec);
+                        if ($(`#${sec}-activities .error-border`).length > 0) err = true;
                     });
-                    if (hasErrors) {
+                    if (err) {
                         $("#error-message").removeClass("hidden");
-                        $("#error-text").text("Please correct the validation errors before submitting.");
+                        $("#error-text").text("Correct errors.");
                         return;
                     }
-                    $submitButton.prop('disabled', true).addClass('opacity-50 cursor-not-allowed').text(
+                    $sb.prop('disabled', true).addClass('opacity-50 cursor-not-allowed').text(
                         '{{ trans('global.saving') }}...');
                     $('tr[data-parent]').each(function() {
-                        const $row = $(this);
-                        if ($row.find('input[name$="[parent_id]"]').length === 0) {
-                            const parentIndex = $row.data('parent');
-                            const type = $row.closest('table').attr('id').replace('-activities', '');
-                            $row.find('td:nth-child(2)').append(
-                                `<input type="hidden" name="${type}[${$row.data('index')}][parent_id]" value="${parentIndex}">`
-                            );
+                        const $r = $(this);
+                        if ($r.find('input[name$="[parent_id]"]').length === 0) {
+                            const t = $r.closest('table').attr('id').replace('-activities', '');
+                            $r.find('td:nth-child(2)').append(
+                                `<input type="hidden" name="${t}[${$r.data('index')}][parent_id]" value="${$r.data('parent')}">`
+                            )
                         }
                     });
                     $.ajax({
                         url: '{{ route('admin.projectActivity.store') }}',
                         method: 'POST',
-                        data: new FormData($form[0]),
+                        data: new FormData(this),
                         processData: false,
                         contentType: false,
                         headers: {
                             "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
-                            "X-Requested-With": "XMLHttpRequest",
+                            "X-Requested-With": "XMLHttpRequest"
                         },
-                        success: function(response) {
-                            window.location.href = '{{ route('admin.projectActivity.index') }}';
-                        },
-                        error: function(xhr) {
-                            $submitButton.prop('disabled', false).removeClass(
-                                'opacity-50 cursor-not-allowed').text(
-                                '{{ trans('global.save') }}');
-                            let errorMessage = xhr.responseJSON?.message ||
-                                "Failed to create activities.";
-                            if (xhr.responseJSON?.errors) {
-                                const errors = xhr.responseJSON.errors;
-                                let errorText = errorMessage + ":<br>";
+                        success: () => window.location.href =
+                            '{{ route('admin.projectActivity.index') }}',
+                        error: function(x) {
+                            $sb.prop('disabled', false).removeClass('opacity-50 cursor-not-allowed')
+                                .text('{{ trans('global.save') }}');
+                            let em = x.responseJSON?.message || "Failed.";
+                            if (x.responseJSON?.errors) {
+                                const es = x.responseJSON.errors;
+                                let et = em + ":<br>";
                                 $('.tooltip-error').removeClass('error-border');
-                                for (const [index, messages] of Object.entries(errors)) {
-                                    const section = messages.some(msg => msg.includes('capital')) ?
-                                        'capital' : 'recurrent';
-                                    const $row = $(
-                                        `#${section}-activities tr[data-index="${index}"]`);
-                                    messages.forEach(msg => {
-                                        errorText += `Row ${parseInt(index)}: ${msg}<br>`;
-                                        const fieldMatch = msg.match(
+                                for (const [idx, msgs] of Object.entries(es)) {
+                                    const sec = msgs.some(m => m.includes('capital')) ? 'capital' :
+                                        'recurrent';
+                                    const $r = $(`#${sec}-activities tr[data-index="${idx}"]`);
+                                    msgs.forEach(m => {
+                                        et += `Row ${parseInt(idx)}: ${m}<br>`;
+                                        const fm = m.match(
                                             /(program|total_budget_quantity|total_budget|total_expense_quantity|total_expense|planned_budget_quantity|planned_budget|q[1-4]_quantity|q[1-4])/i
                                         );
-                                        if (fieldMatch) {
-                                            const field = fieldMatch[1];
-                                            $row.find(`input[name*="[${field}]"]`).addClass(
-                                                'error-border');
-                                            updateTooltip($row.find(
-                                                `input[name*="[${field}]"]`), msg);
+                                        if (fm) {
+                                            const $i = $r.find(`input[name*="[${fm[1]}]"]`);
+                                            $i.addClass('error-border');
+                                            tooltip($i, m)
                                         }
                                     });
                                 }
-                                $("#error-text").html(errorText);
-                            } else {
-                                $("#error-text").text(errorMessage);
-                            }
+                                $("#error-text").html(et);
+                            } else $("#error-text").text(em);
                             $("#error-message").removeClass("hidden");
                         }
                     });
                 });
-                $("#close-error").on('click', function() {
-                    $("#error-message").addClass("hidden");
-                    $("#error-text").text("");
-                    $('.tooltip-error').removeClass('error-border');
-                    $('.tooltip-error').each(function() {
-                        updateTooltip($(this), '');
-                    });
-                });
-                updateRowNumbers('capital');
-                updateRowNumbers('recurrent');
-                updateTotals();
-                validateParentRows('capital');
-                validateParentRows('recurrent');
-                // NEW: Load Existing Program Button Handler
+
+                // ===== LOAD EXISTING =====
                 $('#load-existing-program').on('click', function() {
-                    const projectId = $('.js-single-select[data-name="project_id"] .js-hidden-input').val();
-                    // Removed fiscalYearId (per your note: only project_id needed)
-                    if (!projectId) {
-                        alert('Please select a project before loading existing programs.');
+                    const pid = $('.js-single-select[data-name="project_id"] .js-hidden-input').val();
+                    if (!pid) {
+                        $("#error-message").removeClass("hidden");
+                        $("#error-text").text('Select project first.');
                         return;
                     }
-                    // Show loading state
                     $(this).prop('disabled', true).text('Loading...');
                     $.ajax({
                         url: '{{ route('admin.projectActivity.getRows') }}',
                         method: 'GET',
                         data: {
-                            project_id: projectId // Only project_id
+                            project_id: pid
                         },
                         headers: {
                             "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
-                            "X-Requested-With": "XMLHttpRequest",
+                            "X-Requested-With": "XMLHttpRequest"
                         },
-                        success: function(response) {
-                            console.log('Load response:', response); // Debug: Check full data
-                            if (response.success && (response.capital || response.recurrent)) {
-                                // Clear existing rows fully
-                                $('#capital-tbody').empty();
-                                $('#recurrent-tbody').empty();
-                                // Temp reset globals to avoid pollution during load
-                                const originalCapitalIndex = capitalIndex;
-                                const originalRecurrentIndex = recurrentIndex;
-                                capitalIndex = 1;
-                                recurrentIndex = 1;
-                                // Helper to insert row HTML at correct position (after parent's last child)
-                                function insertRowHtml($tbody, html, parentIndex = null) {
-                                    if (parentIndex === null) {
-                                        // Top-level: Append to end
-                                        $tbody.append(html);
-                                    } else {
-                                        // Find parent row and insert after its last descendant
-                                        let $insertAfter = $tbody.find(
-                                            `tr[data-index="${parentIndex}"]`);
-                                        let lastDescendantIndex = parentIndex;
-                                        // Collect all descendants recursively
-                                        function collectDescendants(idx) {
-                                            const $children = $tbody.find(
-                                                `tr[data-parent="${idx}"]`);
-                                            $children.each(function() {
-                                                const childIdx = $(this).data('index');
-                                                lastDescendantIndex = Math.max(
-                                                    lastDescendantIndex, childIdx);
-                                                collectDescendants(childIdx);
-                                            });
-                                        }
-                                        collectDescendants(parentIndex);
-                                        $insertAfter = $tbody.find(
-                                            `tr[data-index="${lastDescendantIndex}"]`);
-                                        $insertAfter.after(html);
+                        success: function(r) {
+                            if (r.success && (r.capital || r.recurrent)) {
+                                $('#capital-tbody,#recurrent-tbody').empty();
+                                const ld = (sd, sec) => {
+                                    if (!sd || sd.length === 0) {
+                                        addRow(sec);
+                                        return;
                                     }
-                                }
-                                // Build and insert Capital Rows (manual HTML for exact indices)
-                                if (response.capital && response.capital.length > 0) {
-                                    response.capital.forEach(function(rowData) {
-                                        const index = rowData.index;
-                                        const depth = rowData.depth || 0;
-                                        const parentId = rowData.parent_id || null;
-                                        const type = 'capital';
-                                        // Build hidden parent input
-                                        let hiddenParentInput = '';
-                                        if (parentId !== null) {
-                                            hiddenParentInput =
-                                                `<input type="hidden" name="${type}[${index}][parent_id]" value="${parentId}">`;
-                                        }
-                                        // Build full row HTML (mirrors addRow's template, but uses rowData.index)
-                                        const html = `
-                                        <tr class="projectActivity-row" data-depth="${depth}" data-index="${index}" ${parentId !== null ? `data-parent="${parentId}"` : ''}>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-700 dark:text-gray-200 w-12 sticky left-0 z-30 bg-white dark:bg-gray-800 left-sticky">${rowData.number || index}</td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 w-80 sticky left-12 z-30 bg-white dark:bg-gray-800 left-sticky">
-                                                ${hiddenParentInput}
-                                                <input name="${type}[${index}][program]" type="text" value="${rowData.program || ''}" class="w-full border-0 p-1 tooltip-error" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][total_budget_quantity]" type="text" placeholder="0" value="${rowData.total_budget_quantity || ''}" class="w-full border-0 p-1 text-right total-budget-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                                                <input name="${type}[${index}][total_budget]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.total_budget || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right total-budget-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][total_expense_quantity]" type="text" placeholder="0" value="${rowData.total_expense_quantity || ''}" class="w-full border-0 p-1 text-right total-expense-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                                                <input name="${type}[${index}][total_expense]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.total_expense || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right expenses-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][planned_budget_quantity]" type="text" placeholder="0" value="${rowData.planned_budget_quantity || ''}" class="w-full border-0 p-1 text-right planned-budget-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                                                <input name="${type}[${index}][planned_budget]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.planned_budget || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right planned-budget-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q1_quantity]" type="text" placeholder="0" value="${rowData.q1_quantity || ''}" class="w-full border-0 p-1 text-right q1-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q1]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q1 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q2_quantity]" type="text" placeholder="0" value="${rowData.q2_quantity || ''}" class="w-full border-0 p-1 text-right q2-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q2]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q2 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q3_quantity]" type="text" placeholder="0" value="${rowData.q3_quantity || ''}" class="w-full border-0 p-1 text-right q3-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q3]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q3 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q4_quantity]" type="text" placeholder="0" value="${rowData.q4_quantity || ''}" class="w-full border-0 p-1 text-right q4-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q4]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q4 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center w-28 sticky right-0 z-30 bg-white dark:bg-gray-800 right-sticky">
-                                                <div class="flex space-x-2 justify-center">
-                                                    ${depth < 2 ? `<span class="add-sub-row cursor-pointer text-2xl text-blue-500">+</span>` : ''}
-                                                    ${(depth > 0 || index > 1) ? `<span class="remove-row cursor-pointer text-2xl text-red-500">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                </svg>
-                                                                            </span>` : ''}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `;
-                                        insertRowHtml($('#capital-tbody'), html, parentId ?
-                                            parseInt(parentId) : null);
-                                    });
-                                } else {
-                                    // Add default empty first row if no data
-                                    addRow('capital');
-                                }
-                                // Build and insert Recurrent Rows (identical to capital, symmetric)
-                                if (response.recurrent && response.recurrent.length > 0) {
-                                    response.recurrent.forEach(function(rowData) {
-                                        const index = rowData.index;
-                                        const depth = rowData.depth || 0;
-                                        const parentId = rowData.parent_id || null;
-                                        const type = 'recurrent';
-                                        let hiddenParentInput = '';
-                                        if (parentId !== null) {
-                                            hiddenParentInput =
-                                                `<input type="hidden" name="${type}[${index}][parent_id]" value="${parentId}">`;
-                                        }
-                                        const html = `
-                                        <tr class="projectActivity-row" data-depth="${depth}" data-index="${index}" ${parentId !== null ? `data-parent="${parentId}"` : ''}>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-700 dark:text-gray-200 w-12 sticky left-0 z-30 bg-white dark:bg-gray-800 left-sticky">${rowData.number || index}</td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 w-80 sticky left-12 z-30 bg-white dark:bg-gray-800 left-sticky">
-                                                ${hiddenParentInput}
-                                                <input name="${type}[${index}][program]" type="text" value="${rowData.program || ''}" class="w-full border-0 p-1 tooltip-error" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][total_budget_quantity]" type="text" placeholder="0" value="${rowData.total_budget_quantity || ''}" class="w-full border-0 p-1 text-right total-budget-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                                                <input name="${type}[${index}][total_budget]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.total_budget || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right total-budget-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][total_expense_quantity]" type="text" placeholder="0" value="${rowData.total_expense_quantity || ''}" class="w-full border-0 p-1 text-right total-expense-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                                                <input name="${type}[${index}][total_expense]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.total_expense || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right expenses-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][planned_budget_quantity]" type="text" placeholder="0" value="${rowData.planned_budget_quantity || ''}" class="w-full border-0 p-1 text-right planned-budget-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
-                                                <input name="${type}[${index}][planned_budget]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.planned_budget || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right planned-budget-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q1_quantity]" type="text" placeholder="0" value="${rowData.q1_quantity || ''}" class="w-full border-0 p-1 text-right q1-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q1]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q1 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q2_quantity]" type="text" placeholder="0" value="${rowData.q2_quantity || ''}" class="w-full border-0 p-1 text-right q2-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q2]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q2 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q3_quantity]" type="text" placeholder="0" value="${rowData.q3_quantity || ''}" class="w-full border-0 p-1 text-right q3-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q3]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q3 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-20">
-                                                <input name="${type}[${index}][q4_quantity]" type="text" placeholder="0" value="${rowData.q4_quantity || ''}" class="w-full border-0 p-1 text-right q4-quantity-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
-                                                <input name="${type}[${index}][q4]" type="text" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="0.00" value="${(parseFloat(rowData.q4 || 0)).toFixed(2)}" class="w-full border-0 p-1 text-right quarter-input tooltip-error numeric-input" />
-                                            </td>
-                                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center w-28 sticky right-0 z-30 bg-white dark:bg-gray-800 right-sticky">
-                                                <div class="flex space-x-2 justify-center">
-                                                    ${depth < 2 ? `<span class="add-sub-row cursor-pointer text-2xl text-blue-500">+</span>` : ''}
-                                                    ${(depth > 0 || index > 1) ? `<span class="remove-row cursor-pointer text-2xl text-red-500">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                </svg>
-                                                                            </span>` : ''}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `;
-                                        insertRowHtml($('#recurrent-tbody'), html,
-                                            parentId ? parseInt(parentId) : null);
-                                    });
-                                } else {
-                                    addRow('recurrent');
-                                }
-                                // Restore globals for future adds (use response's next index)
-                                capitalIndex = response.capital_index_next || originalCapitalIndex;
-                                recurrentIndex = response.recurrent_index_next ||
-                                    originalRecurrentIndex;
-                                // Re-initialize tooltips, validate, update numbers/totals
-                                initializeTooltips($('.tooltip-error'));
-                                ['capital', 'recurrent'].forEach(section => {
-                                    $(`#${section}-activities .projectActivity-row`).each(
-                                        function() {
-                                            const index = $(this).data('index');
-                                            validateRow(section, index);
+                                    let maxIdx = 0;
+                                    sd.forEach(rd => {
+                                        maxIdx = Math.max(maxIdx, rd.index);
+                                        const h = mkRow(sec, rd.index, rd.depth || 0, rd
+                                                .parent_id || null),
+                                            $tb = $(`#${sec}-tbody`);
+                                        if (rd.parent_id) {
+                                            const $pr = $tb.find(
+                                                    `tr[data-index="${rd.parent_id}"]`),
+                                                sts = [];
+                                            const cst = i => $tb.find(
+                                                `tr[data-parent="${i}"]`).each(
+                                                function() {
+                                                    sts.push($(this));
+                                                    cst($(this).data('index'))
+                                                });
+                                            cst(rd.parent_id);
+                                            (sts.length ? sts[sts.length - 1] : $pr)
+                                            .after(h);
+                                        } else $tb.append(h);
+                                        const $nr = $tb.find(
+                                                `tr[data-index="${rd.index}"]`),
+                                            t = sec === 'capital' ? 'capital' :
+                                            'recurrent';
+                                        ['program', 'total_budget_quantity',
+                                            'total_budget', 'total_expense_quantity',
+                                            'total_expense', 'planned_budget_quantity',
+                                            'planned_budget', 'q1_quantity', 'q1',
+                                            'q2_quantity', 'q2', 'q3_quantity', 'q3',
+                                            'q4_quantity', 'q4'
+                                        ].forEach(k => {
+                                            const $inp = $nr.find(
+                                                `input[name="${t}[${rd.index}][${k}]"]`
+                                            );
+                                            if ($inp.length && rd[k] !==
+                                                undefined) $inp.val(k.includes(
+                                                    'quantity') || k ===
+                                                'program' ? rd[k] :
+                                                parseFloat(rd[k] || 0)
+                                                .toFixed(2))
                                         });
-                                    validateParentRows(section);
-                                    updateRowNumbers(
-                                        section
-                                    ); // Overwrites backend 'number' with fresh calc
+                                    });
+                                    return maxIdx + 1;
+                                };
+                                const capMax = ld(r.capital, 'capital');
+                                const recMax = ld(r.recurrent, 'recurrent');
+                                capitalIndex = r.capital_index_next || capMax || capitalIndex;
+                                recurrentIndex = r.recurrent_index_next || recMax || recurrentIndex;
+                                initTippy($('.tooltip-error'));
+                                ['capital', 'recurrent'].forEach(sec => {
+                                    $(`#${sec}-activities .projectActivity-row`).each(
+                                        function() {
+                                            validateRow(sec, $(this).data('index'))
+                                        });
+                                    validateParents(sec);
+                                    updateNumbers(sec)
                                 });
                                 updateTotals();
-                                console.log('Loaded rows: Capital=', response.capital?.length || 0,
-                                    'Recurrent=', response.recurrent?.length || 0); // Debug
-                                alert('Existing programs loaded successfully!');
-                            } else {
-                                alert(response.message || 'No existing programs found.');
-                            }
+                            } else $("#error-message").removeClass("hidden");
+                            $("#error-text").text(r.message || 'No data.');
                         },
-                        error: function(xhr) {
-                            console.error('Error loading existing programs:', xhr.responseJSON ||
-                                xhr);
-                            alert(xhr.responseJSON?.error ||
-                                'Failed to load existing programs. Please try again.');
+                        error: () => {
+                            $("#error-message").removeClass("hidden");
+                            $("#error-text").text('Load failed.');
                         },
-                        complete: function() {
-                            // Reset button state
-                            $('#load-existing-program').prop('disabled', false).text(
-                                'Load Existing Program');
-                        }
+                        complete: () => $('#load-existing-program').prop('disabled', false).text(
+                            'Load Existing Program')
                     });
                 });
-                // Helper function to populate a row with data
-                function populateRow(selector, rowData, type, index) {
-                    const $row = $(selector);
-                    if (!$row.length) return;
-                    // Set data attributes
-                    $row.attr('data-depth', rowData.depth || 0);
-                    if (rowData.parent_id) {
-                        $row.attr('data-parent', rowData.parent_id);
-                        // Add hidden parent_id input if not exists
-                        if ($row.find(`input[name="${type}[${index}][parent_id]"]`).length === 0) {
-                            $row.find('td:nth-child(2)').append(
-                                `<input type="hidden" name="${type}[${index}][parent_id]" value="${rowData.parent_id}">`
-                            );
-                        }
-                    }
-                    // Populate inputs
-                    $row.find(`input[name="${type}[${index}][program]"]`).val(rowData.program || '');
-                    $row.find(`input[name="${type}[${index}][total_budget_quantity]"]`).val(rowData
-                        .total_budget_quantity || '');
-                    $row.find(`input[name="${type}[${index}][total_budget]"]`).val((rowData.total_budget || 0).toFixed(
-                        2));
-                    $row.find(`input[name="${type}[${index}][total_expense_quantity]"]`).val(rowData
-                        .total_expense_quantity || '');
-                    $row.find(`input[name="${type}[${index}][total_expense]"]`).val((rowData.total_expense || 0)
-                        .toFixed(2));
-                    $row.find(`input[name="${type}[${index}][planned_budget_quantity]"]`).val(rowData
-                        .planned_budget_quantity || '');
-                    $row.find(`input[name="${type}[${index}][planned_budget]"]`).val((rowData.planned_budget || 0)
-                        .toFixed(2));
-                    $row.find(`input[name="${type}[${index}][q1_quantity]"]`).val(rowData.q1_quantity || '');
-                    $row.find(`input[name="${type}[${index}][q1]"]`).val((rowData.q1 || 0).toFixed(2));
-                    $row.find(`input[name="${type}[${index}][q2_quantity]"]`).val(rowData.q2_quantity || '');
-                    $row.find(`input[name="${type}[${index}][q2]"]`).val((rowData.q2 || 0).toFixed(2));
-                    $row.find(`input[name="${type}[${index}][q3_quantity]"]`).val(rowData.q3_quantity || '');
-                    $row.find(`input[name="${type}[${index}][q3]"]`).val((rowData.q3 || 0).toFixed(2));
-                    $row.find(`input[name="${type}[${index}][q4_quantity]"]`).val(rowData.q4_quantity || '');
-                    $row.find(`input[name="${type}[${index}][q4]"]`).val((rowData.q4 || 0).toFixed(2));
-                }
-            });
-        </script>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const projectHidden = document.querySelector(
-                    '.js-single-select[data-name="project_id"] .js-hidden-input');
-                if (projectHidden) {
-                    projectHidden.addEventListener('change', function() {
-                        const url = new URL(window.location);
-                        if (this.value) {
-                            url.searchParams.set('project_id', this.value);
-                        } else {
-                            url.searchParams.delete('project_id');
-                        }
-                        window.location.href = url.toString();
-                    });
-                }
-                const fiscalHidden = document.querySelector(
-                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
-                if (fiscalHidden) {
-                    fiscalHidden.addEventListener('change', function() {
-                        // Add reload if needed
-                    });
-                }
-            });
-        </script>
-        <script>
-            function syncDownloadValues() {
-                const projectId = $('.js-single-select[data-name="project_id"] .js-hidden-input').val() || '';
-                const fiscalYearId = $('.js-single-select[data-name="fiscal_year_id"] .js-hidden-input').val() || '';
-                $('#download-project-hidden').val(projectId);
-                $('#download-fiscal-hidden').val(fiscalYearId);
-                if (!projectId || !fiscalYearId) {
-                    alert('Please select a project and fiscal year before downloading the template.');
-                    return false;
-                }
-                return true;
-            }
-        </script>
-        <script>
-            // Updated: Use MutationObserver to detect hidden input value changes (bypasses event firing issues)
-            document.addEventListener('DOMContentLoaded', function() {
-                const projectHidden = document.querySelector(
-                    '.js-single-select[data-name="project_id"] .js-hidden-input');
-                const fiscalHidden = document.querySelector(
-                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
-                const budgetDisplay = document.getElementById('budget-display');
-                let lastProjectValue = projectHidden ? projectHidden.value : '';
-                let lastFiscalValue = fiscalHidden ? fiscalHidden.value : '';
 
-                function loadBudgetData(trigger = 'unknown') {
-                    const projectId = projectHidden.value;
-                    const fiscalYearId = fiscalHidden.value;
-                    console.log(
-                        `loadBudgetData triggered by ${trigger} - Project: ${projectId}, Fiscal: ${fiscalYearId}`
-                    ); // Debug
-                    if (!projectId) {
-                        budgetDisplay.innerHTML =
-                            '<span class="block text-sm text-gray-500 dark:text-gray-400">Select a project to view budget details.</span>';
+                // INIT
+                initTippy($('.tooltip-error'));
+                ['capital', 'recurrent'].forEach(sec => {
+                    $(`#${sec}-activities .projectActivity-row`).each(function() {
+                        validateRow(sec, $(this).data('index'))
+                    });
+                    validateParents(sec)
+                });
+                updateNumbers('capital');
+                updateNumbers('recurrent');
+                updateTotals();
+            });
+
+            // ===== BUDGET DATA LOADER =====
+            document.addEventListener('DOMContentLoaded', function() {
+                const ph = document.querySelector('.js-single-select[data-name="project_id"] .js-hidden-input'),
+                    fh = document.querySelector('.js-single-select[data-name="fiscal_year_id"] .js-hidden-input'),
+                    bd = document.getElementById('budget-display');
+                let lp = ph ? ph.value : '',
+                    lf = fh ? fh.value : '';
+                const ld = () => {
+                    const pid = ph.value,
+                        fid = fh.value;
+                    if (!pid) {
+                        bd.innerHTML =
+                            '<span class="block text-sm text-gray-500 dark:text-gray-400">Select project.</span>';
                         return;
                     }
-                    // Show loading
-                    budgetDisplay.innerHTML =
-                        '<span class="block text-sm text-gray-500 dark:text-gray-400">Loading budget...</span>';
-                    const params = new URLSearchParams({
-                        project_id: projectId,
-                        fiscal_year_id: fiscalYearId || null
-                    });
-                    fetch(`{{ route('admin.projectActivity.budgetData') }}?${params}`, {
+                    bd.innerHTML = '<span class="block text-sm text-gray-500 dark:text-gray-400">Loading...</span>';
+                    fetch(`{{ route('admin.projectActivity.budgetData') }}?${new URLSearchParams({project_id:pid,fiscal_year_id:fid||null})}`, {
                             method: 'GET',
                             headers: {
                                 'X-Requested-With': 'XMLHttpRequest',
@@ -1722,130 +1286,73 @@
                                     'content')
                             }
                         })
-                        .then(response => {
-                            console.log('Budget fetch response status:', response.status); // Debug
-                            if (!response.ok) {
-                                throw new Error(`HTTP ${response.status}`);
-                            }
-                            return response.json();
+                        .then(r => {
+                            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                            return r.json()
                         })
-                        .then(data => {
-                            console.log('Budget AJAX success:', data); // Debug
-                            if (data.success && data.data) {
-                                const d = data.data;
-                                let fyNote = '';
-                                if (!fiscalYearId && d.fiscal_year) {
-                                    fyNote = ` (using default FY: ${d.fiscal_year})`;
-                                }
-                                budgetDisplay.innerHTML = `
-                                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600 dark:text-gray-300 font-medium">Total Remaining Budget${fyNote}:</span>
-                                            <span class="font-bold text-gray-800 dark:text-gray-100">${Number(d.total).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600 dark:text-gray-300">Internal:</span>
-                                            <span class="font-bold text-gray-800 dark:text-gray-100">${Number(d.internal).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600 dark:text-gray-300">Government Share:</span>
-                                            <span class="font-bold text-gray-800 dark:text-gray-100">${Number(d.government_share).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600 dark:text-gray-300">Government Loan:</span>
-                                            <span class="font-bold text-gray-800 dark:text-gray-100">${Number(d.government_loan).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600 dark:text-gray-300">Foreign Loan:</span>
-                                            <span class="font-bold text-gray-800 dark:text-gray-100">${Number(d.foreign_loan).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600 dark:text-gray-300">Foreign Subsidy:</span>
-                                            <span class="font-bold text-gray-800 dark:text-gray-100">${Number(d.foreign_subsidy).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
-                                        <span class="block text-xs text-gray-500 dark:text-gray-400">
-                                            Cumulative (incl. prior years): ${Number(d.cumulative).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                                        </span>
-                                    </div>
-                                </div>
-                            `;
-                            } else {
-                                budgetDisplay.innerHTML =
-                                    `<span class="block text-sm text-red-500 dark:text-red-400">${data.message || 'No budget data available.'}</span>`;
-                            }
+                        .then(d => {
+                            if (d.success && d.data) {
+                                const x = d.data,
+                                    fy = !fid && x.fiscal_year ? ` (FY: ${x.fiscal_year})` : '';
+                                bd.innerHTML =
+                                    `<div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                ${[['Total Remaining'+fy,'total'],['Internal','internal'],['Gov Share','government_share'],['Gov Loan','government_loan'],['Foreign Loan','foreign_loan'],['Foreign Subsidy','foreign_subsidy']].map(([l,k])=>
+                `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300 font-medium">${l}:</span><span class="font-bold text-gray-800 dark:text-gray-100">${Number(x[k]).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>`).join('')}
+                </div><div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800"><span class="block text-xs text-gray-500 dark:text-gray-400">Cumulative: ${Number(x.cumulative).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div></div>`;
+                            } else bd.innerHTML =
+                                `<span class="block text-sm text-red-500 dark:text-red-400">${d.message||'No data.'}</span>`
                         })
-                        .catch(error => {
-                            console.error('Budget fetch error:', error); // Debug
-                            budgetDisplay.innerHTML =
-                                '<span class="block text-sm text-red-500 dark:text-red-400">Error loading budget data. Check console.</span>';
-                        });
-                }
-                // MutationObserver for project changes
-                if (projectHidden) {
-                    const projectObserver = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                                const newValue = projectHidden.value;
-                                if (newValue !== lastProjectValue) {
-                                    console.log('Project value changed via observer - Old:',
-                                        lastProjectValue, 'New:', newValue); // Debug
-                                    lastProjectValue = newValue;
-                                    loadBudgetData('project-observer');
-                                }
+                        .catch(() => bd.innerHTML =
+                            '<span class="block text-sm text-red-500 dark:text-red-400">Error loading.</span>')
+                };
+                if (ph) {
+                    const po = new MutationObserver(m => m.forEach(x => {
+                        if (x.type === 'attributes' && x.attributeName === 'value') {
+                            const nv = ph.value;
+                            if (nv !== lp) {
+                                lp = nv;
+                                ld()
                             }
-                        });
-                    });
-                    projectObserver.observe(projectHidden, {
+                        }
+                    }));
+                    po.observe(ph, {
                         attributes: true
                     });
-                    // Fallback: Also add event listener
-                    projectHidden.addEventListener('change', function() {
-                        console.log('Project change fired via event - Value:', this.value); // Debug
-                        lastProjectValue = this.value;
-                        loadBudgetData('project-event');
+                    ph.addEventListener('change', function() {
+                        lp = this.value;
+                        ld()
                     });
                 }
-                // MutationObserver for fiscal changes
-                if (fiscalHidden) {
-                    const fiscalObserver = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                                const newValue = fiscalHidden.value;
-                                if (newValue !== lastFiscalValue) {
-                                    console.log('Fiscal value changed via observer - Old:',
-                                        lastFiscalValue, 'New:', newValue); // Debug
-                                    lastFiscalValue = newValue;
-                                    loadBudgetData('fiscal-observer');
-                                }
+                if (fh) {
+                    const fo = new MutationObserver(m => m.forEach(x => {
+                        if (x.type === 'attributes' && x.attributeName === 'value') {
+                            const nv = fh.value;
+                            if (nv !== lf) {
+                                lf = nv;
+                                ld()
                             }
-                        });
-                    });
-                    fiscalObserver.observe(fiscalHidden, {
+                        }
+                    }));
+                    fo.observe(fh, {
                         attributes: true
                     });
-                    // Fallback: Also add event listener
-                    fiscalHidden.addEventListener('change', function() {
-                        console.log('Fiscal change fired via event - Value:', this.value); // Debug
-                        lastFiscalValue = this.value;
-                        loadBudgetData('fiscal-event');
+                    fh.addEventListener('change', function() {
+                        lf = this.value;
+                        ld()
                     });
                 }
-                // Initial load
-                loadBudgetData('initial');
-                // Your old syncDownloadValues stays the same
-                window.syncDownloadValues = function() {
-                    const projectId = projectHidden ? projectHidden.value : '';
-                    const fiscalYearId = fiscalHidden ? fiscalHidden.value : '';
-                    document.getElementById('download-project-hidden').value = projectId;
-                    document.getElementById('download-fiscal-hidden').value = fiscalYearId;
-                    if (!projectId || !fiscalYearId) {
-                        alert('Please select a project and fiscal year before downloading the template.');
-                        return false;
+                ld();
+                window.syncDownloadValues = () => {
+                    const pid = ph ? ph.value : '',
+                        fid = fh ? fh.value : '';
+                    document.getElementById('download-project-hidden').value = pid;
+                    document.getElementById('download-fiscal-hidden').value = fid;
+                    if (!pid || !fid) {
+                        $("#error-message").removeClass("hidden");
+                        $("#error-text").text('Select project and fiscal year.');
+                        return false
                     }
-                    return true;
+                    return true
                 };
             });
         </script>
