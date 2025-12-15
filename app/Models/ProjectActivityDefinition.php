@@ -1,17 +1,15 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use Spatie\Activitylog\LogOptions;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Collection;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Illuminate\Support\Facades\Auth;
 
 class ProjectActivityDefinition extends Model
 {
@@ -24,19 +22,82 @@ class ProjectActivityDefinition extends Model
         'description',
         'total_budget',
         'total_quantity',
-        'status',
         'parent_id',
+        'sort_index',  // NEW
+        'depth',       // NEW
+        'status',
+        'reviewed_by',
+        'reviewed_at',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
-        'expenditure_id' => 'integer',
         'total_budget' => 'decimal:2',
         'total_quantity' => 'decimal:2',
+        'project_id' => 'integer',
+        'expenditure_id' => 'integer',
+        'parent_id' => 'integer',
+        'depth' => 'integer',
         'status' => 'string',
+        'reviewed_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     /**
-     * Get the project that owns the definition.
+     * Mutator to convert empty program to NULL.
+     */
+    public function setProgramAttribute(?string $value): void
+    {
+        $this->attributes['program'] = empty($value) ? null : $value;
+    }
+
+    public function getProgramAttribute(?string $value): string
+    {
+        return $value ?? '';
+    }
+
+    // Enhanced relations (from previous)
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // NEW: Accessors for formatted timestamps (e.g., in views: {{ $activity->formatted_reviewed_at }})
+    public function getFormattedReviewedAtAttribute(): ?string
+    {
+        return $this->reviewed_at?->format('M d, Y H:i') ?? 'N/A';
+    }
+
+    public function getFormattedApprovedAtAttribute(): ?string
+    {
+        return $this->approved_at?->format('M d, Y H:i') ?? 'N/A';
+    }
+
+    // Scopes (from previous, plus timestamp filters)
+    public function scopeUnderReview($query)
+    {
+        return $query->where('status', 'under_review');
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    // NEW: Scope for pending timestamps (e.g., reviewed but not approved)
+    public function scopePendingApproval($query)
+    {
+        return $query->whereNotNull('reviewed_at')->whereNull('approved_at');
+    }
+
+    /**
+     * Get the project this activity belongs to
      */
     public function project(): BelongsTo
     {
@@ -60,39 +121,32 @@ class ProjectActivityDefinition extends Model
     }
 
     /**
-     * Get child definitions (hierarchy).
-     */
-    public function children(): HasMany
-    {
-        return $this->hasMany(self::class, 'parent_id');
-    }
-
-    /**
-     * Get parent definition.
+     * Get the parent activity (if this is a sub-activity)
      */
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'parent_id');
+        return $this->belongsTo(ProjectActivityDefinition::class, 'parent_id');
     }
 
     /**
-     * Scope: Active definitions only.
+     * Get all child activities
      */
-    public function scopeActive($query)
+    public function children(): HasMany
     {
-        return $query->where('status', 'active');
+        return $this->hasMany(ProjectActivityDefinition::class, 'parent_id')
+            ->orderBy('sort_index');
     }
 
     /**
-     * Scope: By project.
+     * Get all descendants recursively
      */
-    public function scopeForProject($query, int $projectId)
+    public function descendants()
     {
-        return $query->where('project_id', $projectId);
+        return $this->children()->with('descendants');
     }
 
     /**
-     * Recursively get all descendants (children + grandchildren) for a node.
+     * Recursively get all descendants as a flat collection
      */
     public function getDescendants(): Collection
     {
@@ -110,23 +164,75 @@ class ProjectActivityDefinition extends Model
     }
 
     /**
-     * Calculate depth of this node in the hierarchy.
+     * Check if this is a top-level activity
      */
-    public function getDepthAttribute(): int
+    public function isTopLevel(): bool
     {
-        return $this->calculateDepth();
+        return $this->parent_id === null;
     }
 
-    private function calculateDepth(): int
+    /**
+     * Check if this activity can have children
+     */
+    public function canHaveChildren(): bool
     {
-        $depth = 0;
-        $current = $this;
-        while ($current->parent_id) {
-            $current = $current->parent;
-            if (!$current) break;
-            $depth++;
-        }
-        return $depth;
+        return $this->depth < 2; // Maximum depth is 2
+    }
+
+    /**
+     * Get the expenditure type name
+     */
+    public function getExpenditureTypeAttribute(): string
+    {
+        return $this->expenditure_id === 1 ? 'Capital' : 'Recurrent';
+    }
+
+    /**
+     * Scope to get only capital activities
+     */
+    public function scopeCapital($query)
+    {
+        return $query->where('expenditure_id', 1);
+    }
+
+    /**
+     * Scope to get only recurrent activities
+     */
+    public function scopeRecurrent($query)
+    {
+        return $query->where('expenditure_id', 2);
+    }
+
+    /**
+     * Scope to get only top-level activities
+     */
+    public function scopeTopLevel($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    /**
+     * Scope to order by sort index
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('sort_index');
+    }
+
+    /**
+     * Scope: Active definitions only.
+     */
+    // public function scopeActive($query)
+    // {
+    //     return $query->where('status', 'active');
+    // }
+
+    /**
+     * Scope: By project.
+     */
+    public function scopeForProject($query, int $projectId)
+    {
+        return $query->where('project_id', $projectId);
     }
 
     /**
@@ -180,6 +286,9 @@ class ProjectActivityDefinition extends Model
         return $this->getDescendants()->sum('total_quantity') + $this->total_quantity;
     }
 
+    /**
+     * Activity log configuration
+     */
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

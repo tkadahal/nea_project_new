@@ -6,36 +6,40 @@ namespace App\Services;
 
 use Illuminate\Support\Collection;
 use App\Models\ProjectActivityPlan;
+use App\Models\ProjectActivityDefinition;
 
 class ProjectActivityRowBuilder
 {
     public function buildFromDefinitions($definitions, string $type, ?int $fiscalYearId): array
     {
         $rows = [];
-        $index = 1;
 
         $allDefinitionIds = $this->collectAllDefinitionIds($definitions);
         $plans = $this->loadPlans($allDefinitionIds, $fiscalYearId);
 
-        $this->buildRowsRecursive($definitions, $rows, $index, 0, null, $plans);
-        $this->setRowNumbers($rows);
+        $this->buildRowsRecursive($definitions, $rows, $plans);
+        $objectRows = array_map(function ($row) {
+            return (object) $row;
+        }, $rows);
 
-        return $rows;
+        return $objectRows;
     }
 
     public function buildFromPlans($plans, string $section, int $fiscalYearId): array
     {
         $rows = [];
-        $index = 1;
 
         foreach ($plans as $plan) {
             $def = $plan->activityDefinition;
-            $rows[] = $this->buildRowFromPlan($plan, $index++, 0, null);
-            $this->addChildRowsFromPlans($def->children, $rows, end($rows)['index'], 1, $fiscalYearId);
+            $rows[] = $this->buildRowFromPlan($plan);
+            $this->addChildRowsFromPlans($def->children, $rows, $fiscalYearId);
         }
 
-        $this->setRowNumbers($rows);
-        return $rows;
+        $objectRows = array_map(function ($row) {
+            return (object) $row;
+        }, $rows);
+
+        return $objectRows;
     }
 
     private function collectAllDefinitionIds($definitions): Collection
@@ -71,72 +75,67 @@ class ProjectActivityRowBuilder
             ->keyBy('activity_definition_id');
     }
 
-    private function buildRowsRecursive($nodes, array &$rows, int &$index, int $depth, ?int $parentIndex, $plans): void
+    private function buildRowsRecursive($nodes, array &$rows, $plans): void
     {
         foreach ($nodes as $node) {
             $plan = $plans->get($node->id);
 
             $rows[] = [
-                'depth' => $depth,
-                'index' => $index,
-                'parent_id' => $parentIndex, // FIXED: Changed from parent_index to parent_id
-                'program' => $plan?->program_override ?? $node->program,
-                // CHANGED: Fixed totals from DEFINITION (not plan)
-                'total_budget_quantity' => $node->total_quantity ?? '',
-                'total_budget' => $node->total_budget ?? '',
-                'total_expense_quantity' => $plan?->completed_quantity ?? '',
-                'total_expense' => $plan?->total_expense ?? '',
-                'planned_budget_quantity' => $plan?->planned_quantity ?? '',
-                'planned_budget' => $plan?->planned_budget ?? '',
-                'q1_quantity' => $plan?->q1_quantity ?? '',
-                'q1' => $plan?->q1_amount ?? '',
-                'q2_quantity' => $plan?->q2_quantity ?? '',
-                'q2' => $plan?->q2_amount ?? '',
-                'q3_quantity' => $plan?->q3_quantity ?? '',
-                'q3' => $plan?->q3_amount ?? '',
-                'q4_quantity' => $plan?->q4_quantity ?? '',
-                'q4' => $plan?->q4_amount ?? '',
+                'id' => $node->id,
+                'sort_index' => $node->sort_index,
+                'depth' => $node->depth,
+                'parent_id' => $node->parent_id,
+                'program' => $plan?->program_override ?? $node->program ?? '',
+                'total_budget_quantity' => $node->total_quantity !== null ? (float) $node->total_quantity : null,
+                'total_budget' => $node->total_budget !== null ? (float) $node->total_budget : null,
+                'total_expense_quantity' => $plan?->completed_quantity !== null ? (float) $plan->completed_quantity : null,
+                'total_expense' => $plan?->total_expense !== null ? (float) $plan->total_expense : null,
+                'planned_budget_quantity' => $plan?->planned_quantity !== null ? (float) $plan->planned_quantity : null,
+                'planned_budget' => $plan?->planned_budget !== null ? (float) $plan->planned_budget : null,
+                'q1_quantity' => $plan?->q1_quantity !== null ? (float) $plan->q1_quantity : null,
+                'q1' => $plan?->q1_amount !== null ? (float) $plan->q1_amount : null,
+                'q2_quantity' => $plan?->q2_quantity !== null ? (float) $plan->q2_quantity : null,
+                'q2' => $plan?->q2_amount !== null ? (float) $plan->q2_amount : null,
+                'q3_quantity' => $plan?->q3_quantity !== null ? (float) $plan->q3_quantity : null,
+                'q3' => $plan?->q3_amount !== null ? (float) $plan->q3_amount : null,
+                'q4_quantity' => $plan?->q4_quantity !== null ? (float) $plan->q4_quantity : null,
+                'q4' => $plan?->q4_amount !== null ? (float) $plan->q4_amount : null,
             ];
 
             if ($node->children && $node->children->isNotEmpty()) {
-                $childParentIndex = $index;
-                $index++;
-                $this->buildRowsRecursive($node->children, $rows, $index, $depth + 1, $childParentIndex, $plans);
-            } else {
-                $index++;
+                $this->buildRowsRecursive($node->children, $rows, $plans);
             }
         }
     }
 
-    private function buildRowFromPlan($plan, int $index, int $depth, ?int $parentIndex): array
+    private function buildRowFromPlan($plan): array
     {
         $def = $plan->activityDefinition;
 
         return [
-            'index' => $index,
-            'depth' => $depth,
-            'parent_id' => $parentIndex, // FIXED: Changed from parent_index to parent_id
-            'number' => (string) $index,
-            'program' => $def->program,  // Or use $plan->effective_program if override
-            // CHANGED: Fixed totals from DEFINITION (not plan)
-            'total_budget_quantity' => $def->total_quantity ?? '',
-            'total_budget' => $def->total_budget ?? '',
-            'total_expense_quantity' => $plan->completed_quantity ?? '',
-            'total_expense' => $plan->total_expense ?? '',
-            'planned_budget_quantity' => $plan->planned_quantity ?? '',
-            'planned_budget' => $plan->planned_budget ?? '',
-            'q1_quantity' => $plan->q1_quantity ?? '',
-            'q1' => $plan->q1_amount ?? '',
-            'q2_quantity' => $plan->q2_quantity ?? '',
-            'q2' => $plan->q2_amount ?? '',
-            'q3_quantity' => $plan->q3_quantity ?? '',
-            'q3' => $plan->q3_amount ?? '',
-            'q4_quantity' => $plan->q4_quantity ?? '',
-            'q4' => $plan->q4_amount ?? '',
+            'id' => $def->id,
+            'sort_index' => $def->sort_index,
+            'depth' => $def->depth,
+            'parent_id' => $def->parent_id,
+            'program' => $plan->effective_program ?? $def->program ?? '',
+            'total_budget_quantity' => $def->total_quantity !== null ? (float) $def->total_quantity : null,
+            'total_budget' => $def->total_budget !== null ? (float) $def->total_budget : null,
+            'total_expense_quantity' => $plan->completed_quantity !== null ? (float) $plan->completed_quantity : null,
+            'total_expense' => $plan->total_expense !== null ? (float) $plan->total_expense : null,
+            'planned_budget_quantity' => $plan->planned_quantity !== null ? (float) $plan->planned_quantity : null,
+            'planned_budget' => $plan->planned_budget !== null ? (float) $plan->planned_budget : null,
+            'q1_quantity' => $plan->q1_quantity !== null ? (float) $plan->q1_quantity : null,
+            'q1' => $plan->q1_amount !== null ? (float) $plan->q1_amount : null,
+            'q2_quantity' => $plan->q2_quantity !== null ? (float) $plan->q2_quantity : null,
+            'q2' => $plan->q2_amount !== null ? (float) $plan->q2_amount : null,
+            'q3_quantity' => $plan->q3_quantity !== null ? (float) $plan->q3_quantity : null,
+            'q3' => $plan->q3_amount !== null ? (float) $plan->q3_amount : null,
+            'q4_quantity' => $plan->q4_quantity !== null ? (float) $plan->q4_quantity : null,
+            'q4' => $plan->q4_amount !== null ? (float) $plan->q4_amount : null,
         ];
     }
 
-    private function addChildRowsFromPlans($children, &$rows, $parentIndex, $depth, $fiscalYearId): void
+    private function addChildRowsFromPlans($children, &$rows, $fiscalYearId): void
     {
         if ($children->isEmpty()) return;
 
@@ -144,72 +143,30 @@ class ProjectActivityRowBuilder
             $plan = $child->plans->where('fiscal_year_id', $fiscalYearId)->first();
 
             $rows[] = [
-                'index' => count($rows) + 1,
-                'depth' => $depth,
-                'parent_id' => $parentIndex, // FIXED: Changed from parent_index to parent_id
-                'number' => '',
-                'program' => $child->program,  // Or $plan?->program_override if exists
-                // CHANGED: Fixed totals from DEFINITION (not plan)
-                'total_budget_quantity' => $child->total_quantity ?? '',
-                'total_budget' => $child->total_budget ?? '',
-                'total_expense_quantity' => $plan?->completed_quantity ?? '',
-                'total_expense' => $plan?->total_expense ?? '',
-                'planned_budget_quantity' => $plan?->planned_quantity ?? '',
-                'planned_budget' => $plan?->planned_budget ?? '',
-                'q1_quantity' => $plan?->q1_quantity ?? '',
-                'q1' => $plan?->q1_amount ?? '',
-                'q2_quantity' => $plan?->q2_quantity ?? '',
-                'q2' => $plan?->q2_amount ?? '',
-                'q3_quantity' => $plan?->q3_quantity ?? '',
-                'q3' => $plan?->q3_amount ?? '',
-                'q4_quantity' => $plan?->q4_quantity ?? '',
-                'q4' => $plan?->q4_amount ?? '',
+                'id' => $child->id,
+                'sort_index' => $child->sort_index,
+                'depth' => $child->depth,
+                'parent_id' => $child->parent_id,
+                'program' => $plan?->program_override ?? $child->program ?? '',
+                'total_budget_quantity' => $child->total_quantity !== null ? (float) $child->total_quantity : null,
+                'total_budget' => $child->total_budget !== null ? (float) $child->total_budget : null,
+                'total_expense_quantity' => $plan?->completed_quantity !== null ? (float) $plan?->completed_quantity : null,
+                'total_expense' => $plan?->total_expense !== null ? (float) $plan?->total_expense : null,
+                'planned_budget_quantity' => $plan?->planned_quantity !== null ? (float) $plan?->planned_quantity : null,
+                'planned_budget' => $plan?->planned_budget !== null ? (float) $plan?->planned_budget : null,
+                'q1_quantity' => $plan?->q1_quantity !== null ? (float) $plan?->q1_quantity : null,
+                'q1' => $plan?->q1_amount !== null ? (float) $plan?->q1_amount : null,
+                'q2_quantity' => $plan?->q2_quantity !== null ? (float) $plan?->q2_quantity : null,
+                'q2' => $plan?->q2_amount !== null ? (float) $plan?->q2_amount : null,
+                'q3_quantity' => $plan?->q3_quantity !== null ? (float) $plan?->q3_quantity : null,
+                'q3' => $plan?->q3_amount !== null ? (float) $plan?->q3_amount : null,
+                'q4_quantity' => $plan?->q4_quantity !== null ? (float) $plan?->q4_quantity : null,
+                'q4' => $plan?->q4_amount !== null ? (float) $plan?->q4_amount : null,
             ];
 
-            if ($depth < 2) {
-                $this->addChildRowsFromPlans($child->children, $rows, end($rows)['index'], $depth + 1, $fiscalYearId);
+            if ($child->depth < 2) {
+                $this->addChildRowsFromPlans($child->children, $rows, $fiscalYearId);
             }
         }
-    }
-
-    private function setRowNumbers(array &$rows): void
-    {
-        $topLevelCount = 0;
-        $levelOneCounts = [];
-        $levelTwoCounts = [];
-
-        foreach ($rows as &$row) {
-            $depth = $row['depth'];
-            $parentId = $row['parent_id']; // FIXED: Changed from parent_index to parent_id
-
-            if ($depth === 0) {
-                $topLevelCount++;
-                $row['number'] = (string) $topLevelCount;
-                $levelOneCounts[$topLevelCount] = 0;
-            } elseif ($depth === 1) {
-                $parentNumber = $this->findParentNumber($rows, $parentId); // FIXED: Changed variable name
-                $levelOneCounts[$parentNumber] = ($levelOneCounts[$parentNumber] ?? 0) + 1;
-                $row['number'] = $parentNumber . '.' . $levelOneCounts[$parentNumber];
-                $levelTwoCounts[$row['number']] = 0;
-            } elseif ($depth === 2) {
-                $parentNumber = $this->findParentNumber($rows, $parentId); // FIXED: Changed variable name
-                $levelTwoCounts[$parentNumber] = ($levelTwoCounts[$parentNumber] ?? 0) + 1;
-                $row['number'] = $parentNumber . '.' . $levelTwoCounts[$parentNumber];
-            }
-        }
-    }
-
-    private function findParentNumber(array $rows, ?int $parentId): string // FIXED: Changed parameter name
-    {
-        if ($parentId === null) {
-            return '';
-        }
-
-        foreach ($rows as $row) {
-            if ($row['index'] === $parentId) {
-                return $row['number'];
-            }
-        }
-        return '';
     }
 }

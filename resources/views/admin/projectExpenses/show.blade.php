@@ -61,44 +61,34 @@
                             <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-12">
-                                    #
-                                </th>
+                                    #</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-64">
-                                    Activity/Program
-                                </th>
+                                    Activity/Program</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q1 Qty
-                                </th>
+                                    Q1 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q1 Amt
-                                </th>
+                                    Q1 Amt</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q2 Qty
-                                </th>
+                                    Q2 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q2 Amt
-                                </th>
+                                    Q2 Amt</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q3 Qty
-                                </th>
+                                    Q3 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q3 Amt
-                                </th>
+                                    Q3 Amt</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q4 Qty
-                                </th>
+                                    Q4 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q4 Amt
-                                </th>
+                                    Q4 Amt</th>
                             </tr>
                         </thead>
                         <tbody id="capital-tbody">
@@ -126,14 +116,14 @@
                                         {{ $rootNumber }}
                                     </td>
                                     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"
-                                        style="padding-left: {{ 0 * 20 }}px;">
+                                        style="padding-left: 0px;">
                                         <span
                                             class="font-bold text-gray-900 dark:text-gray-100">{{ $activity->program ?? 'Untitled' }}</span>
                                     </td>
                                     @foreach ([1, 2, 3, 4] as $q)
                                         <td
                                             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">
-                                            {{ number_format($amounts['q' . $q . '_qty'], 0) }}
+                                            {{ number_format($amounts['q' . $q . '_qty'], 2) }} {{-- Changed from 0 to 2 --}}
                                         </td>
                                         <td
                                             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">
@@ -188,44 +178,34 @@
                             <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-12">
-                                    #
-                                </th>
+                                    #</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-64">
-                                    Activity/Program
-                                </th>
+                                    Activity/Program</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q1 Qty
-                                </th>
+                                    Q1 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q1 Amt
-                                </th>
+                                    Q1 Amt</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q2 Qty
-                                </th>
+                                    Q2 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q2 Amt
-                                </th>
+                                    Q2 Amt</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q3 Qty
-                                </th>
+                                    Q3 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q3 Amt
-                                </th>
+                                    Q3 Amt</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q4 Qty
-                                </th>
+                                    Q4 Qty</th>
                                 <th
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-center">
-                                    Q4 Amt
-                                </th>
+                                    Q4 Amt</th>
                             </tr>
                         </thead>
                         <tbody id="recurrent-tbody">
@@ -253,14 +233,14 @@
                                         {{ $rootNumber }}
                                     </td>
                                     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"
-                                        style="padding-left: {{ 0 * 20 }}px;">
+                                        style="padding-left: 0px;">
                                         <span
                                             class="font-bold text-gray-900 dark:text-gray-100">{{ $activity->program ?? 'Untitled' }}</span>
                                     </td>
                                     @foreach ([1, 2, 3, 4] as $q)
                                         <td
                                             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">
-                                            {{ number_format($amounts['q' . $q . '_qty'], 0) }}
+                                            {{ number_format($amounts['q' . $q . '_qty'], 2) }} {{-- Now shows decimals --}}
                                         </td>
                                         <td
                                             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">
@@ -301,13 +281,6 @@
     </div>
 
     <div class="mt-8 flex gap-4">
-        {{-- @can('projectExpense_edit')
-            <a href="{{ route('admin.projectExpense.edit', $project->id) }}"
-                class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-                Edit Expense
-            </a>
-        @endcan --}}
-
         @can('projectExpense_delete')
             <form action="{{ route('admin.projectExpense.destroy', $project->id) }}" method="POST"
                 onsubmit="return confirm('Are you sure you want to delete this expense?')" style="display: inline;">

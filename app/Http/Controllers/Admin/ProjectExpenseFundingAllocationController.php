@@ -246,8 +246,6 @@ class ProjectExpenseFundingAllocationController extends Controller
 
     public function store(StoreProjectExpenseFundingAllocationRequest $request)
     {
-        Log::info('Store started', ['request' => $request->all()]);
-
         $data = $request->validated();
         $projectId = $data['project_id'];
         $fiscalYearId = $data['fiscal_year_id'];
@@ -257,116 +255,105 @@ class ProjectExpenseFundingAllocationController extends Controller
         $activityDetails = json_decode($activityDetailsJson, true);
 
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($activityDetails)) {
-            Log::error('JSON decode failed', ['error' => json_last_error_msg(), 'json' => $activityDetailsJson]);
-            return redirect()->back()->withErrors(['activity_details' => 'Invalid activity details for Q' . $quarter . '.'])->withInput();
+            return back()->withErrors(['activity_details' => "Invalid activity details for Q{$quarter}."])->withInput();
         }
-        Log::info('JSON decoded', ['activity_count' => count($activityDetails)]);
 
         $qIds = array_column($activityDetails, 'id');
         if (empty($qIds)) {
-            Log::warning('No QIDs');
-            return redirect()->back()->withErrors(['error' => 'No activities found for Q' . $quarter . '.'])->withInput();
+            return back()->withErrors(['error' => "No activities found for Q{$quarter}."])->withInput();
         }
 
-        // FK Check: Strict validation - QIDs must exist AND match project/fiscal/quarter
+        // Validate that all submitted quarter IDs belong to this project/fiscal year/quarter and are leaf-level
         $uniqueQIds = array_unique($qIds);
         $validQIds = ProjectExpenseQuarter::whereIn('id', $uniqueQIds)
             ->where('quarter', $quarter)
             ->whereHas('expense', function ($q) use ($projectId, $fiscalYearId) {
-                $q->doesntHave('children') // Leaf-level
-                    ->whereHas('plan', function ($subQ) use ($fiscalYearId) {
-                        $subQ->where('fiscal_year_id', $fiscalYearId);
-                    })
-                    ->whereHas('plan.activityDefinition', function ($subQ) use ($projectId) {
-                        $subQ->where('project_id', $projectId);
-                    });
+                $q->doesntHave('children') // Only leaf expenses
+                    ->whereHas('plan', fn($subQ) => $subQ->where('fiscal_year_id', $fiscalYearId))
+                    ->whereHas('plan.activityDefinition', fn($subQ) => $subQ->where('project_id', $projectId));
             })
             ->pluck('id')
             ->toArray();
-        if (count($validQIds) !== count($uniqueQIds)) {
-            Log::error('QID mismatch - some don\'t match project/fiscal/quarter', [
-                'submitted' => $uniqueQIds,
-                'valid' => $validQIds,
-                'mismatch' => array_diff($uniqueQIds, $validQIds)
-            ]);
-            return redirect()->back()->withErrors(['error' => 'Invalid activity IDs for this project/quarter/fiscal year.'])->withInput();
-        }
-        Log::info('QIDs fully validated', ['valid_count' => count($validQIds)]);
 
+        if (count($validQIds) !== count($uniqueQIds)) {
+            return back()->withErrors(['error' => 'Some activity records do not belong to this project, fiscal year, or quarter.'])->withInput();
+        }
+
+        // Validate allocation sum matches total expense
         $sourceAmounts = [
-            'internal' => (float) $data['internal_allocations'],
-            'government_share' => (float) $data['gov_share_allocations'],
-            'government_loan' => (float) $data['gov_loan_allocations'],
-            'foreign_loan' => (float) $data['foreign_loan_allocations'],
-            'foreign_subsidy' => (float) $data['foreign_subsidy_allocations'],
+            'internal' => (float) ($data['internal_allocations'] ?? 0),
+            'government_share' => (float) ($data['gov_share_allocations'] ?? 0),
+            'government_loan' => (float) ($data['gov_loan_allocations'] ?? 0),
+            'foreign_loan' => (float) ($data['foreign_loan_allocations'] ?? 0),
+            'foreign_subsidy' => (float) ($data['foreign_subsidy_allocations'] ?? 0),
         ];
 
         $sumAlloc = array_sum($sourceAmounts);
         if (abs($sumAlloc - $quarterTotal) > 0.01) {
-            Log::warning('Sum mismatch', ['sumAlloc' => $sumAlloc, 'quarterTotal' => $quarterTotal]);
-            return redirect()->back()->withErrors(['error' => 'Allocations for Q' . $quarter . ' do not sum to total amount.'])->withInput();
+            return back()->withErrors(['error' => "Allocations for Q{$quarter} must equal the total expense amount."])->withInput();
         }
-        Log::info('Sum check passed', ['sumAlloc' => $sumAlloc, 'quarterTotal' => $quarterTotal]);
-
-        $project = Project::findOrFail($projectId);
-        Log::info('Project loaded', ['project_id' => $projectId]);
-
-        // Soft delete existing row for this project/fy/quarter
-        $deletedCount = ProjectExpenseFundingAllocation::where('project_id', $projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->where('quarter', $quarter)
-            ->whereNull('deleted_at')
-            ->delete();
-        Log::info('Soft deleted existing quarter allocation', ['count' => $deletedCount]);
-
-        // Insert single row with totals
-        $allocationData = [
-            'project_id' => $projectId,
-            'fiscal_year_id' => $fiscalYearId,
-            'quarter' => $quarter,
-            'internal_budget' => $sourceAmounts['internal'],
-            'government_share' => $sourceAmounts['government_share'],
-            'government_loan' => $sourceAmounts['government_loan'],
-            'foreign_loan_budget' => $sourceAmounts['foreign_loan'],
-            'foreign_subsidy_budget' => $sourceAmounts['foreign_subsidy'],
-        ];
 
         try {
             DB::beginTransaction();
-            ProjectExpenseFundingAllocation::create($allocationData);
-            $postInsertCount = ProjectExpenseFundingAllocation::where('project_id', $projectId)
+
+            // 1. Soft delete any existing allocation for this project/fy/quarter
+            ProjectExpenseFundingAllocation::where('project_id', $projectId)
                 ->where('fiscal_year_id', $fiscalYearId)
                 ->where('quarter', $quarter)
                 ->whereNull('deleted_at')
-                ->count();
-            DB::commit();
-            Log::info('Inserted quarter allocation', [
-                'expected_rows' => 1,
-                'post_insert_count' => $postInsertCount,
-                'data' => $allocationData
+                ->delete();
+
+            // 2. Create the new funding allocation
+            $allocation = ProjectExpenseFundingAllocation::create([
+                'project_id' => $projectId,
+                'fiscal_year_id' => $fiscalYearId,
+                'quarter' => $quarter,
+                'internal_budget' => $sourceAmounts['internal'],
+                'government_share' => $sourceAmounts['government_share'],
+                'government_loan' => $sourceAmounts['government_loan'],
+                'foreign_loan_budget' => $sourceAmounts['foreign_loan'],
+                'foreign_subsidy_budget' => $sourceAmounts['foreign_subsidy'],
             ]);
-            if ($postInsertCount === 0) {
-                throw new \Exception('No row inserted - check constraints.');
+
+            // 3. FINALIZE the draft expense quarters for this quarter
+            $updated = ProjectExpenseQuarter::where('quarter', $quarter)
+                ->where('status', 'draft') // Only update drafts
+                ->whereHas('expense.plan', function ($q) use ($projectId, $fiscalYearId) {
+                    $q->where('fiscal_year_id', $fiscalYearId)
+                        ->whereHas('activityDefinition', fn($qq) => $qq->where('project_id', $projectId));
+                })
+                ->update(['status' => 'finalized']);
+
+            DB::commit();
+
+            // Success: Determine next step
+            $nextQuarter = $quarter + 1;
+            $redirectParams = [
+                'project_id' => $projectId,
+                'fiscal_year_id' => $fiscalYearId,
+            ];
+
+            $successMessage = "Q{$quarter} funding allocation saved successfully! "
+                . number_format($quarterTotal, 2) . " allocated. "
+                . "<strong>{$updated} expense activities finalized.</strong>";
+
+            if ($nextQuarter <= 4) {
+                $redirectParams['quarter'] = $nextQuarter;
+                $successMessage .= " Proceed to Q{$nextQuarter} funding allocation.";
+            } else {
+                $successMessage .= " All quarters for this fiscal year are now complete!";
             }
+
+            return redirect()
+                ->route('admin.projectExpenseFundingAllocation.create', $redirectParams)
+                ->with('success', $successMessage);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Insert failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return redirect()->back()->withErrors(['error' => 'Save failed: ' . $e->getMessage()])->withInput();
-        }
 
-        // Success redirect
-        $nextQuarter = $quarter + 1;
-        $redirectParams = ['project_id' => $projectId, 'fiscal_year_id' => $fiscalYearId];
-        $successMessage = "Saved Q{$quarter} allocations (total: " . number_format($quarterTotal, 2) . ").";
-        if ($nextQuarter <= 4) {
-            $redirectParams['quarter'] = $nextQuarter;
-            $successMessage .= ' Proceed to Q' . $nextQuarter . '.';
-        } else {
-            $successMessage .= ' All done!';
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'Failed to save funding allocation: ' . $e->getMessage()]);
         }
-
-        return redirect()->route('admin.projectExpenseFundingAllocation.create', $redirectParams)
-            ->with('success', $successMessage);
     }
 
     public function edit(int $id): View

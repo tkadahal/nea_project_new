@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProjectExpenseQuarter extends Model
 {
@@ -17,12 +18,14 @@ class ProjectExpenseQuarter extends Model
         'quarter',
         'quantity',
         'amount',
+        'status',
     ];
 
     protected $casts = [
+        'quarter' => 'integer',
         'quantity' => 'decimal:2',
         'amount' => 'decimal:2',
-        'quarter' => 'integer',
+        'status' => 'string',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -36,5 +39,15 @@ class ProjectExpenseQuarter extends Model
     public function scopeForQuarter($query, int $quarter): void
     {
         $query->where('quarter', $quarter);
+    }
+
+    public function scopeDraft(Builder $query): void
+    {
+        $query->where('status', 'draft');
+    }
+
+    public function scopeFinalized(Builder $query): void
+    {
+        $query->where('status', 'finalized');
     }
 }

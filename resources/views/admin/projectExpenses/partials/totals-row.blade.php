@@ -8,7 +8,7 @@
     style="font-weight: bold;">
     <td
         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-700 dark:text-gray-200">
-
+        <!-- Empty for alignment -->
     </td>
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: {{ $depth * 20 }}px;">
         <span class="text-gray-800 dark:text-gray-200">Subtotal</span>
@@ -16,7 +16,7 @@
     @foreach ([1, 2, 3, 4] as $q)
         <td
             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">
-            {{ number_format($subtreeQuantities['q' . $q], 0) }}
+            {{ number_format($subtreeQuantities['q' . $q], 2) }} {{-- Changed from 0 to 2 --}}
         </td>
         <td
             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">

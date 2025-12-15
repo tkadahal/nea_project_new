@@ -107,8 +107,8 @@ class ProjectActivityExcelService
 
             $data[] = [
                 'index' => $index++,
-                'hash' => $hash,
-                'level' => $level,
+                'hash' => $hash, // This is the sort_index! (e.g., "1", "1.1", "1.1.1")
+                'level' => $level, // This is the depth!
                 'parent_hash' => $parentHash,
                 'program' => trim((string) ($sheet->getCell('B' . $rowNum)->getCalculatedValue() ?? '')),
                 'total_budget' => (float) ($sheet->getCell('D' . $rowNum)->getCalculatedValue() ?? 0),
@@ -162,13 +162,13 @@ class ProjectActivityExcelService
                 $errors[] = "Row #{$row['hash']}: Quarter amounts don't match planned budget.";
             }
 
-            // Validate quarter sums for quantities (ADDED)
+            // Validate quarter sums for quantities
             $quarterQuantitySum = $row['q1_quantity'] + $row['q2_quantity'] + $row['q3_quantity'] + $row['q4_quantity'];
             if (abs($row['planned_quantity'] - $quarterQuantitySum) > 0.01) {
                 $errors[] = "Row #{$row['hash']}: Quarter quantities don't match planned quantity.";
             }
 
-            // Validate non-negative values (EXTENDED to include quantities)
+            // Validate non-negative values
             if ($row['total_budget'] < 0 || $row['planned_budget'] < 0 || $row['total_quantity'] < 0 || $row['planned_quantity'] < 0) {
                 $errors[] = "Row #{$row['hash']}: Budget and quantity values cannot be negative.";
             }
@@ -176,6 +176,11 @@ class ProjectActivityExcelService
             // Validate program
             if (empty(trim($row['program']))) {
                 $errors[] = "Row #{$row['hash']}: Program name is required.";
+            }
+
+            // ADDED: Validate depth (max 2 levels)
+            if ($row['level'] > 2) {
+                $errors[] = "Row #{$row['hash']}: Maximum depth is 2 levels (found level {$row['level']}).";
             }
         }
 
@@ -190,7 +195,6 @@ class ProjectActivityExcelService
                 $errors[] = "Row #{$parentRow['hash']}: Children planned budget sum doesn't match parent.";
             }
 
-            // MODIFIED: Add validation for total_budget and total_quantity sums
             $childrenSumTotalBudget = array_reduce($children, fn($carry, $child) => $carry + $child['total_budget'], 0);
             if (abs($parentRow['total_budget'] - $childrenSumTotalBudget) > 0.01) {
                 $errors[] = "Row #{$parentRow['hash']}: Children total budget sum doesn't match parent.";
@@ -215,14 +219,16 @@ class ProjectActivityExcelService
         foreach ($data as $row) {
             $parentDefId = $row['parent_hash'] ? ($hashToId[$row['parent_hash']]['definition_id'] ?? null) : null;
 
-            // MODIFIED: Pass total_budget and total_quantity to upsert definition
+            // FIXED: Pass sort_index (hash) and depth (level) to upsert
             $definition = $this->upsertDefinition(
                 $projectId,
                 $row['program'],
                 $expenditureId,
                 $parentDefId,
                 $row['total_budget'],
-                $row['total_quantity']
+                $row['total_quantity'],
+                $row['hash'], // sort_index
+                $row['level'] // depth
             );
 
             $this->upsertPlan($definition->id, $fiscalYearId, $row);
@@ -231,33 +237,53 @@ class ProjectActivityExcelService
         }
     }
 
-    private function upsertDefinition(int $projectId, string $program, int $expenditureId, ?int $parentDefId, float $totalBudget, float $totalQuantity)
-    {
+    // FIXED: Added sort_index and depth parameters
+    private function upsertDefinition(
+        int $projectId,
+        string $program,
+        int $expenditureId,
+        ?int $parentDefId,
+        float $totalBudget,
+        float $totalQuantity,
+        string $sortIndex,
+        int $depth
+    ) {
+        // Find existing by project, program, and expenditure type
         $existing = ProjectActivityDefinition::where('project_id', $projectId)
             ->where('program', $program)
-            ->where('status', 'active')
+            ->where('expenditure_id', $expenditureId)
+            // ->where('status', 'active')
             ->first();
 
         if ($existing) {
-            // MODIFIED: Check for conflicts on expenditure_id and parent_id before updating
-            if ($existing->expenditure_id !== $expenditureId || $existing->parent_id !== $parentDefId) {
-                throw new Exception("Conflicting definition for '{$program}'.");
+            // Check for conflicts on parent_id
+            if ($existing->parent_id !== $parentDefId) {
+                throw new Exception("Conflicting parent for activity '{$program}'.");
             }
-        }
 
-        $definition = ProjectActivityDefinition::updateOrCreate(
-            [
-                'project_id' => $projectId,
-                'program' => $program,
-            ],
-            [
-                'expenditure_id' => $expenditureId,
-                'parent_id' => $parentDefId,
+            // Update existing with new values including sort_index and depth
+            $existing->update([
                 'total_budget' => $totalBudget,
                 'total_quantity' => $totalQuantity,
-                'status' => 'active',
-            ]
-        );
+                'sort_index' => $sortIndex,
+                'depth' => $depth,
+            ]);
+
+            return $existing;
+        }
+
+        // Create new definition with all required fields
+        $definition = ProjectActivityDefinition::create([
+            'project_id' => $projectId,
+            'program' => $program,
+            'expenditure_id' => $expenditureId,
+            'parent_id' => $parentDefId,
+            'total_budget' => $totalBudget,
+            'total_quantity' => $totalQuantity,
+            'sort_index' => $sortIndex,
+            'depth' => $depth,
+            // 'status' => 'active',
+        ]);
 
         return $definition;
     }
@@ -270,7 +296,6 @@ class ProjectActivityExcelService
                 'fiscal_year_id' => $fiscalYearId
             ],
             [
-                // MODIFIED: Removed total_budget and total_quantity (now in definitions)
                 'total_expense' => $row['total_expense'],
                 'completed_quantity' => $row['completed_quantity'],
                 'planned_budget' => $row['planned_budget'],

@@ -4,36 +4,51 @@
             {{ trans('global.projectActivity.title') }}
         </h1>
         <p class="text-gray-600 dark:text-gray-400 mt-1">
-            {{ trans('global.create') }} {{ trans('global.projectActivity.title_singular') }}
+            {{ trans('global.edit') }} {{ trans('global.projectActivity.title_singular') }}
         </p>
 
-        <!-- Action Buttons -->
-        <div class="mb-6 flex flex-wrap items-center gap-4">
-            <button type="button" id="download-template-btn"
-                class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                title="Download Excel Template">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                    </path>
-                </svg>
-                {{ trans('global.projectActivity.excel.download') }}
-            </button>
-            <a href="{{ route('admin.projectActivity.uploadForm') }}"
-                class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                title="Upload Excel">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
-                    </path>
-                </svg>
-                {{ trans('global.projectActivity.excel.upload') }}
-            </a>
+        <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+            <!-- Back button - left side -->
+            @can('projectActivity_access')
+                <a href="{{ route('admin.projectActivity.index') }}"
+                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300
+                  focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2
+                  dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-offset-gray-900">
+                    {{ trans('global.back_to_list') }}
+                </a>
+            @endcan
+
+            <!-- Action Buttons - right side -->
+            <div class="flex flex-wrap items-center gap-4">
+                <button type="button" id="download-template-btn"
+                    class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+                    title="Download Excel Template">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2z">
+                        </path>
+                    </svg>
+                    {{ trans('global.projectActivity.excel.download') }}
+                </button>
+
+                <a href="{{ route('admin.projectActivity.uploadForm') }}"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                    title="Upload Excel">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                        </path>
+                    </svg>
+                    {{ trans('global.projectActivity.excel.upload') }}
+                </a>
+            </div>
         </div>
     </div>
 
-    <form id="projectActivity-form" class="w-full" action="{{ route('admin.projectActivity.store') }}" method="POST">
+    <form id="projectActivity-form" class="w-full"
+        action="{{ route('admin.projectActivity.update', [$projectId, $fiscalYearId]) }}" method="POST">
         @csrf
+        @method('PUT')
 
         <!-- Project & Fiscal Year Selection -->
         <div
@@ -41,13 +56,13 @@
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="w-full md:w-1/2 relative z-50">
                     <x-forms.select label="{{ trans('global.projectActivity.fields.project_id') }}" name="project_id"
-                        id="project_id" :options="$projectOptions" :selected="$selectedProjectId ?? ''"
+                        id="project_id" :options="$projectOptions" :selected="$projectId"
                         placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('project_id')" class="js-single-select"
                         required />
                 </div>
                 <div class="w-full md:w-1/2 relative z-50">
                     <x-forms.select label="{{ trans('global.projectActivity.fields.fiscal_year_id') }}"
-                        name="fiscal_year_id" id="fiscal_year_id" :options="$fiscalYears" :selected="collect($fiscalYears)->firstWhere('selected', true)['value'] ?? ''"
+                        name="fiscal_year_id" id="fiscal_year_id" :options="$fiscalYears" :selected="$fiscalYearId"
                         placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('fiscal_year_id')" class="js-single-select"
                         required />
                 </div>
@@ -157,7 +172,7 @@
                                 </tr>
                             </thead>
                             <tbody id="capital-tbody">
-                                @forelse($capitalActivities as $activity)
+                                @forelse($capitalRows as $activity)
                                     @include('admin.projectActivities.partials.activity-row-full', [
                                         'activity' => $activity,
                                         'type' => 'capital',
@@ -273,7 +288,7 @@
                                 </tr>
                             </thead>
                             <tbody id="recurrent-tbody">
-                                @forelse($recurrentActivities as $activity)
+                                @forelse($recurrentRows as $activity)
                                     @include('admin.projectActivities.partials.activity-row-full', [
                                         'activity' => $activity,
                                         'type' => 'recurrent',
@@ -324,6 +339,10 @@
                 <x-buttons.primary id="submit-button" type="submit" :disabled="false">
                     {{ trans('global.save') }}
                 </x-buttons.primary>
+                <a href="{{ route('admin.projectActivity.index') }}"
+                    class="px-4 py-2 text-sm text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 ml-2">
+                    {{ trans('global.cancel') }}
+                </a>
             </div>
         </div>
     </form>

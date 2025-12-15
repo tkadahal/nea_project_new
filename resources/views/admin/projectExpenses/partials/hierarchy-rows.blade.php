@@ -26,7 +26,7 @@
         @foreach ([1, 2, 3, 4] as $q)
             <td
                 class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">
-                {{ number_format($amounts['q' . $q . '_qty'], 0) }}
+                {{ number_format($amounts['q' . $q . '_qty'], 2) }} {{-- Changed from 0 to 2 --}}
             </td>
             <td
                 class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm text-gray-700 dark:text-gray-200">

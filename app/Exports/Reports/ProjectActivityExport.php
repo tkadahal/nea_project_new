@@ -1,19 +1,20 @@
 <?php
 
-namespace App\Exports;
+declare(strict_types=1);
 
-use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
+namespace App\Exports\Reports;
+
+use App\Models\ProjectActivityPlan;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Models\ProjectActivityDefinition;
-use App\Models\ProjectActivityPlan;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use Illuminate\Database\Eloquent\Collection;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Illuminate\Support\Collection as SupportCollection;
 
 class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEvents
@@ -59,7 +60,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Row 4 (adjusted for compactness)
         $row4 = array_fill(0, 25, '');
         $fyTitle = $this->fiscalYear->title ?? '';
-        $row4[0] = '१. आ.व.:– ' . $fyTitle;  // FIXED: Concat label + value in A
+        $row4[0] = '१. आ.व.:– ' . $fyTitle;
         $row4[7] = '१०. वार्षिक बजेट रु.:';
         $row4[15] = '११. कार्यक्रम/आयोजनाको कुल लागत:';
         $data[] = $row4;
@@ -88,21 +89,21 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Row 8
         $row8 = array_fill(0, 25, '');
         $projectTitle = $this->project->title ?? '';
-        $row8[0] = '५. कार्यक्रम/आयोजनाको नाम: ' . $projectTitle;  // FIXED: Concat
+        $row8[0] = '५. कार्यक्रम/आयोजनाको नाम: ' . $projectTitle;
         $row8[7] = '(३) जनसहभागिता:';
         $row8[15] = '(३) जनसहभागिता:';
         $data[] = $row8;
 
         // Row 9
         $row9 = array_fill(0, 25, '');
-        $row9[0] = '६. स्थान: (क) जिल्ला:';  // FIXED: Concat sub-label into A
+        $row9[0] = '६. स्थान: (क) जिल्ला:';
         $row9[7] = '(ख) वैदेशिक';
         $row9[15] = '(ख) वैदेशिक';
         $data[] = $row9;
 
         // Row 10
         $row10 = array_fill(0, 25, '');
-        $row10[0] = '(ख) गाउँपालिका/नगरपालिका:';  // FIXED: Move sub-label to A (no main label)
+        $row10[0] = '(ख) गाउँपालिका/नगरपालिका:';
         $row10[7] = '(१) ऋण:';
         $row10[15] = '(१) ऋण:';
         $data[] = $row10;
@@ -116,7 +117,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Row 12
         $row12 = array_fill(0, 25, '');
         $startDate = $this->project->start_date ? $this->project->start_date->format('Y-m-d') : '';
-        $row12[0] = '७. कार्यक्रम/आयोजना सुरु भएको मिति: ' . $startDate;  // FIXED: Concat
+        $row12[0] = '७. कार्यक्रम/आयोजना सुरु भएको मिति: ' . $startDate;
         $row12[7] = '(ग) मुद्रा:';
         $row12[15] = '(२) अनुदान:';
         $data[] = $row12;
@@ -124,18 +125,18 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Row 13
         $row13 = array_fill(0, 25, '');
         $endDate = $this->project->end_date ? $this->project->end_date->format('Y-m-d') : '';
-        $row13[0] = '८. कार्यक्रम/आयोजना पूरा हुने मिति: ' . $endDate;  // FIXED: Concat
+        $row13[0] = '८. कार्यक्रम/आयोजना पूरा हुने मिति: ' . $endDate;
         $row13[7] = '(घ) दातृपक्ष/संस्था:';
         $data[] = $row13;
 
         // Row 14
         $row14 = array_fill(0, 25, '');
         $managerName = $this->project->projectManager ? ($this->project->projectManager->name ?? '') : '';
-        $row14[0] = '९. आयोजना/कार्यालय प्रमुखको नाम: ' . $managerName;  // FIXED: Concat
+        $row14[0] = '९. आयोजना/कार्यालय प्रमुखको नाम: ' . $managerName;
         $row14[15] = '१२. गत आ.व. सम्मको खर्च रु. (सोझै भुक्तानी र वस्तुगत अनुदान समेत)';
         $data[] = $row14;
 
-        // Rows 15-21 unchanged (no values in B)
+        // Rows 15-21
         $row15 = array_fill(0, 25, '');
         $row15[15] = '(क) आन्तरिक';
         $data[] = $row15;
@@ -164,15 +165,15 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $row21[15] = '(२) अनुदान:';
         $data[] = $row21;
 
-        // Note about amount format (no blank before)
+        // Note about amount format
         $noteRow = array_fill(0, 25, '');
         $noteRow[24] = '(रकम रु. हजारमा)';
         $data[] = $noteRow;
 
-        // ========== TABLE SECTION (No blank before headers) ==========
+        // ========== TABLE SECTION ==========
         $this->tableHeaderRow = count($data) + 1;
 
-        // Main Table Headers (Simplified: Single row only)
+        // Main Table Headers
         $data[] = [
             'क्र.सं.',
             'कार्यक्रम/क्रियाकलाप',
@@ -201,7 +202,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             'कैफियत'
         ];
 
-        // Sub-sub header row (new: detailed labels for each column group)
+        // Sub-sub header row
         $subSubHeader = array_fill(0, 25, '');
         $subSubHeader[3] = 'परिमाण'; // D
         $subSubHeader[4] = 'लागत'; // E
@@ -233,12 +234,12 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         }
         $data[] = $subHeader;
 
-        // Capital Section (REFINED: Compute totals first to derive globalX from sum of leaves for accurate weights)
+        // Capital Section
         $capitalTotals = [];
         $capitalDefinitions = ProjectActivityDefinition::forProject($this->projectId)
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
-            ->active()
+            ->orderBy('sort_index')
             ->with('children.children')
             ->get();
 
@@ -248,13 +249,12 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_id', $capitalDefIds)
             ->where('fiscal_year_id', $this->fiscalYearId)
-            ->active()
             ->get()
             ->keyBy('activity_definition_id');
 
         if ($capitalDefinitions->isNotEmpty()) {
             $capitalTotals = $this->calculateOverallTotals($capitalDefinitions, $capitalPlans);
-            $this->globalXCapital = (float) $capitalTotals['total_budget'];  // REFINED: Use calculated sum from leaves as denominator for weights
+            $this->globalXCapital = (float) $capitalTotals['total_budget'];
 
             $row = count($data) + 1;
             $data[] = ['पूँजीगत खर्च अन्तर्गतका कार्यक्रमहरूः'];
@@ -272,7 +272,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $recurrentDefinitions = ProjectActivityDefinition::forProject($this->projectId)
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
-            ->active()
+            ->orderBy('sort_index')
             ->with('children.children')
             ->get();
 
@@ -282,13 +282,12 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_id', $recurrentDefIds)
             ->where('fiscal_year_id', $this->fiscalYearId)
-            ->active()
             ->get()
             ->keyBy('activity_definition_id');
 
         if ($recurrentDefinitions->isNotEmpty()) {
             $recurrentTotals = $this->calculateOverallTotals($recurrentDefinitions, $recurrentPlans);
-            $this->globalXRecurrent = (float) $recurrentTotals['total_budget'];  // REFINED: Use calculated sum from leaves as denominator for weights
+            $this->globalXRecurrent = (float) $recurrentTotals['total_budget'];
 
             $row = count($data) + 1;
             $data[] = ['चालू खर्च अन्तर्गतका कार्यक्रमहरुः'];
@@ -300,7 +299,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $data[] = $this->buildTotalRow('(ख)', 'चालू खर्च अन्तर्गित का कार्यक्रम हरू को जम्मा', $recurrentTotals, $this->globalXRecurrent, false);
             $this->totalRows[] = $row;
 
-            // Recurrent extras (no blanks)
             $zeroTotals = [
                 'total_quantity' => 0,
                 'completed_quantity' => 0,
@@ -331,7 +329,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $this->totalRows[] = $row;
         }
 
-        // Grand Total (no blanks before)
+        // Grand Total
         $globalXGrand = $this->globalXCapital + $this->globalXRecurrent;
         $grandTotals = [
             'total_quantity' => ($capitalTotals['total_quantity'] ?? 0) + ($recurrentTotals['total_quantity'] ?? 0),
@@ -359,7 +357,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $data[] = $this->buildTotalRow('(ग)', 'कुल जम्मा (पूँजीगत + चालू)', $grandTotals, $globalXGrand, false);
         $this->totalRows[] = $row;
 
-        // Signature Section (no blanks before)
+        // Signature Section
         $this->footerStart = count($data) + 1;
         $footerRow1 = array_fill(0, 25, '');
         $footerRow1[0] = 'कार्यालय वा आयोजना प्रमुख:';
@@ -432,7 +430,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $program = $plan->effective_program ?? $definition->program ?? '';
 
         if ($hasChildren) {
-            // REFINED: For parents with children, show totally blank from C to Y
             return [
                 $number,
                 $program,
@@ -462,53 +459,49 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             ];
         }
 
-        // For leaves: Use definition/plan raw fields, but derive var-like weights locally (no DB var_ dependency)
-        $displayTotalQuantity = $definition->total_quantity ?? 0;
-        $displayTotalBudget = $definition->total_budget ?? 0;
-        $displayCompletedQuantity = $plan->completed_quantity ?? 0;
-        $displayPlannedQuantity = $plan->planned_quantity ?? 0;
-        $displayQ1Quantity = $plan->q1_quantity ?? 0;
-        $displayQ2Quantity = $plan->q2_quantity ?? 0;
-        $displayQ3Quantity = $plan->q3_quantity ?? 0;
-        $displayQ4Quantity = $plan->q4_quantity ?? 0;
-        $displayTotalExpense = $plan->total_expense ?? 0;
-        $displayPlannedBudget = $plan->planned_budget ?? 0;
-        $displayQ1 = $plan->q1_amount ?? 0;
-        $displayQ2 = $plan->q2_amount ?? 0;
-        $displayQ3 = $plan->q3_amount ?? 0;
-        $displayQ4 = $plan->q4_amount ?? 0;
+        // Leaf nodes
+        $displayTotalQuantity = (float) ($definition->total_quantity ?? 0);
+        $displayTotalBudget = (float) ($definition->total_budget ?? 0);
+        $displayCompletedQuantity = (float) ($plan->completed_quantity ?? 0);
+        $displayPlannedQuantity = (float) ($plan->planned_quantity ?? 0);
+        $displayQ1Quantity = (float) ($plan->q1_quantity ?? 0);
+        $displayQ2Quantity = (float) ($plan->q2_quantity ?? 0);
+        $displayQ3Quantity = (float) ($plan->q3_quantity ?? 0);
+        $displayQ4Quantity = (float) ($plan->q4_quantity ?? 0);
+        $displayTotalExpense = (float) ($plan->total_expense ?? 0);
+        $displayPlannedBudget = (float) ($plan->planned_budget ?? 0);
+        $displayQ1 = (float) ($plan->q1_amount ?? 0);
+        $displayQ2 = (float) ($plan->q2_amount ?? 0);
+        $displayQ3 = (float) ($plan->q3_amount ?? 0);
+        $displayQ4 = (float) ($plan->q4_amount ?? 0);
 
         $isCapital = $expenditureType === 'capital';
         $budget = $displayTotalBudget;
-        $weightBudget = $globalX > 0 ? number_format($budget / $globalX * 100, 2) : '0.00';  // REFINED: Uses calculated globalX (sum of leaves) for accurate (E full / section total full) * 100
+
+        // FIXED: Calculate raw weight first (float), then format for display
+        $rawWeightBudget = $globalX > 0 ? ($budget / $globalX) * 100 : 0.0;
+        $weightBudget = number_format($rawWeightBudget, 2);
 
         if (!$isCapital) {
             $weightExpense = $weightPlanned = $weightQ1 = $weightQ2 = $weightQ3 = $weightQ4 = '0.00';
         } else {
-            // REFINED: Explicitly compute column I as (G / D) * F
             $progressRatio = $displayTotalQuantity > 0 ? $displayCompletedQuantity / $displayTotalQuantity : 0;
-            $weightExpense = number_format($progressRatio * (float) str_replace(',', '', $weightBudget), 2);  // (G / D) * F
+            $weightExpense = number_format($progressRatio * $rawWeightBudget, 2);
 
-            // REFINED: Similarly for planned (K = (J / D) * F)
             $plannedRatio = $displayTotalQuantity > 0 ? $displayPlannedQuantity / $displayTotalQuantity : 0;
-            $weightPlanned = number_format($plannedRatio * (float) str_replace(',', '', $weightBudget), 2);
+            $weightPlanned = number_format($plannedRatio * $rawWeightBudget, 2);
 
-            // REFINED: Quarterly weights as (quarter_qty / D) * F
-            if ($displayPlannedQuantity > 0 && $displayTotalQuantity > 0) {
-                $q1Ratio = $displayQ1Quantity / $displayTotalQuantity;
-                $weightQ1 = number_format($q1Ratio * (float) str_replace(',', '', $weightBudget), 2);
+            $q1Ratio = $displayTotalQuantity > 0 ? $displayQ1Quantity / $displayTotalQuantity : 0;
+            $weightQ1 = number_format($q1Ratio * $rawWeightBudget, 2);
 
-                $q2Ratio = $displayQ2Quantity / $displayTotalQuantity;
-                $weightQ2 = number_format($q2Ratio * (float) str_replace(',', '', $weightBudget), 2);
+            $q2Ratio = $displayTotalQuantity > 0 ? $displayQ2Quantity / $displayTotalQuantity : 0;
+            $weightQ2 = number_format($q2Ratio * $rawWeightBudget, 2);
 
-                $q3Ratio = $displayQ3Quantity / $displayTotalQuantity;
-                $weightQ3 = number_format($q3Ratio * (float) str_replace(',', '', $weightBudget), 2);
+            $q3Ratio = $displayTotalQuantity > 0 ? $displayQ3Quantity / $displayTotalQuantity : 0;
+            $weightQ3 = number_format($q3Ratio * $rawWeightBudget, 2);
 
-                $q4Ratio = $displayQ4Quantity / $displayTotalQuantity;
-                $weightQ4 = number_format($q4Ratio * (float) str_replace(',', '', $weightBudget), 2);
-            } else {
-                $weightQ1 = $weightQ2 = $weightQ3 = $weightQ4 = '0.00';
-            }
+            $q4Ratio = $displayTotalQuantity > 0 ? $displayQ4Quantity / $displayTotalQuantity : 0;
+            $weightQ4 = number_format($q4Ratio * $rawWeightBudget, 2);
         }
 
         return [
@@ -542,8 +535,8 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
     private function buildTotalRow(string $prefix, string $label, array $totals, float $globalX, bool $calculateVar): array
     {
-        $budgetWeight = $globalX > 0 ? ($totals['total_budget'] / $globalX) * 100 : 0;  // REFINED: For section total, this will be 100.00; for subtotals, proportional
-        $expenseWeight = $calculateVar && $globalX > 0 ? ($totals['weighted_expense_contrib'] / $globalX * 100) : 0;  // Aggregated equivalent of sum((G/D)*F)
+        $budgetWeight = $globalX > 0 ? ($totals['total_budget'] / $globalX) * 100 : 0;
+        $expenseWeight = $calculateVar && $globalX > 0 ? ($totals['weighted_expense_contrib'] / $globalX * 100) : 0;
         $plannedWeight = $calculateVar && $globalX > 0 ? ($totals['weighted_planned_contrib'] / $globalX * 100) : 0;
         $q1Weight = $calculateVar && $globalX > 0 ? ($totals['weighted_q1_contrib'] / $globalX * 100) : 0;
         $q2Weight = $calculateVar && $globalX > 0 ? ($totals['weighted_q2_contrib'] / $globalX * 100) : 0;
@@ -582,26 +575,26 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
     private function calculateTotalsForParent(ProjectActivityDefinition $parentDef, SupportCollection $plans): array
     {
         $totals = [
-            'total_quantity' => 0,
-            'completed_quantity' => 0,
-            'planned_quantity' => 0,
-            'q1_quantity' => 0,
-            'q2_quantity' => 0,
-            'q3_quantity' => 0,
-            'q4_quantity' => 0,
-            'total_budget' => 0,
-            'total_expense' => 0,
-            'planned_budget' => 0,
-            'q1' => 0,
-            'q2' => 0,
-            'q3' => 0,
-            'q4' => 0,
-            'weighted_expense_contrib' => 0,
-            'weighted_planned_contrib' => 0,
-            'weighted_q1_contrib' => 0,
-            'weighted_q2_contrib' => 0,
-            'weighted_q3_contrib' => 0,
-            'weighted_q4_contrib' => 0,
+            'total_quantity' => 0.0,
+            'completed_quantity' => 0.0,
+            'planned_quantity' => 0.0,
+            'q1_quantity' => 0.0,
+            'q2_quantity' => 0.0,
+            'q3_quantity' => 0.0,
+            'q4_quantity' => 0.0,
+            'total_budget' => 0.0,
+            'total_expense' => 0.0,
+            'planned_budget' => 0.0,
+            'q1' => 0.0,
+            'q2' => 0.0,
+            'q3' => 0.0,
+            'q4' => 0.0,
+            'weighted_expense_contrib' => 0.0,
+            'weighted_planned_contrib' => 0.0,
+            'weighted_q1_contrib' => 0.0,
+            'weighted_q2_contrib' => 0.0,
+            'weighted_q3_contrib' => 0.0,
+            'weighted_q4_contrib' => 0.0,
         ];
         $this->sumLeafNodes($parentDef, $totals, $plans);
         return $totals;
@@ -612,50 +605,46 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $children = $def->children ?? collect();
         if ($children->isEmpty()) {
             $plan = $plans->get($def->id);
-            if (!$plan) {
-                // MODIFIED: Even without plan, use definition's fixed totals for quantity/budget
-                $totals['total_quantity'] += $def->total_quantity ?? 0;
-                $totals['total_budget'] += $def->total_budget ?? 0;
-                return;
-            }
 
-            // MODIFIED: Use definition's fixed total_quantity/total_budget as base for weights
-            $totalQuantity = $def->total_quantity ?? 0;
-            $budget = $def->total_budget ?? 0;
+            $totalQuantity = (float) ($def->total_quantity ?? 0);
+            $budget = (float) ($def->total_budget ?? 0);
+
             $totals['total_quantity'] += $totalQuantity;
             $totals['total_budget'] += $budget;
-            $totals['completed_quantity'] += $plan->completed_quantity ?? 0;
-            $totals['planned_quantity'] += $plan->planned_quantity ?? 0;
-            $totals['q1_quantity'] += $plan->q1_quantity ?? 0;
-            $totals['q2_quantity'] += $plan->q2_quantity ?? 0;
-            $totals['q3_quantity'] += $plan->q3_quantity ?? 0;
-            $totals['q4_quantity'] += $plan->q4_quantity ?? 0;
-            $totals['total_expense'] += $plan->total_expense ?? 0;
-            $totals['planned_budget'] += $plan->planned_budget ?? 0;
-            $totals['q1'] += $plan->q1_amount ?? 0;
-            $totals['q2'] += $plan->q2_amount ?? 0;
-            $totals['q3'] += $plan->q3_amount ?? 0;
-            $totals['q4'] += $plan->q4_amount ?? 0;
+
+            if ($plan) {
+                $totals['completed_quantity'] += (float) ($plan->completed_quantity ?? 0);
+                $totals['planned_quantity'] += (float) ($plan->planned_quantity ?? 0);
+                $totals['q1_quantity'] += (float) ($plan->q1_quantity ?? 0);
+                $totals['q2_quantity'] += (float) ($plan->q2_quantity ?? 0);
+                $totals['q3_quantity'] += (float) ($plan->q3_quantity ?? 0);
+                $totals['q4_quantity'] += (float) ($plan->q4_quantity ?? 0);
+                $totals['total_expense'] += (float) ($plan->total_expense ?? 0);
+                $totals['planned_budget'] += (float) ($plan->planned_budget ?? 0);
+                $totals['q1'] += (float) ($plan->q1_amount ?? 0);
+                $totals['q2'] += (float) ($plan->q2_amount ?? 0);
+                $totals['q3'] += (float) ($plan->q3_amount ?? 0);
+                $totals['q4'] += (float) ($plan->q4_amount ?? 0);
+            }
 
             if ($totalQuantity > 0 && $def->expenditure_id == 1) {
-                $progress = ($plan->completed_quantity ?? 0) / $totalQuantity;
+                $progress = $totals['completed_quantity'] / $totalQuantity;  // Use accumulated, but since leaf, same
                 $totals['weighted_expense_contrib'] += $progress * $budget;
 
-                $plannedProgress = ($plan->planned_quantity ?? 0) / $totalQuantity;
+                $plannedProgress = $totals['planned_quantity'] / $totalQuantity;
                 $totals['weighted_planned_contrib'] += $plannedProgress * $budget;
 
-                $plannedQuantity = $plan->planned_quantity ?? 0;
-                if ($plannedQuantity > 0) {
-                    $q1Progress = ($plan->q1_quantity ?? 0) / $totalQuantity;
+                if ($totals['planned_quantity'] > 0) {
+                    $q1Progress = $totals['q1_quantity'] / $totalQuantity;
                     $totals['weighted_q1_contrib'] += $q1Progress * $budget;
 
-                    $q2Progress = ($plan->q2_quantity ?? 0) / $totalQuantity;
+                    $q2Progress = $totals['q2_quantity'] / $totalQuantity;
                     $totals['weighted_q2_contrib'] += $q2Progress * $budget;
 
-                    $q3Progress = ($plan->q3_quantity ?? 0) / $totalQuantity;
+                    $q3Progress = $totals['q3_quantity'] / $totalQuantity;
                     $totals['weighted_q3_contrib'] += $q3Progress * $budget;
 
-                    $q4Progress = ($plan->q4_quantity ?? 0) / $totalQuantity;
+                    $q4Progress = $totals['q4_quantity'] / $totalQuantity;
                     $totals['weighted_q4_contrib'] += $q4Progress * $budget;
                 }
             }
@@ -669,31 +658,31 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
     private function calculateOverallTotals(Collection $rootDefinitions, SupportCollection $plans): array
     {
         $totals = [
-            'total_quantity' => 0,
-            'completed_quantity' => 0,
-            'planned_quantity' => 0,
-            'q1_quantity' => 0,
-            'q2_quantity' => 0,
-            'q3_quantity' => 0,
-            'q4_quantity' => 0,
-            'total_budget' => 0,
-            'total_expense' => 0,
-            'planned_budget' => 0,
-            'q1' => 0,
-            'q2' => 0,
-            'q3' => 0,
-            'q4' => 0,
-            'weighted_expense_contrib' => 0,
-            'weighted_planned_contrib' => 0,
-            'weighted_q1_contrib' => 0,
-            'weighted_q2_contrib' => 0,
-            'weighted_q3_contrib' => 0,
-            'weighted_q4_contrib' => 0,
+            'total_quantity' => 0.0,
+            'completed_quantity' => 0.0,
+            'planned_quantity' => 0.0,
+            'q1_quantity' => 0.0,
+            'q2_quantity' => 0.0,
+            'q3_quantity' => 0.0,
+            'q4_quantity' => 0.0,
+            'total_budget' => 0.0,
+            'total_expense' => 0.0,
+            'planned_budget' => 0.0,
+            'q1' => 0.0,
+            'q2' => 0.0,
+            'q3' => 0.0,
+            'q4' => 0.0,
+            'weighted_expense_contrib' => 0.0,
+            'weighted_planned_contrib' => 0.0,
+            'weighted_q1_contrib' => 0.0,
+            'weighted_q2_contrib' => 0.0,
+            'weighted_q3_contrib' => 0.0,
+            'weighted_q4_contrib' => 0.0,
         ];
         foreach ($rootDefinitions as $rootDef) {
             $rootTotals = $this->calculateTotalsForParent($rootDef, $plans);
-            foreach ($totals as $key => &$value) {
-                $value += $rootTotals[$key];
+            foreach ($rootTotals as $key => $value) {
+                $totals[$key] += $value;
             }
         }
         return $totals;
@@ -719,9 +708,9 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                // ========== COLUMN WIDTHS (Tweaked: Widen B for concatenated text) ==========
+                // COLUMN WIDTHS
                 $sheet->getColumnDimension('A')->setWidth(4.5);
-                $sheet->getColumnDimension('B')->setWidth(22);  // FIXED: Wider for long Nepali + values
+                $sheet->getColumnDimension('B')->setWidth(22);
                 $sheet->getColumnDimension('C')->setWidth(5);
                 $sheet->getColumnDimension('D')->setWidth(6);
                 $sheet->getColumnDimension('E')->setWidth(6);
@@ -746,51 +735,35 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->getColumnDimension('X')->setWidth(6);
                 $sheet->getColumnDimension('Y')->setWidth(10);
 
-                // ========== HEADER SECTION STYLING (Rows 1-3, adjusted for compactness) ==========
+                // HEADER SECTION
                 $sheet->mergeCells('A1:Y1');
                 $sheet->mergeCells('A2:Y2');
                 $sheet->mergeCells('A3:Y3');
-
-                // FIXED: Center align row 2 like row 1
                 $sheet->getStyle("A2:Y2")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                // FIXED: No borders for header rows
-                $noBorder = [
-                    'borders' => [
-                        'allBorders' => [
-                            'borderStyle' => Border::BORDER_NONE,
-                        ]
-                    ]
-                ];
+                $noBorder = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_NONE]]];
                 $sheet->getStyle("A1:Y3")->applyFromArray($noBorder);
 
-                // Set reduced height for top header rows (rows 1-3)
                 for ($r = 1; $r <= 3; $r++) {
                     $sheet->getRowDimension($r)->setRowHeight(18);
                 }
 
-                // ========== FORM SECTION STYLING (Rows 4-21, FIXED alignments + borders + heights) ==========
+                // FORM SECTION
                 $formStart = 4;
                 $formEnd = 21;
-
-                // FIXED: Wrap + top + LEFT alignment for all form cells
                 $sheet->getStyle("A{$formStart}:Y{$formEnd}")->getAlignment()->setWrapText(true);
                 $sheet->getStyle("A{$formStart}:Y{$formEnd}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
-                $sheet->getStyle("A{$formStart}:Y{$formEnd}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);  // FIXED: Explicit left
+                $sheet->getStyle("A{$formStart}:Y{$formEnd}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
                 $sheet->getStyle("A{$formStart}:Y{$formEnd}")->getFont()->setSize(9);
-
-                // FIXED: No borders for form section (like footer)
                 $sheet->getStyle("A{$formStart}:Y{$formEnd}")->applyFromArray($noBorder);
 
-                // Merge columns for form section
                 for ($r = $formStart; $r <= $formEnd; $r++) {
                     $sheet->mergeCells("A{$r}:G{$r}");
                     $sheet->mergeCells("H{$r}:O{$r}");
                     $sheet->mergeCells("P{$r}:Y{$r}");
                 }
 
-                // FIXED: Bold primary labels + sub-labels (adjusted)
-                $boldRows = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];  // FIXED: Include sub-rows 9-11
+                $boldRows = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
                 foreach ($boldRows as $row) {
                     $sheet->getStyle("A{$row}")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
                 }
@@ -798,27 +771,22 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->getStyle("P4")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
                 $sheet->getStyle("P14")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
 
-                // REFINED: Reduced row height for form section (from 28 to 20 for compactness)
                 for ($r = $formStart; $r <= $formEnd; $r++) {
                     $sheet->getRowDimension($r)->setRowHeight(20);
                 }
 
-                // Note row (adjusted, no blank before)
+                // Note row
                 $noteRowNum = 22;
                 $sheet->getStyle("Y{$noteRowNum}")->applyFromArray([
                     'font' => ['italic' => true, 'size' => 8],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT]
                 ]);
-                // FIXED: No border for note row
                 $sheet->getStyle("A{$noteRowNum}:Y{$noteRowNum}")->applyFromArray($noBorder);
-
-                // REFINED: Reduced height for note row to match compactness
                 $sheet->getRowDimension($noteRowNum)->setRowHeight(16);
 
-                // ========== TABLE SECTION STYLING ==========
+                // TABLE SECTION
                 $tableStart = $this->tableHeaderRow;
 
-                // Table header merges (Simplified: Single row only)
                 $sheet->mergeCells("D{$tableStart}:F{$tableStart}");
                 $sheet->mergeCells("G{$tableStart}:I{$tableStart}");
                 $sheet->mergeCells("J{$tableStart}:L{$tableStart}");
@@ -827,149 +795,84 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->mergeCells("S{$tableStart}:U{$tableStart}");
                 $sheet->mergeCells("V{$tableStart}:X{$tableStart}");
 
-                // Table header styling (Simplified: Single row)
                 $sheet->getStyle("A{$tableStart}:Y{$tableStart}")->applyFromArray([
                     'font' => ['bold' => true, 'size' => 8],
-                    'alignment' => [
-                        'horizontal' => Alignment::HORIZONTAL_CENTER,
-                        'vertical' => Alignment::VERTICAL_CENTER,
-                        'wrapText' => true
-                    ],
-                    'fill' => [
-                        'fillType' => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => 'D9E1F2']
-                    ],
-                    'borders' => [
-                        'allBorders' => [
-                            'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => '000000']
-                        ]
-                    ]
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
                 ]);
-
-                // Set header row height (taller for wrap)
                 $sheet->getRowDimension($tableStart)->setRowHeight(35);
 
-                // Sub-sub header row styling (new)
                 $subSubRow = $tableStart + 1;
                 $sheet->getStyle("A{$subSubRow}:Y{$subSubRow}")->applyFromArray([
                     'font' => ['bold' => true, 'size' => 8],
-                    'alignment' => [
-                        'horizontal' => Alignment::HORIZONTAL_CENTER,
-                        'vertical' => Alignment::VERTICAL_CENTER,
-                        'wrapText' => true
-                    ],
-                    'fill' => [
-                        'fillType' => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => 'F8F8F8']
-                    ],
-                    'borders' => [
-                        'allBorders' => [
-                            'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => '000000']
-                        ]
-                    ]
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F8F8']],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
                 ]);
                 $sheet->getRowDimension($subSubRow)->setRowHeight(20);
 
-                // Sub-header row styling (numbers)
                 $subRow = $tableStart + 2;
                 $sheet->getStyle("A{$subRow}:Y{$subRow}")->applyFromArray([
                     'font' => ['bold' => true, 'size' => 8],
-                    'alignment' => [
-                        'horizontal' => Alignment::HORIZONTAL_CENTER,
-                        'vertical' => Alignment::VERTICAL_CENTER
-                    ],
-                    'fill' => [
-                        'fillType' => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => 'F0F0F0']
-                    ],
-                    'borders' => [
-                        'allBorders' => [
-                            'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => '000000']
-                        ]
-                    ]
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
                 ]);
                 $sheet->getRowDimension($subRow)->setRowHeight(20);
 
-                // ========== SECTION HEADERS STYLING ==========
+                // SECTION HEADERS
                 foreach ($this->headerRows as $row) {
                     $sheet->mergeCells("A{$row}:Y{$row}");
                     $sheet->getStyle("A{$row}")->applyFromArray([
                         'font' => ['bold' => true, 'size' => 9],
-                        'alignment' => [
-                            'horizontal' => Alignment::HORIZONTAL_LEFT,
-                            'vertical' => Alignment::VERTICAL_CENTER
-                        ],
-                        'fill' => [
-                            'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'FFF2CC']
-                        ],
-                        'borders' => [
-                            'allBorders' => [
-                                'borderStyle' => Border::BORDER_THIN,
-                                'color' => ['rgb' => '000000']
-                            ]
-                        ]
+                        'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']],
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
                     ]);
                     $sheet->getRowDimension($row)->setRowHeight(22);
                 }
 
-                // ========== TOTAL ROWS STYLING ==========
+                // TOTAL ROWS
                 foreach ($this->totalRows as $row) {
                     $sheet->getStyle("A{$row}:Y{$row}")->applyFromArray([
-                        'fill' => [
-                            'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'E2EFDA']
-                        ],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E2EFDA']],
                         'font' => ['bold' => true, 'size' => 8]
                     ]);
                 }
 
-                // ========== PARENT ROWS MERGING ==========
+                // PARENT ROWS MERGING
                 foreach ($this->parentRows as $row) {
                     $sheet->mergeCells("C{$row}:X{$row}");
                     $sheet->getStyle("C{$row}:X{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
                 }
 
-                // ========== TABLE DATA STYLING ==========
+                // TABLE DATA
                 $tableDataStart = $tableStart + 3;
                 $borderEndRow = $this->footerStart ? ($this->footerStart - 1) : $sheet->getHighestRow();
 
                 if ($borderEndRow >= $tableDataStart) {
-                    // Apply smaller font to all table data
                     $sheet->getStyle("A{$tableDataStart}:Y{$borderEndRow}")->getFont()->setSize(8);
-
-                    // Apply borders
                     $sheet->getStyle("A{$tableDataStart}:Y{$borderEndRow}")->applyFromArray([
-                        'borders' => [
-                            'allBorders' => [
-                                'borderStyle' => Border::BORDER_THIN,
-                                'color' => ['rgb' => '000000']
-                            ]
-                        ]
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
                     ]);
 
-                    // Column alignments
                     $sheet->getStyle("A{$tableDataStart}:A{$borderEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                     $sheet->getStyle("B{$tableDataStart}:B{$borderEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setWrapText(true);
                     $sheet->getStyle("C{$tableDataStart}:C{$borderEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
                     $sheet->getStyle("Y{$tableDataStart}:Y{$borderEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setWrapText(true);
 
-                    // Numeric columns right-aligned
                     $numericCols = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X'];
                     foreach ($numericCols as $col) {
                         $sheet->getStyle("{$col}{$tableDataStart}:{$col}{$borderEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
                     }
 
-                    // Set consistent row heights for data rows
                     for ($r = $tableDataStart; $r <= $borderEndRow; $r++) {
                         $sheet->getRowDimension($r)->setRowHeight(20);
                     }
                 }
 
-                // ========== FOOTER SECTION ==========
+                // FOOTER
                 if ($this->footerStart) {
                     $lastRow = $sheet->getHighestRow();
                     $sheet->getStyle("A{$this->footerStart}:Y{$lastRow}")->applyFromArray([
@@ -977,24 +880,20 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                         'font' => ['bold' => true, 'size' => 9]
                     ]);
 
-                    // Set footer row heights
                     for ($r = $this->footerStart; $r <= $lastRow; $r++) {
                         $sheet->getRowDimension($r)->setRowHeight(22);
                     }
                 }
 
-                // ========== PAGE SETUP FOR A4 LANDSCAPE ==========
+                // PAGE SETUP
                 $lastRow = $sheet->getHighestRow();
                 $sheet->getPageSetup()->setPrintArea("A1:Y{$lastRow}");
                 $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
                 $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
-
-                // Fit to one page width
                 $sheet->getPageSetup()->setFitToPage(true);
                 $sheet->getPageSetup()->setFitToWidth(1);
                 $sheet->getPageSetup()->setFitToHeight(0);
 
-                // Set margins (in inches) - narrower for better fit
                 $sheet->getPageMargins()->setTop(0.3);
                 $sheet->getPageMargins()->setRight(0.25);
                 $sheet->getPageMargins()->setLeft(0.25);
@@ -1002,7 +901,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->getPageMargins()->setHeader(0.15);
                 $sheet->getPageMargins()->setFooter(0.15);
 
-                // Print settings
                 $sheet->getPageSetup()->setHorizontalCentered(true);
                 $sheet->setShowGridlines(false);
             },

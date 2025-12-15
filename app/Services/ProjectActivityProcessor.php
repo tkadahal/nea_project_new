@@ -4,286 +4,250 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Illuminate\Http\Request;
-use App\Models\ProjectActivityPlan;
 use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ProjectActivityProcessor
 {
-    public function processSection($request, string $section, int $projectId, int $fiscalYearId, int $expenditureId): void
+    /**
+     * Process a section's plans (create/update based on validated data keys as definition IDs)
+     * - Assumes $validated[$section] keys are real definition IDs (post-resolution from service)
+     * - Validates sums per row and parent-child if hierarchy info present
+     * - Upserts plans without definition fields (total_budget etc. handled in service)
+     */
+    public function processSection(array &$validated, string $section, int $projectId, int $fiscalYearId, int $expenditureId): void
     {
-        $rows = is_array($request) ? ($request[$section] ?? []) : $request->input($section, []);
-
-        if (empty($rows)) {
+        Log::info("Plans: METHOD ENTERED for section {$section}, project {$projectId}, FY {$fiscalYearId}, exp {$expenditureId}");
+        Log::info("Plans: Section {$section}, data keys: " . implode(', ', array_keys($validated[$section] ?? [])));
+        $sectionData = $validated[$section] ?? [];
+        if (empty($sectionData)) {
+            Log::info("Plans: No data for section {$section}; skipping plans.");
             return;
         }
 
-        $flatRows = $this->flattenRows($rows);
-        $this->resolveParentRelationships($flatRows);
-
-        $processed = [];
-        $parentMap = $this->buildParentMap($flatRows);
-
-        foreach ($flatRows as $internalId => $rowData) {
-            $this->createInOrder($flatRows, $processed, $internalId, $parentMap);
-        }
-
-        $definitionIdMap = $this->createDefinitions($flatRows, $processed, $projectId, $expenditureId);
-        $this->createPlans($flatRows, $processed, $definitionIdMap, $fiscalYearId, $projectId, $section, $parentMap);
-    }
-
-    private function flattenRows(array $rows): array
-    {
-        $flatRows = [];
-        $indexMap = [];
-        $rowCounter = 0;
-
-        foreach ($rows as $originalIndex => $rowData) {
-            $flatRows[$rowCounter] = $rowData;
-            $flatRows[$rowCounter]['original_index'] = $originalIndex;
-            $flatRows[$rowCounter]['internal_id'] = $rowCounter;
-            $indexMap[$originalIndex] = $rowCounter;
-            $rowCounter++;
-        }
-
-        return ['rows' => $flatRows, 'indexMap' => $indexMap];
-    }
-
-    private function resolveParentRelationships(array &$data): void
-    {
-        $indexMap = $data['indexMap'];
-        $flatRows = &$data['rows'];
-
-        foreach ($flatRows as $internalId => &$rowData) {
-            $submittedParentId = $rowData['parent_id'] ?? null;
-
-            if ($submittedParentId !== null) {
-                $parentInternalId = $indexMap[$submittedParentId] ?? null;
-
-                if ($parentInternalId === null) {
-                    throw new \Exception("Invalid parent_id {$submittedParentId} for row {$rowData['original_index']}.");
-                }
-
-                $rowData['resolved_parent_internal_id'] = $parentInternalId;
-            }
-        }
-    }
-
-    private function buildParentMap(array $data): array
-    {
+        // FIXED: Build parent map with int keys/values to avoid type mismatches
         $parentMap = [];
-        $flatRows = $data['rows'];
+        foreach ($sectionData as $defId => $rowData) {
+            $intDefId = (int) $defId;
+            $parentId = (int) ($rowData['parent_id'] ?? 0);
+            if ($parentId > 0) {
+                $parentMap[$intDefId] = $parentId;
+            }
+        }
+        Log::info("Plans: Built parentMap with " . count($parentMap) . " entries");
 
-        foreach ($flatRows as $internalId => $rowData) {
-            if (isset($rowData['resolved_parent_internal_id'])) {
-                $parentMap[$internalId] = $rowData['resolved_parent_internal_id'];
+        // Verify all keys are valid definition IDs
+        $invalidKeys = [];
+        foreach (array_keys($sectionData) as $key) {
+            if (!is_numeric($key) || !$this->isValidDefinition((int) $key, $projectId, $expenditureId)) {
+                $invalidKeys[] = $key;
             }
         }
 
-        return $parentMap;
+        if (!empty($invalidKeys)) {
+            Log::warning("Plans: Invalid definition IDs for {$section}: " . implode(', ', $invalidKeys));
+            foreach ($invalidKeys as $key) {
+                unset($sectionData[$key]);
+            }
+            $validated[$section] = $sectionData; // Update validated
+            Log::info("Plans: Filtered sectionData now has " . count($sectionData) . " valid rows");
+        }
+
+        DB::transaction(function () use ($sectionData, $fiscalYearId, $parentMap) {
+            Log::info("Plans: Starting transaction loop for " . count($sectionData) . " rows");
+            foreach ($sectionData as $definitionId => $rowData) {
+                Log::info("Plans: Entering loop for key {$definitionId}, row keys: " . implode(', ', array_keys($rowData)));
+                $definitionId = (int) $definitionId;
+
+                // Validate row sums
+                $this->validateRowSums($rowData, $definitionId);
+
+                // Validate child sums if has parent
+                $parentId = $parentMap[$definitionId] ?? null;
+                if ($parentId) {
+                    Log::info("Plans: Validating child sums for child {$definitionId}, parent {$parentId}");
+                    $this->validateChildSums($sectionData, $definitionId, $parentId);
+                }
+
+                // Prepare plan data (only plan fields)
+                $planData = $this->preparePlanData($rowData, $definitionId);
+                Log::info("Plans: Prepared plan data for definition {$definitionId}, FY {$fiscalYearId}", $planData);
+
+                // Upsert: create if not exists, update if exists
+                $plan = ProjectActivityPlan::updateOrCreate(
+                    [
+                        'activity_definition_id' => $definitionId,
+                        'fiscal_year_id' => $fiscalYearId,
+                    ],
+                    $planData
+                );
+
+                Log::info("Plans: Plan upserted: ID={$plan->id} for definition {$definitionId}, planned_budget={$plan->planned_budget}");
+            }
+            Log::info("Plans: Transaction loop completed");
+        });
+
+        Log::info("Plans: Processed {$section} plans: " . count($sectionData) . " rows successfully");
     }
 
-    private function createInOrder(array &$flatRows, array &$processed, int $internalId, array $parentMap): void
+    /**
+     * Validate quarter sums for a single row
+     */
+    private function validateRowSums(array $rowData, int $definitionId): void
     {
-        if (in_array($internalId, $processed)) {
+        Log::info("Plans: Validating row sums for def {$definitionId}");
+        $quarterAmountSum = (float) ($rowData['q1'] ?? 0) + (float) ($rowData['q2'] ?? 0) +
+            (float) ($rowData['q3'] ?? 0) + (float) ($rowData['q4'] ?? 0);
+        $plannedBudget = (float) ($rowData['planned_budget'] ?? 0);
+
+        if (abs($quarterAmountSum - $plannedBudget) > 0.01) {
+            $error = "Planned budget must equal sum of quarters for definition {$definitionId}. (Sum: {$quarterAmountSum}, Planned: {$plannedBudget})";
+            Log::error("Plans: Row sum validation failed for def {$definitionId}: {$error}");
+            throw ValidationException::withMessages([
+                "planned_budget" => $error
+            ]);
+        }
+
+        $quarterQuantitySum = (float) ($rowData['q1_quantity'] ?? 0) + (float) ($rowData['q2_quantity'] ?? 0) +
+            (float) ($rowData['q3_quantity'] ?? 0) + (float) ($rowData['q4_quantity'] ?? 0);
+        $plannedQuantity = (float) ($rowData['planned_budget_quantity'] ?? 0);
+
+        if (abs($quarterQuantitySum - $plannedQuantity) > 0.01) {
+            $error = "Planned quantity must equal sum of quarter quantities for definition {$definitionId}. (Sum: {$quarterQuantitySum}, Planned: {$plannedQuantity})";
+            Log::error("Plans: Row quantity sum validation failed for def {$definitionId}: {$error}");
+            throw ValidationException::withMessages([
+                "planned_budget_quantity" => $error
+            ]);
+        }
+
+        Log::info("Plans: Row sums validated OK for def {$definitionId}");
+    }
+
+    /**
+     * Validate that child row sums <= parent (for amount and quantity fields, using submitted data)
+     */
+    private function validateChildSums(array $sectionData, int $childDefId, int $parentDefId): void
+    {
+        $parentRow = $sectionData[$parentDefId] ?? null;
+        if (!$parentRow) {
+            Log::warning("Plans: No parent row found for validation (def {$parentDefId}); skipping child sums for {$childDefId}");
             return;
         }
 
-        $parentInternalId = $parentMap[$internalId] ?? null;
-        if ($parentInternalId !== null) {
-            $this->createInOrder($flatRows, $processed, $parentInternalId, $parentMap);
-        }
+        // Amount fields to check
+        $amountFields = ['q1', 'q2', 'q3', 'q4', 'planned_budget', 'total_expense'];
 
-        $processed[] = $internalId;
-    }
+        foreach ($amountFields as $field) {
+            $childValue = (float) ($sectionData[$childDefId][$field] ?? 0);
+            $parentValue = (float) ($parentRow[$field] ?? 0);
 
-    private function createDefinitions(array $data, array $processed, int $projectId, int $expenditureId): array
-    {
-        $definitionIdMap = [];
-        $flatRows = $data['rows'];
+            // Calculate sibling sum (other children of same parent)
+            $siblingSum = $this->calculateSiblingSumForField($sectionData, $childDefId, $parentDefId, $field);
 
-        foreach ($processed as $internalId) {
-            $rowData = $flatRows[$internalId];
-            $parentDefId = null;
+            $totalChildSum = $childValue + $siblingSum;
 
-            if (isset($rowData['resolved_parent_internal_id'])) {
-                $parentDefId = $definitionIdMap[$rowData['resolved_parent_internal_id']] ?? null;
-
-                if ($parentDefId === null) {
-                    throw new \Exception("Parent definition not created for row {$rowData['original_index']}.");
-                }
+            if ($totalChildSum > $parentValue + 0.01) {
+                $error = "Children sum ({$totalChildSum}) exceeds parent value ({$parentValue}) for field '{$field}' under definition {$parentDefId}.";
+                Log::error("Plans: Child sum validation failed for field {$field}, child {$childDefId}: {$error}");
+                throw ValidationException::withMessages([
+                    "{$field}" => $error
+                ]);
             }
-
-            $program = trim($rowData['program']);
-            $definition = $this->findOrCreateDefinition($projectId, $program, $expenditureId, $parentDefId);
-
-            $definitionIdMap[$internalId] = $definition->id;
         }
 
-        return $definitionIdMap;
-    }
+        // Quantity fields to check
+        $quantityFields = ['q1_quantity', 'q2_quantity', 'q3_quantity', 'q4_quantity', 'planned_budget_quantity', 'total_expense_quantity'];
 
-    private function findOrCreateDefinition(int $projectId, string $program, int $expenditureId, ?int $parentDefId)
-    {
-        $existingDef = ProjectActivityDefinition::where('project_id', $projectId)
-            ->where('program', $program)
-            ->where('status', 'active')
-            ->first();
+        foreach ($quantityFields as $field) {
+            $childValue = (float) ($sectionData[$childDefId][$field] ?? 0);
+            $parentValue = (float) ($parentRow[$field] ?? 0);
 
-        if ($existingDef) {
-            if ($existingDef->expenditure_id !== $expenditureId || $existingDef->parent_id !== $parentDefId) {
-                throw new \Exception("Conflicting definition for program '{$program}'.");
+            // Calculate sibling sum (other children of same parent)
+            $siblingSum = $this->calculateSiblingSumForField($sectionData, $childDefId, $parentDefId, $field);
+
+            $totalChildSum = $childValue + $siblingSum;
+
+            if ($totalChildSum > $parentValue + 0.01) {
+                $error = "Children quantity sum ({$totalChildSum}) exceeds parent quantity ({$parentValue}) for field '{$field}' under definition {$parentDefId}.";
+                Log::error("Plans: Child quantity sum validation failed for field {$field}, child {$childDefId}: {$error}");
+                throw ValidationException::withMessages([
+                    "{$field}" => $error
+                ]);
             }
-            return $existingDef;
         }
 
-        return ProjectActivityDefinition::create([
-            'project_id' => $projectId,
-            'program' => $program,
-            'expenditure_id' => $expenditureId,
-            'description' => null,
-            'status' => 'active',
-            'parent_id' => $parentDefId,
-        ]);
+        Log::info("Plans: Child sums validated OK for child {$childDefId} under parent {$parentDefId}");
     }
 
-    private function createPlans(array $data, array $processed, array $definitionIdMap, int $fiscalYearId, int $projectId, string $section, array $parentMap): void
+    /**
+     * FIXED: Calculate sum of siblings for a specific field (cast parent_id to int for comparison)
+     */
+    private function calculateSiblingSumForField(array $sectionData, int $currentDefId, int $parentDefId, string $field): float
     {
-        $flatRows = $data['rows'];
-
-        foreach ($processed as $internalId) {
-            $rowData = $flatRows[$internalId];
-            $defId = $definitionIdMap[$internalId];
-
-            $this->validateSums($rowData);
-            $this->validateChildSums($flatRows, $internalId, $parentMap, $definitionIdMap, $fiscalYearId);
-
-            $this->upsertPlan($defId, $fiscalYearId, $rowData);
+        $sum = 0;
+        foreach ($sectionData as $defId => $rowData) {
+            if ((int) $defId != $currentDefId && (int) ($rowData['parent_id'] ?? 0) == $parentDefId) {
+                $sum += (float) ($rowData[$field] ?? 0);
+            }
         }
+        return $sum;
     }
 
-    private function upsertPlan(int $defId, int $fiscalYearId, array $rowData): void
+    /**
+     * Prepare data for plan upsert (only plan fields, map form keys)
+     */
+    private function preparePlanData(array $rowData, int $definitionId): array
     {
-        $activityDef = ProjectActivityDefinition::findOrFail($defId);
+        Log::info("Plans: Preparing plan data for def {$definitionId}");
+        $activityDef = ProjectActivityDefinition::findOrFail($definitionId);
+        Log::info("Plans: Found def {$definitionId}, program='{$activityDef->program}'");
 
         $programOverride = null;
         $overrideModifiedAt = null;
 
-        if (isset($rowData['program_override']) && $rowData['program_override'] !== $activityDef->program) {
-            $programOverride = $rowData['program_override'];
+        $submittedProgram = trim($rowData['program_override'] ?? '');  // FIXED: Use 'program_override' key if present, else def program
+        if ($submittedProgram !== '' && $submittedProgram !== $activityDef->program) {
+            $programOverride = $submittedProgram;
             $overrideModifiedAt = now();
+            Log::info("Plans: Setting program override '{$programOverride}' with modified_at");
+        } else {
+            Log::info("Plans: No program override needed");
         }
 
         $planData = [
-            'activity_definition_id' => $defId,
-            'fiscal_year_id' => $fiscalYearId,
             'program_override' => $programOverride,
             'override_modified_at' => $overrideModifiedAt,
-            'total_budget' => (float) ($rowData['total_budget'] ?? 0),
             'planned_budget' => (float) ($rowData['planned_budget'] ?? 0),
-            'q1_amount' => (float) ($rowData['q1'] ?? 0),
-            'q2_amount' => (float) ($rowData['q2'] ?? 0),
-            'q3_amount' => (float) ($rowData['q3'] ?? 0),
-            'q4_amount' => (float) ($rowData['q4'] ?? 0),
-            'total_quantity' => (float) ($rowData['total_budget_quantity'] ?? 0),
             'planned_quantity' => (float) ($rowData['planned_budget_quantity'] ?? 0),
+            'q1_amount' => (float) ($rowData['q1'] ?? 0),
             'q1_quantity' => (float) ($rowData['q1_quantity'] ?? 0),
+            'q2_amount' => (float) ($rowData['q2'] ?? 0),
             'q2_quantity' => (float) ($rowData['q2_quantity'] ?? 0),
+            'q3_amount' => (float) ($rowData['q3'] ?? 0),
             'q3_quantity' => (float) ($rowData['q3_quantity'] ?? 0),
+            'q4_amount' => (float) ($rowData['q4'] ?? 0),
             'q4_quantity' => (float) ($rowData['q4_quantity'] ?? 0),
             'total_expense' => (float) ($rowData['total_expense'] ?? 0),
             'completed_quantity' => (float) ($rowData['total_expense_quantity'] ?? 0),
         ];
 
-        ProjectActivityPlan::updateOrCreate(
-            [
-                'activity_definition_id' => $defId,
-                'fiscal_year_id' => $fiscalYearId
-            ],
-            $planData
-        );
+        Log::info("Plans: Prepared plan data", $planData);
+        return $planData;
     }
 
-    private function validateSums(array $rowData): void
+    /**
+     * Check if definition ID is valid for project/expenditure
+     */
+    private function isValidDefinition(int $definitionId, int $projectId, int $expenditureId): bool
     {
-        $quarterAmountSum = ($rowData['q1'] ?? 0) + ($rowData['q2'] ?? 0) +
-            ($rowData['q3'] ?? 0) + ($rowData['q4'] ?? 0);
-        $plannedBudget = $rowData['planned_budget'] ?? 0;
-
-        if (abs($quarterAmountSum - $plannedBudget) > 0.01) {
-            throw ValidationException::withMessages([
-                "{$rowData['original_index']}.planned_budget" =>
-                "Planned budget must equal sum of quarters."
-            ]);
-        }
-
-        $quarterQuantitySum = ($rowData['q1_quantity'] ?? 0) + ($rowData['q2_quantity'] ?? 0) +
-            ($rowData['q3_quantity'] ?? 0) + ($rowData['q4_quantity'] ?? 0);
-        $plannedQuantity = $rowData['planned_budget_quantity'] ?? 0;
-
-        if (abs($quarterQuantitySum - $plannedQuantity) > 0.01) {
-            throw ValidationException::withMessages([
-                "{$rowData['original_index']}.planned_budget_quantity" =>
-                "Planned quantity must equal sum of quarter quantities."
-            ]);
-        }
-    }
-
-    private function validateChildSums(array $data, int $internalId, array $parentMap, array $definitionIdMap, int $fiscalYearId): void
-    {
-        $flatRows = $data['rows'];
-        $rowData = $flatRows[$internalId];
-        $parentInternalId = $parentMap[$internalId] ?? null;
-
-        if ($parentInternalId === null) {
-            return;
-        }
-
-        $parentDefId = $definitionIdMap[$parentInternalId] ?? null;
-        $parentPlan = ProjectActivityPlan::where('activity_definition_id', $parentDefId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->first();
-
-        if (!$parentPlan) {
-            return;
-        }
-
-        $fields = [
-            'total_budget' => 'total_budget',
-            'total_expense' => 'total_expense',
-            'planned_budget' => 'planned_budget',
-            'q1' => 'q1_amount',
-            'q2' => 'q2_amount',
-            'q3' => 'q3_amount',
-            'q4' => 'q4_amount',
-        ];
-
-        foreach ($fields as $rowKey => $planField) {
-            $childValue = (float) ($rowData[$rowKey] ?? 0);
-            $parentValue = $parentPlan->{$planField} ?? 0;
-
-            $siblingSum = $this->calculateSiblingSum($flatRows, $internalId, $parentInternalId, $rowKey, $childValue);
-
-            if ($siblingSum > $parentValue + 0.01) {
-                throw ValidationException::withMessages([
-                    "{$rowData['original_index']}.{$rowKey}" =>
-                    "Children sum exceeds parent value."
-                ]);
-            }
-        }
-    }
-
-    private function calculateSiblingSum(array $flatRows, int $currentId, int $parentId, string $field, float $currentValue): float
-    {
-        $sum = $currentValue;
-
-        foreach ($flatRows as $sibId => $sibData) {
-            if ($sibId !== $currentId && ($sibData['resolved_parent_internal_id'] ?? null) === $parentId) {
-                $sum += (float) ($sibData[$field] ?? 0);
-            }
-        }
-
-        return $sum;
+        $exists = ProjectActivityDefinition::where('id', $definitionId)
+            ->where('project_id', $projectId)
+            ->where('expenditure_id', $expenditureId)
+            ->exists();
+        Log::info("Plans: Validating def {$definitionId} for project {$projectId}, exp {$expenditureId}: " . ($exists ? 'YES' : 'NO'));
+        return $exists;
     }
 }

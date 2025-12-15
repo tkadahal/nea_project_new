@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace App\Exports\Templates;
 
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use Illuminate\Support\Collection;
 use App\Models\Project;
 use App\Models\FiscalYear;
-use App\Models\ProjectActivityDefinition;
-use App\Models\ProjectActivityPlan;
 use App\Models\ProjectExpense;
+use Illuminate\Support\Collection;
+use App\Models\ProjectActivityPlan;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use App\Models\ProjectActivityDefinition;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 
 class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle, WithEvents
 {
@@ -53,7 +52,7 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
         $capitalDefinitions = ProjectActivityDefinition::forProject($project->id)
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
-            ->active()
+            // ->active()
             ->with('children.children.children')
             ->get();
 
@@ -63,7 +62,7 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
         $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_id', $capitalDefIds)
             ->where('fiscal_year_id', $fiscalYear->id)
-            ->active()
+            // ->active()
             ->get()
             ->keyBy('activity_definition_id');
 
@@ -82,7 +81,7 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
         $recurrentDefinitions = ProjectActivityDefinition::forProject($project->id)
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
-            ->active()
+            // ->active()
             ->with('children.children.children')
             ->get();
 
@@ -92,7 +91,7 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
         $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_id', $recurrentDefIds)
             ->where('fiscal_year_id', $fiscalYear->id)
-            ->active()
+            // ->active()
             ->get()
             ->keyBy('activity_definition_id');
 
@@ -119,8 +118,10 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
         // Capital subtotal row (serial blank, planId null)
         $capitalTotalCollRow = $rows->count() + 1;
-        $capitalQtyFormula = '=SUM(' . implode(',', $capitalReturn['qtySubtreeRefs']) . ')';
-        $capitalAmtFormula = '=SUM(' . implode(',', $capitalReturn['amtSubtreeRefs']) . ')';
+        $capitalQtyRefs = $capitalReturn['qtySubtreeRefs'];
+        $capitalQtyFormula = !empty($capitalQtyRefs) ? '=SUM(' . implode(',', $capitalQtyRefs) . ')' : '0';
+        $capitalAmtRefs = $capitalReturn['amtSubtreeRefs'];
+        $capitalAmtFormula = !empty($capitalAmtRefs) ? '=SUM(' . implode(',', $capitalAmtRefs) . ')' : '0';
         $rows->push([null, 'पूँजीगत कार्यक्रमहरूको जम्मा', $capitalReturn['planned_qty_total'], $capitalReturn['planned_budget_total'], $capitalReturn['planned_q_qty'], $capitalReturn['planned_q_amt'], null, null, -1, null]);
         $this->totalRanges->put($capitalTotalCollRow, ['qtyFormula' => $capitalQtyFormula, 'amtFormula' => $capitalAmtFormula]);
 
@@ -133,8 +134,10 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
         // Recurrent subtotal row (planId null)
         $recurrentTotalCollRow = $rows->count() + 1;
-        $recurrentQtyFormula = '=SUM(' . implode(',', $recurrentReturn['qtySubtreeRefs']) . ')';
-        $recurrentAmtFormula = '=SUM(' . implode(',', $recurrentReturn['amtSubtreeRefs']) . ')';
+        $recurrentQtyRefs = $recurrentReturn['qtySubtreeRefs'];
+        $recurrentQtyFormula = !empty($recurrentQtyRefs) ? '=SUM(' . implode(',', $recurrentQtyRefs) . ')' : '0';
+        $recurrentAmtRefs = $recurrentReturn['amtSubtreeRefs'];
+        $recurrentAmtFormula = !empty($recurrentAmtRefs) ? '=SUM(' . implode(',', $recurrentAmtRefs) . ')' : '0';
         $rows->push([null, 'चालू कार्यक्रमहरूको जम्मा', $recurrentReturn['planned_qty_total'], $recurrentReturn['planned_budget_total'], $recurrentReturn['planned_q_qty'], $recurrentReturn['planned_q_amt'], null, null, -1, null]);
         $this->totalRanges->put($recurrentTotalCollRow, ['qtyFormula' => $recurrentQtyFormula, 'amtFormula' => $recurrentAmtFormula]);
 
@@ -146,8 +149,8 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
         $grandPlannedQAmt = $capitalReturn['planned_q_amt'] + $recurrentReturn['planned_q_amt'];
         $grandQtyRefs = array_merge($capitalReturn['qtySubtreeRefs'], $recurrentReturn['qtySubtreeRefs']);
         $grandAmtRefs = array_merge($capitalReturn['amtSubtreeRefs'], $recurrentReturn['amtSubtreeRefs']);
-        $grandQtyFormula = '=SUM(' . implode(',', $grandQtyRefs) . ')';
-        $grandAmtFormula = '=SUM(' . implode(',', $grandAmtRefs) . ')';
+        $grandQtyFormula = !empty($grandQtyRefs) ? '=SUM(' . implode(',', $grandQtyRefs) . ')' : '0';
+        $grandAmtFormula = !empty($grandAmtRefs) ? '=SUM(' . implode(',', $grandAmtRefs) . ')' : '0';
         $rows->push([null, 'कुल जम्मा', $grandPlannedQty, $grandPlannedBudget, $grandPlannedQQty, $grandPlannedQAmt, null, null, -1, null]);
         $this->totalRanges->put($grandTotalCollRow, ['qtyFormula' => $grandQtyFormula, 'amtFormula' => $grandAmtFormula]);
 
@@ -175,7 +178,6 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
             }
 
             $plan = $plans->get($definition->id);
-            $depth = $definition->getDepthAttribute();
             $title = $plan?->program_override ?? $definition->program;
 
             $expense = $expenses->get($planId);
@@ -190,21 +192,32 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
             $hasChildren = $definition->children && $definition->children->count() > 0;
 
+            // FIXED: Only set to null if has children. If no children, show the actual values (even if 0)
             if ($hasChildren) {
+                // Parent with children: null values for parent row, children will have values
+                $rowPlannedQuantityTotal = null;
+                $rowPlannedBudgetTotal = null;
+                $rowPlannedQQuantity = null;
+                $rowPlannedQAmount = null;
+                $rowActualQty = null;
+                $rowActualAmt = null;
+
+                // Reset for summing children only
                 $thisPlannedQuantityTotal = 0.0;
                 $thisPlannedBudgetTotal = 0.0;
                 $thisPlannedQQuantity = 0.0;
                 $thisPlannedQAmount = 0.0;
                 $thisActualQty = 0.0;
                 $thisActualAmt = 0.0;
+            } else {
+                // Leaf node (no children): always show values
+                $rowPlannedQuantityTotal = $thisPlannedQuantityTotal;
+                $rowPlannedBudgetTotal = $thisPlannedBudgetTotal;
+                $rowPlannedQQuantity = $thisPlannedQQuantity;
+                $rowPlannedQAmount = $thisPlannedQAmount;
+                $rowActualQty = $thisActualQty > 0 ? $thisActualQty : 0; // Show 0 instead of null
+                $rowActualAmt = $thisActualAmt > 0 ? $thisActualAmt : 0; // Show 0 instead of null
             }
-
-            $rowPlannedQuantityTotal = $hasChildren ? null : $thisPlannedQuantityTotal;
-            $rowPlannedBudgetTotal = $hasChildren ? null : $thisPlannedBudgetTotal;
-            $rowPlannedQQuantity = $hasChildren ? null : $thisPlannedQQuantity;
-            $rowPlannedQAmount = $hasChildren ? null : $thisPlannedQAmount;
-            $rowActualQty = $hasChildren ? null : ($thisActualQty > 0 ? $thisActualQty : null);
-            $rowActualAmt = $hasChildren ? null : ($thisActualAmt > 0 ? $thisActualAmt : null);
 
             // Generate hierarchical serial
             if (empty($path)) {
@@ -216,7 +229,6 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
             $currentPath = array_merge($path, [$position]);
             $serialStr = implode('.', $currentPath);
 
-            // FIXED: Add planId as 10th element (index 9)
             $row = [
                 $serialStr,
                 $title,
@@ -226,8 +238,9 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
                 $rowPlannedQAmount,
                 $rowActualQty,
                 $rowActualAmt,
-                $depth,
-                $planId, // NEW: Plan ID for import (column J)
+                $definition->depth ?? 0, // depth for styling
+                $planId, // Plan ID for import (column J)
+                $hasChildren ? 1 : 0,
             ];
             $rows->push($row);
             $activityExcelRow = $rows->count() + $this->dataOffset;
@@ -247,15 +260,17 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
                 $subtotalCollRow = $rows->count() + 1;
                 $subtotalExcelRow = $subtotalCollRow + $this->dataOffset;
                 $subtotalTitle = $title . ' को जम्मा';
-                $subtotalPlannedQty = $thisPlannedQuantityTotal + $childReturn['planned_qty_total'];
-                $subtotalPlannedBudget = $thisPlannedBudgetTotal + $childReturn['planned_budget_total'];
-                $subtotalPlannedQQty = $thisPlannedQQuantity + $childReturn['planned_q_qty'];
-                $subtotalPlannedQAmt = $thisPlannedQAmount + $childReturn['planned_q_amt'];
-                $subtotalActualQty = $thisActualQty + $childReturn['actual_qty'];
-                $subtotalActualAmt = $thisActualAmt + $childReturn['actual_amt'];
+                $subtotalPlannedQty = $childReturn['planned_qty_total']; // Parent value already 0
+                $subtotalPlannedBudget = $childReturn['planned_budget_total'];
+                $subtotalPlannedQQty = $childReturn['planned_q_qty'];
+                $subtotalPlannedQAmt = $childReturn['planned_q_amt'];
+                $subtotalActualQty = $childReturn['actual_qty'];
+                $subtotalActualAmt = $childReturn['actual_amt'];
 
-                $qtyFormula = '=SUM(' . implode(',', $childReturn['qtySubtreeRefs']) . ')';
-                $amtFormula = '=SUM(' . implode(',', $childReturn['amtSubtreeRefs']) . ')';
+                $childQtyRefs = $childReturn['qtySubtreeRefs'];
+                $qtyFormula = !empty($childQtyRefs) ? '=SUM(' . implode(',', $childQtyRefs) . ')' : '0';
+                $childAmtRefs = $childReturn['amtSubtreeRefs'];
+                $amtFormula = !empty($childAmtRefs) ? '=SUM(' . implode(',', $childAmtRefs) . ')' : '0';
 
                 $subtotalRow = [
                     null,
@@ -266,7 +281,7 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
                     $subtotalPlannedQAmt,
                     null,
                     null,
-                    $depth - 1,
+                    ($definition->depth ?? 0) - 1, // subtotal depth
                     null, // No planId for subtotal
                 ];
                 $rows->push($subtotalRow);
@@ -396,14 +411,24 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
                 // FIXED: Set plan IDs in column J from $this->rows
                 $planCol = 'J';
+                $hasChildrenCol = 'K';
                 $sheet->getColumnDimension($planCol)->setVisible(false);
+                $sheet->getColumnDimension($hasChildrenCol)->setVisible(false);
                 $sheet->getColumnDimension($planCol)->setWidth(0);
                 $collOffset = 6; // Collection index = excel row - 6
                 for ($excelRow = 7; $excelRow <= $lastRow; $excelRow++) {
-                    $collIndex = $excelRow - $collOffset - 1; // 0-based
-                    if (isset($this->rows[$collIndex]) && isset($this->rows[$collIndex][9])) {
-                        $planId = $this->rows[$collIndex][9];
-                        $sheet->setCellValue($planCol . $excelRow, $planId);
+                    $collIndex = $excelRow - $collOffset - 1;
+                    if (isset($this->rows[$collIndex])) {
+                        // Set planId (column J, index 9)
+                        if (isset($this->rows[$collIndex][9])) {
+                            $planId = $this->rows[$collIndex][9];
+                            $sheet->setCellValue($planCol . $excelRow, $planId);
+                        }
+                        // Set hasChildren flag (column K, index 10)
+                        if (isset($this->rows[$collIndex][10])) {
+                            $hasChildrenFlag = $this->rows[$collIndex][10];
+                            $sheet->setCellValue($hasChildrenCol . $excelRow, $hasChildrenFlag);
+                        }
                     }
                 }
 
@@ -427,12 +452,15 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
                 $sheet->getStyle("C7:H{$lastRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle("B7:B{$lastRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
 
-                // Style data rows: Indent based on depth, bold for sections/totals, merge for parents and sections
+                // Style data rows
                 $titleCol = 'B';
                 $depthCol = 'I';
+                $hasChildrenCol = 'K';
+
                 for ($row = 7; $row <= $lastRow; $row++) {
                     $title = $sheet->getCell($titleCol . $row)->getValue();
                     $depth = $sheet->getCell($depthCol . $row)->getValue();
+                    $hasChildren = $sheet->getCell($hasChildrenCol . $row)->getValue();
 
                     // Merge for section headers (depth -2)
                     if ($depth == -2) {
@@ -442,35 +470,68 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
                         $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                     }
 
-                    // Merge C:H for parent rows (where planned values are null, indicating no direct values/children planned here)
-                    if ($depth >= 0 && strpos((string) $title, 'जम्मा') === false && is_null($sheet->getCell("C{$row}")->getValue())) {
+                    // FIXED: Merge C:H ONLY for rows that explicitly have children (hasChildren flag = 1)
+                    if ($hasChildren == 1 && strpos((string) $title, 'जम्मा') === false && $depth >= 0) {
                         $sheet->mergeCells("C{$row}:H{$row}");
                         $sheet->getStyle("C{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    }
+
+                    // Replace null/empty cells with 0.00 for data columns (except merged parent rows and section headers)
+                    if ($depth >= 0 && strpos((string) $title, 'जम्मा') === false && $hasChildren != 1) {
+                        foreach (['C', 'D', 'E', 'F', 'G', 'H'] as $col) {
+                            $value = $sheet->getCell($col . $row)->getValue();
+                            if (is_null($value) || $value === '') {
+                                $sheet->setCellValue($col . $row, 0.00);
+                            }
+                        }
                     }
 
                     // Bold and special fill for sections, subtotals, and grand total
                     if ($depth < 0 || strpos((string) $title, 'जम्मा') !== false || $title === 'कुल जम्मा') {
                         $sheet->getStyle("A{$row}:H{$row}")->getFont()->setBold(true);
 
-                        // Determine color based on row type
-                        $color = 'E3F2FD'; // default light blue for sections
+                        $color = 'E3F2FD';
                         if ($depth == -2) {
-                            $color = 'E3F2FD'; // light blue for section headers
+                            $color = 'E3F2FD';
                         } elseif ($title === 'कुल जम्मा') {
-                            $color = 'E8F5E8'; // light green for grand total
+                            $color = 'E8F5E8';
                         } elseif (strpos((string) $title, 'जम्मा') !== false) {
-                            $color = 'FFF2CC'; // light yellow for subtotals
+                            $color = 'FFF2CC';
                         }
 
                         $sheet->getStyle("A{$row}:H{$row}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($color);
                     } elseif ($depth > 0 && $title) {
-                        // Indent title cell based on depth
-                        $sheet->getStyle($titleCol . $row)->getAlignment()->setIndent($depth * 2);
+                        $sheet->getStyle($titleCol . $row)->getAlignment()->setIndent($depth);
                     }
                 }
 
                 // Make table borders visible
                 $sheet->getStyle("A4:H{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+                // ============================================
+                // PROTECTION: Make columns A-F read-only
+                // ============================================
+
+                // Step 1: Unlock all cells first (by default all cells are locked when protection is enabled)
+                $sheet->getStyle("A1:K{$lastRow}")->getProtection()->setLocked(\PhpOffice\PhpSpreadsheet\Style\Protection::PROTECTION_UNPROTECTED);
+
+                // Step 2: Lock columns A to F (read-only columns)
+                $sheet->getStyle("A1:F{$lastRow}")->getProtection()->setLocked(\PhpOffice\PhpSpreadsheet\Style\Protection::PROTECTION_PROTECTED);
+
+                // Step 3: Enable sheet protection (users can only edit unlocked cells)
+                $sheet->getProtection()->setSheet(true);
+
+                // Optional: Set a password (remove this line if you don't want password protection)
+                $sheet->getProtection()->setPassword('review_password@123');
+
+                // Optional: Configure what users CAN do even with protection enabled
+                $sheet->getProtection()->setSort(true); // Allow sorting
+                $sheet->getProtection()->setAutoFilter(true); // Allow filtering
+                $sheet->getProtection()->setFormatCells(false); // Prevent formatting changes
+                $sheet->getProtection()->setInsertRows(false); // Prevent inserting rows
+                $sheet->getProtection()->setDeleteRows(false); // Prevent deleting rows
+                $sheet->getProtection()->setInsertColumns(false); // Prevent inserting columns
+                $sheet->getProtection()->setDeleteColumns(false); // Prevent deleting columns
             },
         ];
     }

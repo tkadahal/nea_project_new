@@ -138,23 +138,46 @@
                         <table class="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
                             <thead>
                                 <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
-                                    <th
+                                    <th rowspan="2"
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-12">
                                         #</th>
-                                    <th
+                                    <th rowspan="2"
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-64">
                                         Activity/Program</th>
+                                    <th colspan="2"
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">
+                                        Annual Target</th>
+                                    <th colspan="2"
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">
+                                        Quarterly Target</th>
+                                    <th colspan="2"
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">
+                                        Quarterly Expense</th>
+                                </tr>
+                                <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
                                     <th
-                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                        Quantity</th>
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Qty</th>
                                     <th
-                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Budget</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Qty</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Budget</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Qty</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
                                         Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="capital-tbody">
                                 <tr id="capital-empty">
-                                    <td colspan="4" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    <td colspan="8" class="text-center py-8 text-gray-500 dark:text-gray-400">
                                         Select a project, fiscal year, and quarter to load capital expenses
                                     </td>
                                 </tr>
@@ -186,23 +209,46 @@
                         <table class="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
                             <thead>
                                 <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
-                                    <th
+                                    <th rowspan="2"
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-12">
                                         #</th>
-                                    <th
+                                    <th rowspan="2"
                                         class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 w-64">
                                         Activity/Program</th>
+                                    <th colspan="2"
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">
+                                        Annual Target</th>
+                                    <th colspan="2"
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">
+                                        Quarterly Target</th>
+                                    <th colspan="2"
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">
+                                        Quarterly Expense</th>
+                                </tr>
+                                <tr class="bg-gray-200 dark:bg-gray-600 sticky top-0 z-10">
                                     <th
-                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                        Quantity</th>
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Qty</th>
                                     <th
-                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Budget</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Qty</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Budget</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                        Qty</th>
+                                    <th
+                                        class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
                                         Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="recurrent-tbody">
                                 <tr id="recurrent-empty">
-                                    <td colspan="4" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    <td colspan="8" class="text-center py-8 text-gray-500 dark:text-gray-400">
                                         Select a project, fiscal year, and quarter to load recurrent expenses
                                     </td>
                                 </tr>
@@ -296,12 +342,8 @@
             function waitForJQuery(callback, maxRetries = 50, interval = 100) {
                 if (typeof jQuery !== 'undefined' && jQuery.fn && jQuery.fn.jquery) {
                     callback(jQuery);
-                } else {
-                    if (maxRetries > 0) {
-                        setTimeout(function() {
-                            waitForJQuery(callback, maxRetries - 1, interval);
-                        }, interval);
-                    }
+                } else if (maxRetries > 0) {
+                    setTimeout(() => waitForJQuery(callback, maxRetries - 1, interval), interval);
                 }
             }
 
@@ -311,9 +353,26 @@
                 let parentToChildren = {};
                 let activityElements = {};
                 let selectedQuarter = '';
+                let lastProjectValue = '';
+                let lastFiscalValue = '';
+
+                const projectHidden = document.querySelector(
+                    '.js-single-select[data-name="project_id"] .js-hidden-input');
+                const fiscalHidden = document.querySelector(
+                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
+
+                if (projectHidden) lastProjectValue = projectHidden.value || '';
+                if (fiscalHidden) lastFiscalValue = fiscalHidden.value || '';
 
                 function parseNumeric(val) {
                     return parseFloat((val || '0').replace(/,/g, '')) || 0;
+                }
+
+                function formatNumber(num, decimals = 2) {
+                    return Number(num).toLocaleString('en-US', {
+                        minimumFractionDigits: decimals,
+                        maximumFractionDigits: decimals
+                    });
                 }
 
                 function checkSelections() {
@@ -338,10 +397,46 @@
                 function updateTooltip($element, message) {
                     const instance = tippyInstances.get($element[0]);
                     if (instance) {
-                        instance.setContent(message);
+                        instance.setContent(message || ' ');
                         instance[message ? 'show' : 'hide']();
                     }
                 }
+
+                // ==================== INPUT FORMATTING: BOTH QTY & AMT ACCEPT DECIMALS ====================
+
+                // Unified handler for both qty and amt fields (both allow decimals now)
+                $(document).on('input', '.expense-input:not([disabled])', function() {
+                    let value = this.value.replace(/[^0-9.]/g, ''); // Allow only digits and dot
+
+                    // Prevent multiple decimal points
+                    const parts = value.split('.');
+                    if (parts.length > 2) {
+                        value = parts[0] + '.' + parts.slice(1).join('');
+                    }
+
+                    // Limit to 2 decimal places
+                    if (value.includes('.')) {
+                        const [integer, decimal] = value.split('.');
+                        if (decimal && decimal.length > 2) {
+                            value = integer + '.' + decimal.substring(0, 2);
+                        }
+                    }
+
+                    // Add thousand separators
+                    const formatted = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+                    this.value = formatted;
+                });
+
+                // Paste handling (clean invalid chars)
+                $(document).on('paste', '.expense-input:not([disabled])', function(e) {
+                    e.preventDefault();
+                    const text = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
+                    this.value = text.replace(/[^0-9.]/g, '');
+                    $(this).trigger('input');
+                });
+
+                // ==================== VALIDATION & TOTALS ====================
 
                 function validateParent(pId, type) {
                     const children = parentToChildren[pId];
@@ -357,17 +452,12 @@
                     });
 
                     const pVal = parseNumeric(pInput.val());
-                    const difference = Math.abs(childSum - pVal);
+                    const diff = Math.abs(childSum - pVal);
 
-                    if (difference > 0.01) {
-                        let message = '';
-                        if (childSum > pVal) {
-                            message =
-                                `Sum of children (${childSum.toFixed(2)}) EXCEEDS parent ${type} (${pVal.toFixed(2)})`;
-                        } else {
-                            message =
-                                `Sum of children (${childSum.toFixed(2)}) is LESS than parent ${type} (${pVal.toFixed(2)})`;
-                        }
+                    if (diff > 0.01) {
+                        const message = childSum > pVal ?
+                            `Children sum EXCEEDS parent by ${(childSum - pVal).toFixed(2)}` :
+                            `Children sum is ${(pVal - childSum).toFixed(2)} LESS than parent`;
 
                         children.forEach(cId => {
                             const cInput = $(activityElements[cId]).find(`input[data-type="${type}"]`);
@@ -378,98 +468,77 @@
                     } else {
                         children.forEach(cId => {
                             const cInput = $(activityElements[cId]).find(`input[data-type="${type}"]`);
-                            const currentError = tippyInstances.get(cInput[0])?.props.content || '';
-                            if (currentError.includes('Sum of children') || currentError.includes('parent')) {
-                                cInput.removeClass('error-border');
-                                updateTooltip(cInput, '');
-                            }
+                            cInput.removeClass('error-border');
+                            updateTooltip(cInput, '');
                         });
                         return true;
                     }
                 }
 
                 function validateAllAncestors(activityId, type) {
-                    let currentId = activityId;
-                    while (currentId) {
-                        const parentId = parentMap[currentId];
-                        if (parentId) {
-                            validateParent(parentId, type);
-                        }
-                        currentId = parentId;
+                    let current = activityId;
+                    while (current) {
+                        const parent = parentMap[current];
+                        if (parent) validateParent(parent, type);
+                        current = parent;
                     }
                 }
 
                 function updateTotals(section) {
                     let totalAmt = 0;
-
                     $(`#${section}-tbody tr[data-index][data-depth="0"]`).each(function() {
                         const id = parseInt($(this).data('index'));
                         totalAmt += getActivityTotal(id, 'amt');
                     });
+                    $(`#${section}-total-amt`).text(formatNumber(totalAmt, 2));
 
-                    $(`#${section}-total-amt`).text(totalAmt.toFixed(2));
-
-                    // Update parent totals
-                    Object.keys(parentToChildren).forEach(parentId => {
-                        const children = parentToChildren[parentId];
-                        let childrenQtySum = 0;
-                        let childrenAmtSum = 0;
-
-                        children.forEach(childId => {
-                            childrenQtySum += getActivityTotal(childId, 'qty');
-                            childrenAmtSum += getActivityTotal(childId, 'amt');
+                    Object.keys(parentToChildren).forEach(pId => {
+                        const children = parentToChildren[pId];
+                        let qtySum = 0,
+                            amtSum = 0;
+                        children.forEach(cId => {
+                            qtySum += getActivityTotal(cId, 'qty');
+                            amtSum += getActivityTotal(cId, 'amt');
                         });
+                        $(`.total-display[data-parent-id="${pId}"][data-type="qty"]`).text(formatNumber(qtySum,
+                            2));
+                        $(`.total-display[data-parent-id="${pId}"][data-type="amt"]`).text(formatNumber(amtSum,
+                            2));
 
-                        $(`.total-display[data-parent-id="${parentId}"][data-type="qty"]`)
-                            .text(Math.round(childrenQtySum).toLocaleString());
-                        $(`.total-display[data-parent-id="${parentId}"][data-type="amt"]`)
-                            .text(childrenAmtSum.toFixed(2));
-
-                        const parentQtyInput = $(activityElements[parentId]).find('input[data-type="qty"]');
-                        const parentAmtInput = $(activityElements[parentId]).find('input[data-type="amt"]');
-                        if (parentQtyInput.is(':disabled')) {
-                            parentQtyInput.val(Math.round(childrenQtySum).toLocaleString());
-                        }
-                        if (parentAmtInput.is(':disabled')) {
-                            parentAmtInput.val(childrenAmtSum.toFixed(2));
-                        }
+                        const pQty = $(activityElements[pId]).find('input[data-type="qty"]');
+                        const pAmt = $(activityElements[pId]).find('input[data-type="amt"]');
+                        if (pQty.is(':disabled')) pQty.val(formatNumber(qtySum, 2));
+                        if (pAmt.is(':disabled')) pAmt.val(formatNumber(amtSum, 2));
                     });
                 }
 
-                function getActivityTotal(activityId, type) {
-                    const children = parentToChildren[activityId];
+                function getActivityTotal(id, type) {
+                    const children = parentToChildren[id];
                     if (children && children.length > 0) {
-                        let sum = 0;
-                        children.forEach(childId => {
-                            sum += getActivityTotal(childId, type);
-                        });
-                        return sum;
-                    } else {
-                        const input = $(activityElements[activityId]).find(`input[data-type="${type}"]`);
-                        const val = parseNumeric(input.val());
-                        return type === 'qty' ? Math.round(val) : val;
+                        return children.reduce((sum, cId) => sum + getActivityTotal(cId, type), 0);
                     }
+                    const val = $(activityElements[id]).find(`input[data-type="${type}"]`).val();
+                    return parseNumeric(val);
                 }
+
+                // ==================== LOAD & POPULATE ACTIVITIES ====================
 
                 function loadProjectActivities(projectId, fiscalYearId, quarter) {
                     if (!projectId || !fiscalYearId || !quarter) {
-                        $('#capital-tbody').html(
-                            '<tr id="capital-empty"><td colspan="4" class="text-center py-8 text-gray-500 dark:text-gray-400">Select a project, fiscal year, and quarter to load capital expenses</td></tr>'
-                        );
-                        $('#recurrent-tbody').html(
-                            '<tr id="recurrent-empty"><td colspan="4" class="text-center py-8 text-gray-500 dark:text-gray-400">Select a project, fiscal year, and quarter to load recurrent expenses</td></tr>'
+                        $('#capital-tbody, #recurrent-tbody').html(
+                            '<tr><td colspan="8" class="text-center py-8 text-gray-500 dark:text-gray-400">Select a project, fiscal year, and quarter to load expenses</td></tr>'
                         );
                         $('#budget-display').html(
                             '<span class="block text-sm text-blue-700 dark:text-blue-300">Select a project, fiscal year, and quarter to view budget details and load activities.</span>'
-                        );
+                            );
                         updateTotals('capital');
                         updateTotals('recurrent');
                         return;
                     }
 
                     selectedQuarter = quarter;
-                    $('#capital-quarter-label').text(`Quarter ${quarter.replace('q', '').toUpperCase()}`);
-                    $('#recurrent-quarter-label').text(`Quarter ${quarter.replace('q', '').toUpperCase()}`);
+                    $('#capital-quarter-label, #recurrent-quarter-label').text(
+                        `Quarter ${quarter.replace('q', '').toUpperCase()}`);
 
                     $('#loading-indicator').removeClass('hidden');
                     $('#submit-button').prop('disabled', true);
@@ -484,7 +553,7 @@
 
                             if (response.success === false || response.error) {
                                 showError(response.error || response.message ||
-                                    'Failed to load activities');
+                                'Failed to load activities');
                                 return;
                             }
 
@@ -502,7 +571,7 @@
                             populateActivities('recurrent', response.recurrent || []);
                             checkSelections();
                         },
-                        error: function(xhr) {
+                        error: function() {
                             $('#loading-indicator').addClass('hidden');
                             $('#submit-button').prop('disabled', false);
                             showError('Failed to load project activities');
@@ -512,330 +581,228 @@
 
                 function populateActivities(section, activities) {
                     const tbody = $(`#${section}-tbody`);
-
                     if (!activities || activities.length === 0) {
                         tbody.html(
-                            `<tr id="${section}-empty"><td colspan="4" class="text-center py-8 text-gray-500 dark:text-gray-400">No ${section} activities found for the selected fiscal year</td></tr>`
-                        );
+                            `<tr id="${section}-empty"><td colspan="8" class="text-center py-8 text-gray-500 dark:text-gray-400">No ${section} activities found</td></tr>`
+                            );
                         updateTotals(section);
                         return;
                     }
 
                     tbody.empty();
 
-                    function buildActivityRows(activity, depth = 0, parentNumber = '', childIndex = 0, parentId =
-                        null) {
+                    function buildActivityRows(activity, depth = 0, childIndex = 0, parentId = null) {
                         parentMap[activity.id] = parentId;
-                        const displayNumber = parentNumber ? `${parentNumber}.${childIndex}` : (childIndex + 1)
-                            .toString();
+                        const displayNumber = activity.sort_index || (childIndex + 1);
                         const hasChildren = activity.children && activity.children.length > 0;
                         const bgClass = hasChildren ? 'bg-gray-100 dark:bg-gray-700' : '';
                         const fontClass = depth === 0 ? 'font-bold' : depth === 1 ? 'font-medium' : '';
 
-                        let qQty = parseNumeric(activity[`q${selectedQuarter.charAt(1)}_qty`] || '0');
-                        let qAmt = parseNumeric(activity[`q${selectedQuarter.charAt(1)}_amt`] || '0');
+                        const quarterNum = selectedQuarter.charAt(1);
+                        const plannedQty = activity.planned_quantity || 0;
+                        const plannedBudget = activity.planned_budget || 0;
+                        const qPlannedQty = activity[`q${quarterNum}_quantity`] || 0;
+                        const qPlannedAmt = activity[`q${quarterNum}_amount`] || 0;
 
-                        const qtyValue = qQty === 0 ? '' : Math.round(qQty).toLocaleString();
-                        const amtValue = qAmt === 0 ? '' : qAmt.toFixed(2);
-                        const isDisabled = hasChildren;
+                        let expQty = parseNumeric(activity[`q${quarterNum}_qty`] || '0');
+                        let expAmt = parseNumeric(activity[`q${quarterNum}_amt`] || '0');
 
-                        let row = `<tr class="projectExpense-row ${bgClass}" data-depth="${depth}" data-index="${activity.id}">
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm">${displayNumber}</td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: ${depth * 20}px;">
-                                <input type="hidden" name="${section}[${activity.id}][activity_id]" value="${activity.id}">
-                                <input type="hidden" name="${section}[${activity.id}][parent_id]" value="${activity.parent_id || ''}">
-                                <span class="${fontClass}">${activity.title || activity.program || 'Untitled'}</span>
-                            </td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
-                                <input type="text" name="${section}[${activity.id}][${selectedQuarter}_qty]" value="${qtyValue}"
-                                    placeholder="0" pattern="[0-9]+"
-                                    class="expense-input tooltip-error numeric-input w-full ${isDisabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
-                                    data-type="qty" ${isDisabled ? 'disabled readonly' : ''}>
-                            </td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
-                                <input type="text" name="${section}[${activity.id}][${selectedQuarter}_amt]" value="${amtValue}"
-                                    placeholder="0.00" pattern="[0-9]+(\\.[0-9]{1,2})?"
-                                    class="expense-input tooltip-error numeric-input w-full ${isDisabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
-                                    data-type="amt" ${isDisabled ? 'disabled readonly' : ''}>
-                            </td>
-                        </tr>`;
+                        const qtyVal = expQty === 0 ? '' : formatNumber(expQty, 2);
+                        const amtVal = expAmt === 0 ? '' : formatNumber(expAmt, 2);
+                        const disabled = hasChildren;
 
-                        const tr = $(row);
-                        tbody.append(tr);
-                        activityElements[activity.id] = tr[0];
+                        const row = `
+                    <tr class="projectExpense-row ${bgClass}" data-depth="${depth}" data-index="${activity.id}">
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm">${displayNumber}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: ${depth * 20}px;">
+                            <input type="hidden" name="${section}[${activity.id}][activity_id]" value="${activity.id}">
+                            <input type="hidden" name="${section}[${activity.id}][parent_id]" value="${activity.parent_id || ''}">
+                            <span class="${fontClass}">${activity.title || activity.program || 'Untitled'}</span>
+                        </td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(plannedQty, 2)}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(plannedBudget, 2)}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(qPlannedQty, 2)}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(qPlannedAmt, 2)}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
+                            <input type="text" name="${section}[${activity.id}][${selectedQuarter}_qty]" value="${qtyVal}" placeholder="0.00"
+                                class="expense-input tooltip-error w-full ${disabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
+                                data-type="qty" ${disabled ? 'disabled readonly' : ''}>
+                        </td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
+                            <input type="text" name="${section}[${activity.id}][${selectedQuarter}_amt]" value="${amtVal}" placeholder="0.00"
+                                class="expense-input tooltip-error w-full ${disabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
+                                data-type="amt" ${disabled ? 'disabled readonly' : ''}>
+                        </td>
+                    </tr>`;
+
+                        const $row = $(row);
+                        tbody.append($row);
+                        activityElements[activity.id] = $row[0];
 
                         if (hasChildren) {
                             parentToChildren[activity.id] = activity.children.map(c => c.id);
-                            activity.children.forEach((child, idx) => {
-                                buildActivityRows(child, depth + 1, displayNumber, idx + 1, activity.id);
-                            });
+                            activity.children.forEach((child, idx) => buildActivityRows(child, depth + 1, idx + 1,
+                                activity.id));
 
-                            let totalRow = `<tr class="projectExpense-total-row bg-blue-50 dark:bg-blue-900/30 border-t-2 border-blue-300 dark:border-blue-600" data-parent-id="${activity.id}">
-                                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
-                                <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 font-bold text-blue-700 dark:text-blue-300" style="padding-left: ${(depth + 1) * 20}px;">Total of ${displayNumber}</td>
-                                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
-                                    <span class="total-display" data-parent-id="${activity.id}" data-type="qty">0</span>
-                                </td>
-                                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
-                                    <span class="total-display" data-parent-id="${activity.id}" data-type="amt">0.00</span>
-                                </td>
-                            </tr>`;
+                            const totalRow = `
+                        <tr class="projectExpense-total-row bg-blue-50 dark:bg-blue-900/30 border-t-2 border-blue-300 dark:border-blue-600" data-parent-id="${activity.id}">
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 font-bold text-blue-700 dark:text-blue-300" style="padding-left: ${(depth + 1) * 20}px;">Total of ${displayNumber}</td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
+                                <span class="total-display" data-parent-id="${activity.id}" data-type="qty">0.00</span>
+                            </td>
+                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
+                                <span class="total-display" data-parent-id="${activity.id}" data-type="amt">0.00</span>
+                            </td>
+                        </tr>`;
                             tbody.append(totalRow);
                         }
                     }
 
-                    activities.forEach((activity, index) => {
-                        buildActivityRows(activity, 0, '', index + 1, null);
-                    });
-
-                    ['qty', 'amt'].forEach(type => {
-                        Object.keys(parentToChildren).forEach(pId => {
-                            validateParent(parseInt(pId), type);
-                        });
-                    });
+                    activities.forEach((act, i) => buildActivityRows(act, 0, i + 1, null));
 
                     initializeTooltips(tbody.find('.tooltip-error'));
                     updateTotals(section);
+
+                    ['qty', 'amt'].forEach(type => {
+                        Object.keys(parentToChildren).forEach(p => validateParent(parseInt(p), type));
+                    });
                 }
 
-                function showError(message) {
-                    $('#error-text').text(message);
+                // ==================== REST OF EVENT HANDLERS (UNCHANGED) ====================
+
+                function showError(msg) {
+                    $('#error-text').text(msg);
                     $('#error-message').removeClass('hidden');
                 }
 
                 function resetQuarterAndReload() {
                     $('#quarter_selector').val('');
                     selectedQuarter = '';
-                    $('#capital-quarter-label').text('Select Quarter');
-                    $('#recurrent-quarter-label').text('Select Quarter');
+                    $('#capital-quarter-label, #recurrent-quarter-label').text('Select Quarter');
                     loadProjectActivities(lastProjectValue, lastFiscalValue, '');
                 }
 
-                // Event handlers
-                const projectHidden = document.querySelector(
-                    '.js-single-select[data-name="project_id"] .js-hidden-input');
-                const fiscalHidden = document.querySelector(
-                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
-
-                let lastProjectValue = projectHidden ? projectHidden.value : '';
-                let lastFiscalValue = fiscalHidden ? fiscalHidden.value : '';
-
-                // Quarter selector change
                 $('#quarter_selector').on('change', function() {
-                    const quarter = $(this).val();
-                    selectedQuarter = quarter;
+                    const q = $(this).val();
+                    selectedQuarter = q;
                     checkSelections();
-                    if (lastProjectValue && lastFiscalValue && quarter) {
-                        loadProjectActivities(lastProjectValue, lastFiscalValue, quarter);
-                    } else if (quarter) {
+                    if (lastProjectValue && lastFiscalValue && q) {
+                        loadProjectActivities(lastProjectValue, lastFiscalValue, q);
+                    } else if (q) {
                         showError('Please select both Project and Fiscal Year first');
                         $(this).val('');
                         selectedQuarter = '';
-                        checkSelections();
                     }
                 });
 
-                // Download template
-                $('#download-template').on('click', function(e) {
-                    e.preventDefault();
+                $('#download-template').on('click', function() {
                     if (lastProjectValue && lastFiscalValue && selectedQuarter) {
                         window.location.href =
                             `/admin/projectExpense/downloadExcel/${lastProjectValue}/${lastFiscalValue}?quarter=${selectedQuarter}`;
                     } else {
-                        showError('Please select Project, Fiscal Year, and Quarter first');
+                        showError('Please select all fields first');
                     }
                 });
 
-                $('#excel-upload').on('click', function(e) { // Changed to 'click' on label (triggers redirect)
-                    e.preventDefault();
-                    const projectId = lastProjectValue;
-                    const fyId = lastFiscalValue;
-                    const quarter = selectedQuarter;
-                    if (!projectId || !fyId || !quarter) {
+                $('#excel-upload').on('click', function() {
+                    if (!lastProjectValue || !lastFiscalValue || !selectedQuarter) {
                         showError('Please select Project, Fiscal Year, and Quarter first');
                         return;
                     }
-                    // Redirect to upload view with params
                     window.location.href =
-                        `/admin/projectExpense/${projectId}/${fyId}/upload?quarter=${quarter}`;
+                        `/admin/projectExpense/${lastProjectValue}/${lastFiscalValue}/upload?quarter=${selectedQuarter}`;
                 });
 
                 if (projectHidden) {
-                    const projectObserver = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                                const newValue = projectHidden.value;
-                                if (newValue !== lastProjectValue) {
-                                    lastProjectValue = newValue;
+                    new MutationObserver(muts => {
+                        muts.forEach(mut => {
+                            if (mut.attributeName === 'value') {
+                                const newVal = projectHidden.value;
+                                if (newVal !== lastProjectValue) {
+                                    lastProjectValue = newVal;
                                     resetQuarterAndReload();
                                     checkSelections();
                                 }
                             }
                         });
-                    });
-                    projectObserver.observe(projectHidden, {
+                    }).observe(projectHidden, {
                         attributes: true
-                    });
-
-                    projectHidden.addEventListener('change', function() {
-                        lastProjectValue = this.value;
-                        resetQuarterAndReload();
-                        checkSelections();
                     });
                 }
 
                 if (fiscalHidden) {
-                    const fiscalObserver = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                                const newValue = fiscalHidden.value;
-                                if (newValue !== lastFiscalValue) {
-                                    lastFiscalValue = newValue;
+                    new MutationObserver(muts => {
+                        muts.forEach(mut => {
+                            if (mut.attributeName === 'value') {
+                                const newVal = fiscalHidden.value;
+                                if (newVal !== lastFiscalValue) {
+                                    lastFiscalValue = newVal;
                                     resetQuarterAndReload();
                                     checkSelections();
                                 }
                             }
                         });
-                    });
-                    fiscalObserver.observe(fiscalHidden, {
+                    }).observe(fiscalHidden, {
                         attributes: true
-                    });
-
-                    fiscalHidden.addEventListener('change', function() {
-                        lastFiscalValue = this.value;
-                        resetQuarterAndReload();
-                        checkSelections();
                     });
                 }
 
-                $(document).on('input', '.expense-input', function() {
+                $(document).on('input', '.expense-input:not([disabled])', function() {
                     const $input = $(this);
                     const type = $input.data('type');
-                    const activityId = parseInt($input.closest('tr').data('index'));
+                    const id = parseInt($input.closest('tr').data('index'));
 
-                    if (parentToChildren[activityId]) {
-                        validateParent(activityId, type);
-                    }
+                    if (parentToChildren[id]) validateParent(id, type);
+                    validateAllAncestors(id, type);
 
-                    validateAllAncestors(activityId, type);
-
-                    const $tbody = $input.closest('tbody');
-                    const section = $tbody.attr('id').replace('-tbody', '');
+                    const section = $input.closest('tbody').attr('id').replace('-tbody', '');
                     updateTotals(section);
                 });
 
-                $(document).on('keydown', '.expense-input', function(e) {
-                    if (e.key === 'Tab') {
-                        const $input = $(this);
-                        if ($input.hasClass('error-border')) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const errorMsg = tippyInstances.get($input[0])?.props.content ||
-                                'Please correct the error';
-                            $('#error-text').text(errorMsg);
-                            $('#error-message').removeClass('hidden');
-                            setTimeout(function() {
-                                $('#error-message').addClass('hidden');
-                            }, 3000);
-                            return false;
-                        }
-                    }
-                });
-
-                $(document).on('blur', '.expense-input', function(e) {
-                    const $input = $(this);
-                    if ($input.hasClass('error-border')) {
-                        e.preventDefault();
-                        setTimeout(function() {
-                            $input.focus();
-                        }, 100);
-                        return false;
-                    }
+                $('#close-error').on('click', () => {
+                    $('#error-message').addClass('hidden');
+                    $('.expense-input').removeClass('error-border');
+                    tippyInstances.forEach((inst, el) => inst.hide());
                 });
 
                 $('#projectExpense-form').on('submit', function(e) {
                     e.preventDefault();
-                    let hasErrors = false;
 
-                    const projectId = projectHidden ? projectHidden.value : '';
-                    const fiscalYearId = fiscalHidden ? fiscalHidden.value : '';
-                    const quarter = $('#quarter_selector').val();
-
-                    if (!projectId || !fiscalYearId) {
-                        showError('Please select both Project and Fiscal Year');
+                    if (!lastProjectValue || !lastFiscalValue || !selectedQuarter) {
+                        showError('Please complete all selections');
                         return;
                     }
 
-                    if (!quarter) {
-                        showError('Please select a Quarter');
-                        return;
-                    }
-
+                    let hasError = false;
                     $('.expense-input').each(function() {
-                        const $input = $(this);
-                        const type = $input.data('type');
-                        const val = $input.val().trim();
-                        let isValid = true;
-                        if (type === 'qty') {
-                            const num = parseInt(val) || 0;
-                            isValid = !isNaN(num) && num >= 0;
-                        } else {
-                            const num = parseNumeric(val);
-                            isValid = !isNaN(num) && num >= 0;
-                        }
-                        if (val && !isValid) {
-                            $input.addClass('error-border');
-                            updateTooltip($input, `Valid non-negative ${type} required`);
-                            hasErrors = true;
+                        const val = $(this).val().trim();
+                        const num = parseNumeric(val);
+                        if (val && (isNaN(num) || num < 0)) {
+                            $(this).addClass('error-border');
+                            updateTooltip($(this), 'Invalid number');
+                            hasError = true;
                         }
                     });
 
-                    if (hasErrors) {
-                        showError('Please correct errors in the expense inputs.');
+                    if (hasError) {
+                        showError('Please correct invalid inputs');
                         return;
                     }
 
-                    let hierarchyErrors = false;
+                    let hierarchyError = false;
                     ['qty', 'amt'].forEach(type => {
                         Object.keys(parentToChildren).forEach(pId => {
-                            const children = parentToChildren[pId];
-                            let childSum = 0;
-
-                            children.forEach(cId => {
-                                const cInput = $(activityElements[cId]).find(
-                                    `input[data-type="${type}"]`);
-                                childSum += type === 'qty' ? (parseInt(cInput.val()) ||
-                                    0) : parseNumeric(cInput.val());
-                            });
-
-                            const pVal = type === 'qty' ?
-                                (parseInt($(activityElements[pId]).find(
-                                    `input[data-type="${type}"]`).val()) || 0) :
-                                parseNumeric($(activityElements[pId]).find(
-                                    `input[data-type="${type}"]`).val());
-                            const difference = Math.abs(childSum - pVal);
-
-                            if (difference > 0.01) {
-                                let message = childSum > pVal ?
-                                    `Sum EXCEEDS parent ${type} by ${Math.abs(childSum - pVal).toFixed(2)}` :
-                                    `Sum is ${Math.abs(pVal - childSum).toFixed(2)} LESS than parent ${type}`;
-
-                                children.forEach(cId => {
-                                    const cInput = $(activityElements[cId]).find(
-                                        `input[data-type="${type}"]`);
-                                    cInput.addClass('error-border');
-                                    updateTooltip(cInput, message);
-                                });
-
-                                hierarchyErrors = true;
-                            }
+                            if (!validateParent(parseInt(pId), type)) hierarchyError = true;
                         });
                     });
 
-                    if (hierarchyErrors) {
-                        showError(
-                            'Child values must sum to exactly match parent values. Please correct all mismatches.'
-                        );
+                    if (hierarchyError) {
+                        showError('Child values must exactly match parent totals');
                         return;
                     }
 
@@ -843,22 +810,14 @@
                     this.submit();
                 });
 
-                $('#close-error').on('click', function() {
-                    $('#error-message').addClass('hidden');
-                    $('.expense-input').removeClass('error-border').each(function() {
-                        updateTooltip($(this), '');
-                    });
-                });
+                if (lastProjectValue && lastFiscalValue && $('#quarter_selector').val()) {
+                    loadProjectActivities(lastProjectValue, lastFiscalValue, $('#quarter_selector').val());
+                }
 
                 initializeTooltips($('.tooltip-error'));
                 updateTotals('capital');
                 updateTotals('recurrent');
-
-                // Auto-load if quarter is pre-selected (initial load only)
-                const initialQuarter = $('#quarter_selector').val();
-                if (lastProjectValue && lastFiscalValue && initialQuarter) {
-                    loadProjectActivities(lastProjectValue, lastFiscalValue, initialQuarter);
-                }
+                checkSelections();
             });
         </script>
     @endpush

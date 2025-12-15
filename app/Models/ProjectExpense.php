@@ -36,13 +36,13 @@ class ProjectExpense extends Model
         'weighted_progress' => 'decimal:4',
     ];
 
-    // Accessor for grand_total (sums quarters)
     public function getGrandTotalAttribute(): float
     {
-        return $this->quarters->sum('amount');
+        $sum = $this->quarters()->finalized()->sum('amount');
+
+        return (float) $sum;
     }
 
-    // Hierarchy: Self-referential (for expenses; optional if mirroring activities)
     public function parent(): BelongsTo
     {
         return $this->belongsTo(ProjectExpense::class, 'parent_id');
@@ -53,19 +53,16 @@ class ProjectExpense extends Model
         return $this->hasMany(ProjectExpense::class, 'parent_id');
     }
 
-    // Key relation to your ProjectActivityPlan (updated)
     public function plan(): BelongsTo
     {
         return $this->belongsTo(ProjectActivityPlan::class, 'project_activity_plan_id');
     }
 
-    // Derived: Activity Definition via plan
     public function activityDefinition(): BelongsTo
     {
         return $this->plan()->withDefault()->activityDefinition();
     }
 
-    // Derived: Project and FiscalYear via plan/definition
     public function project(): BelongsTo
     {
         return $this->activityDefinition()->withDefault()->project();
@@ -86,25 +83,21 @@ class ProjectExpense extends Model
         return $this->hasMany(ProjectExpenseQuarter::class);
     }
 
-    // Scoped queries (scoped to plan's ID)
     public function scopeForProjectActivityPlan(Builder $query, int $planId): void
     {
         $query->where('project_activity_plan_id', $planId);
     }
 
-    // Scoped by category (via definition's expenditure_id)
     public function scopeInCategory(Builder $query, int $expenditureId): void // 1=capital, 2=recurrent
     {
         $query->whereHas('activityDefinition', fn($q) => $q->where('expenditure_id', $expenditureId));
     }
 
-    // Additional scopes for convenience (e.g., by definition ID across years)
     public function scopeForDefinition(Builder $query, int $definitionId): void
     {
         $query->whereHas('plan', fn($q) => $q->where('activity_definition_id', $definitionId));
     }
 
-    // Scope for fiscal year (via plan)
     public function scopeForFiscalYear(Builder $query, int $fiscalYearId): void
     {
         $query->whereHas('plan', fn($q) => $q->where('fiscal_year_id', $fiscalYearId));

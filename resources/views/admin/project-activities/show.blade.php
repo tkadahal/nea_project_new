@@ -7,7 +7,7 @@
             </h1>
 
             <div class="flex items-center space-x-2">
-                <a href="{{ route('admin.projectActivity.download-activities', [$projectId, $fiscalYearId]) }}"
+                <a href="{{ route('admin.projectActivity.downloadAcitivites', [$projectId, $fiscalYearId]) }}"
                     class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                     <svg class="h-4 w-4 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                         xmlns="http://www.w3.org/2000/svg">

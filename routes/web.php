@@ -11,13 +11,13 @@ use App\Http\Controllers\Admin\{
     EventController,
     BudgetController,
     StatusController,
+    ReportController,
     CommentController,
     ExpenseController,
     ProjectController,
     ContractController,
     PriorityController,
     DashboardController,
-    DefinitionController,
     DepartmentController,
     FiscalYearController,
     PermissionController,
@@ -123,22 +123,42 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('project', ProjectController::class);
 
         // Project Activities
-        Route::controller(ProjectActivityController::class)->prefix('project-activities')->name('projectActivity.')->group(function () {
-            Route::get('template', 'downloadTemplate')->name('template');
-            Route::get('upload', 'showUploadForm')->name('uploadForm');
-            Route::post('upload', 'uploadExcel')->name('upload');
-            Route::get('{projectId}/{fiscalYearId}/download-activities', 'downloadActivities')->name('download-activities');
-        });
+        // Route::controller(ProjectActivityController::class)->prefix('project-activities')->name('projectActivity.')->group(function () {
+        //     Route::get('template', 'downloadTemplate')->name('template');
+        //     Route::get('upload', 'showUploadForm')->name('uploadForm');
+        //     Route::post('upload', 'uploadExcel')->name('upload');
+        //     Route::get('{projectId}/{fiscalYearId}/download-activities', 'downloadActivities')->name('download-activities');
+        // });
         Route::prefix('projectActivity')->name('projectActivity.')->group(function () {
+            // Standard CRUD
+            Route::get('/', [ProjectActivityController::class, 'index'])->name('index');
+            Route::get('create', [ProjectActivityController::class, 'create'])->name('create');
+            Route::post('/', [ProjectActivityController::class, 'store'])->name('store');
+
+            // UPDATED: AJAX endpoints for dynamic row management (addRow to POST for CSRF/consistency)
+            Route::post('add-row', [ProjectActivityController::class, 'addRow'])->name('addRow');
+            Route::delete('delete-row/{id}', [ProjectActivityController::class, 'deleteRow'])->name('deleteRow');
+            Route::post('update-field', [ProjectActivityController::class, 'updateField'])->name('updateField');
+            Route::get('get-activities', [ProjectActivityController::class, 'getActivities'])->name('getActivities');
+
+            // Existing AJAX helpers (unchanged; assume getRows exists in controller if used)
             Route::get('rows', [ProjectActivityController::class, 'getRows'])->name('getRows');
             Route::get('budgetData', [ProjectActivityController::class, 'getBudgetData'])->name('budgetData');
+
+            // Excel operations (unchanged)
+            Route::get('template', [ProjectActivityController::class, 'downloadTemplate'])->name('template');
+            Route::get('upload-form', [ProjectActivityController::class, 'showUploadForm'])->name('uploadForm');
+            Route::post('upload', [ProjectActivityController::class, 'uploadExcel'])->name('upload');
+
+            // Composite key operations (unchanged)
             Route::get('show/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'show'])->name('show');
             Route::get('edit/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'edit'])->name('edit');
             Route::put('{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'update'])->name('update');
-            // Route::get('definitions', [ProjectActivityController::class, 'getDefinitions'])->name('getDefinitions');
-        });
-        Route::resource('projectActivity', ProjectActivityController::class)->except(['show', 'edit', 'update']);
+            Route::get('{projectId}/{fiscalYearId}/download', [ProjectActivityController::class, 'downloadActivities'])->name('downloadAcitivites');
 
+            // Delete (unchanged)
+            Route::delete('{id}', [ProjectActivityController::class, 'destroy'])->name('destroy');
+        });
         // Contracts
         Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
             Route::get('projects/{directorate_id}', 'getProjects')->name('projects');
@@ -232,6 +252,21 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::post('{model}/{id}/files', 'store')->name('files.store');
             Route::get('files/{file}/download', 'download')->name('files.download');
             Route::delete('files/{file}', 'destroy')->name('files.destroy');
+        });
+
+        // Reprots
+        Route::prefix('reports')->name('reports.')->group(function () {
+            // Show report generation view
+            Route::get('consolidated-annual', [ReportController::class, 'showConsolidatedAnnualReport'])
+                ->name('consolidatedAnnual.view');
+
+            // Generate and download report
+            Route::get('consolidated-annual/download', [ReportController::class, 'consolidatedAnnualReport'])
+                ->name('consolidatedAnnual');
+
+            // Get project count for preview
+            Route::get('project-count', [ReportController::class, 'getProjectCount'])
+                ->name('projectCount');
         });
 
         // Notifications

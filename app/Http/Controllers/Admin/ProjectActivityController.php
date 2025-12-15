@@ -8,16 +8,20 @@ use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\ProjectActivityExport;
 use App\Services\ProjectActivityService;
+use App\Models\ProjectActivityDefinition;
 use App\Services\ProjectActivityExcelService;
-use App\Exports\ProjectActivityTemplateExport;
+use App\Exports\Reports\ProjectActivityExport;
 use Symfony\Component\HttpFoundation\Response;
 use App\Repositories\ProjectActivityRepository;
+use App\Exports\Templates\ProjectActivityTemplateExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Http\Requests\ProjectActivity\StoreProjectActivityRequest;
 use App\Http\Requests\ProjectActivity\UpdateProjectActivityRequest;
@@ -64,9 +68,21 @@ class ProjectActivityController extends Controller
             'selected' => $project->id === $selectedProjectId,
         ])->toArray();
 
-        [$capitalRows, $recurrentRows] = $selectedProject
-            ? $this->activityService->buildRowsForProject($selectedProject, $selectedFiscalYearId)
-            : [[], []];
+        // Get existing activities with index
+        $capitalActivities = collect();
+        $recurrentActivities = collect();
+
+        if ($selectedProject) {
+            $capitalActivities = ProjectActivityDefinition::where('project_id', $selectedProject->id)
+                ->where('expenditure_id', 1)
+                ->orderBy('sort_index')
+                ->get();
+
+            $recurrentActivities = ProjectActivityDefinition::where('project_id', $selectedProject->id)
+                ->where('expenditure_id', 2)
+                ->orderBy('sort_index')
+                ->get();
+        }
 
         return view('admin.projectActivities.create', compact(
             'projects',
@@ -75,56 +91,339 @@ class ProjectActivityController extends Controller
             'selectedProject',
             'selectedProjectId',
             'selectedFiscalYearId',
-            'capitalRows',
-            'recurrentRows'
+            'capitalActivities',
+            'recurrentActivities'
         ));
     }
 
-    public function getRows(Request $request): Response
+    /**
+     * Add a new row (creates in DB, returns HTML; persists immediately)
+     */
+    public function addRow(Request $request): JsonResponse
     {
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $projectId = $request->input('project_id');
+        $validated = $request->validate([
+            'project_id' => 'required|integer|exists:projects,id',
+            'expenditure_id' => 'required|integer|in:1,2',
+            'parent_id' => 'nullable|integer|exists:project_activity_definitions,id',
+        ]);
 
-        if (!$projectId) {
-            return response()->json(['error' => 'Missing project_id'], 400);
-        }
+        $projectId = (int) $validated['project_id'];
+        $expenditureId = (int) $validated['expenditure_id'];
+        $parentId = isset($validated['parent_id']) ? (int) $validated['parent_id'] : null;
 
-        $project = Auth::user()->projects->find($projectId);
-
+        // Enhanced access check
+        $project = Auth::user()->projects()->find($projectId);
         if (!$project) {
-            return response()->json(['error' => 'Project not found or unauthorized'], 404);
+            return response()->json(['error' => 'Unauthorized: No access to project'], 403);
         }
 
+        DB::beginTransaction();
         try {
-            [$capitalRows, $recurrentRows] = $this->activityService->getActivityDataForAjax(
-                $project,
-                null  // Always pass null for fiscal_year_id
-            );
+            // FIXED: Check parent depth BEFORE calculating new sort_index
+            if ($parentId !== null) {
+                $parent = ProjectActivityDefinition::findOrFail($parentId);
 
-            $capitalRows = collect($capitalRows)->map(fn($row) => (array) $row)->toArray();
-            $recurrentRows = collect($recurrentRows)->map(fn($row) => (array) $row)->toArray();
+                // If parent depth is already 2, we can't add children
+                if ($parent->depth >= 2) {
+                    DB::rollBack();
+                    return response()->json(['error' => 'Maximum depth (2 levels) reached. Cannot add sub-rows beyond level 2.'], 400);
+                }
+            }
 
-            $capitalNextIndex = max(1, count(array_filter($capitalRows, fn($row) => ($row['depth'] ?? 0) === 0)) + 1);
-            $recurrentNextIndex = max(1, count(array_filter($recurrentRows, fn($row) => ($row['depth'] ?? 0) === 0)) + 1);
+            // Calculate the sort index
+            $sortIndex = $this->calculateNextIndex($projectId, $expenditureId, $parentId);
+
+            // Calculate depth from sort_index (number of dots)
+            $depth = substr_count($sortIndex, '.');
+
+            Log::info("Adding row: sort_index=$sortIndex, depth=$depth, parent_id=$parentId");
+
+            // Double-check: This should never happen if parent check above works
+            if ($depth > 2) {
+                DB::rollBack();
+                return response()->json(['error' => 'Maximum depth exceeded'], 400);
+            }
+
+            // Create the activity with all required fields
+            $activityData = [
+                'project_id' => $projectId,
+                'expenditure_id' => $expenditureId,
+                'parent_id' => $parentId,
+                'sort_index' => $sortIndex,
+                'depth' => $depth,
+                'program' => '',
+                'total_budget' => 0.00,
+                'total_quantity' => 0,
+                'total_expense' => 0.00,
+                'total_expense_quantity' => 0,
+                'planned_budget' => 0.00,
+                'planned_budget_quantity' => 0,
+                'q1' => 0.00,
+                'q1_quantity' => 0,
+                'q2' => 0.00,
+                'q2_quantity' => 0,
+                'q3' => 0.00,
+                'q3_quantity' => 0,
+                'q4' => 0.00,
+                'q4_quantity' => 0,
+                // 'status' => 'active',
+            ];
+
+            $activity = ProjectActivityDefinition::create($activityData);
+
+            DB::commit();
+
+            $type = $expenditureId === 1 ? 'capital' : 'recurrent';
+            $html = view('admin.projectActivities.partials.activity-row-full', [
+                'activity' => $activity,
+                'type' => $type,
+                'isPreloaded' => false,
+            ])->render();
 
             return response()->json([
                 'success' => true,
-                'capital' => $capitalRows,
-                'recurrent' => $recurrentRows,
-                'capital_index_next' => $capitalNextIndex,
-                'recurrent_index_next' => $recurrentNextIndex,
+                'row' => [
+                    'id' => $activity->id,
+                    'sort_index' => $sortIndex,
+                    'depth' => $depth,
+                    'parent_id' => $parentId,
+                    'html' => $html,
+                ],
             ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to build rows: ' . $e->getMessage()
-            ], 500);
+            DB::rollBack();
+            Log::error('AddRow Error: ' . $e->getMessage() . ' | Data: ' . json_encode($validated));
+            return response()->json(['error' => 'Failed to add row: ' . $e->getMessage()], 500);
         }
     }
 
+    /**
+     * Delete a row and all its descendants (only for real IDs)
+     */
+    public function deleteRow(int $id): JsonResponse
+    {
+        abort_if(Gate::denies('projectActivity_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
+        try {
+            $activity = ProjectActivityDefinition::findOrFail($id);
+
+            // FIXED: Enhanced access check
+            $project = Auth::user()->projects()->find($activity->project_id);
+            if (!$project) {
+                return response()->json(['error' => 'Unauthorized: No access to project for this activity'], 403);
+            }
+
+            DB::beginTransaction();
+
+            // Store info before deletion
+            $projectId = $activity->project_id;
+            $expenditureId = $activity->expenditure_id;
+            $parentId = $activity->parent_id;
+            $deletedSortIndex = $activity->sort_index;
+
+            // Delete descendants by sort_index prefix (e.g., '1' deletes '1.*')
+            $descendants = ProjectActivityDefinition::where('project_id', $activity->project_id)
+                ->where('expenditure_id', $activity->expenditure_id)
+                ->where('sort_index', 'like', $activity->sort_index . '%')
+                ->get();
+
+            $descendants->each->delete();
+
+            // Re-index siblings after deletion
+            $this->reIndexAfterDeletion($projectId, $expenditureId, $parentId, $deletedSortIndex);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Row deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('DeleteRow Error: ' . $e->getMessage() . ' | ID: ' . $id);
+            return response()->json(['error' => 'Failed to delete: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Re-index activities after deletion to maintain sequential order
+     */
+    private function reIndexAfterDeletion(int $projectId, int $expenditureId, ?int $parentId, string $deletedSortIndex): void
+    {
+        if ($parentId === null) {
+            // Top-level deletion: re-index all top-level rows
+            $siblings = ProjectActivityDefinition::where('project_id', $projectId)
+                ->where('expenditure_id', $expenditureId)
+                ->whereNull('parent_id')
+                ->orderBy('sort_index')
+                ->get();
+
+            $newIndex = 1;
+            foreach ($siblings as $sibling) {
+                $oldIndex = $sibling->sort_index;
+                $newSortIndex = (string) $newIndex;
+
+                if ($oldIndex !== $newSortIndex) {
+                    // Update this row
+                    $sibling->sort_index = $newSortIndex;
+                    $sibling->save();
+
+                    // Update all descendants with the new prefix
+                    $this->updateDescendantsPrefix($projectId, $expenditureId, $oldIndex, $newSortIndex);
+                }
+
+                $newIndex++;
+            }
+        } else {
+            // Child deletion: re-index only siblings under the same parent
+            $parent = ProjectActivityDefinition::find($parentId);
+            if (!$parent) {
+                return;
+            }
+
+            $siblings = ProjectActivityDefinition::where('project_id', $projectId)
+                ->where('expenditure_id', $expenditureId)
+                ->where('parent_id', $parentId)
+                ->orderBy('sort_index')
+                ->get();
+
+            $newIndex = 1;
+            foreach ($siblings as $sibling) {
+                $oldIndex = $sibling->sort_index;
+                $newSortIndex = $parent->sort_index . '.' . $newIndex;
+
+                if ($oldIndex !== $newSortIndex) {
+                    // Update this row
+                    $sibling->sort_index = $newSortIndex;
+                    $sibling->save();
+
+                    // Update all descendants with the new prefix
+                    $this->updateDescendantsPrefix($projectId, $expenditureId, $oldIndex, $newSortIndex);
+                }
+
+                $newIndex++;
+            }
+        }
+    }
+
+    /**
+     * Update all descendants when a parent's sort_index changes
+     */
+    private function updateDescendantsPrefix(int $projectId, int $expenditureId, string $oldPrefix, string $newPrefix): void
+    {
+        $descendants = ProjectActivityDefinition::where('project_id', $projectId)
+            ->where('expenditure_id', $expenditureId)
+            ->where('sort_index', 'like', $oldPrefix . '.%')
+            ->get();
+
+        foreach ($descendants as $descendant) {
+            // Replace the old prefix with the new prefix
+            $descendant->sort_index = preg_replace('/^' . preg_quote($oldPrefix, '/') . '/', $newPrefix, $descendant->sort_index);
+
+            // Recalculate depth
+            $descendant->depth = substr_count($descendant->sort_index, '.');
+
+            $descendant->save();
+        }
+    }
+
+    /**
+     * Update a single field (disabled for no auto-save; remove if not needed)
+     */
+    public function updateField(Request $request): JsonResponse
+    {
+        // Disabled: No auto-save until submit
+        return response()->json(['error' => 'Auto-save disabled; use submit'], 400);
+    }
+
+    /**
+     * Get activities for a project (unchanged)
+     */
+    public function getActivities(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'expenditure_id' => 'required|in:1,2',
+        ]);
+
+        $project = Auth::user()->projects->find($validated['project_id']);
+        if (!$project) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $activities = ProjectActivityDefinition::where('project_id', $validated['project_id'])
+            ->where('expenditure_id', $validated['expenditure_id'])
+            ->orderBy('sort_index')
+            ->get();
+
+        $type = $validated['expenditure_id'] == 1 ? 'capital' : 'recurrent';
+
+        $html = '';
+        foreach ($activities as $activity) {
+            $html .= view('admin.projectActivities.partials.activity-row-full', [
+                'activity' => $activity,
+                'type' => $type,
+            ])->render();
+        }
+
+        return response()->json([
+            'success' => true,
+            'html' => $html,
+            'count' => $activities->count(),
+        ]);
+    }
+
+    private function calculateNextIndex(int $projectId, int $expenditureId, ?int $parentId): string
+    {
+        Log::info('calculateNextIndex Called: project=' . $projectId . ', exp=' . $expenditureId . ', parent_id=' . ($parentId ?? 'null'));
+
+        if ($parentId === null) {
+            // Top-level: max +1
+            $query = ProjectActivityDefinition::where('project_id', $projectId)
+                ->where('expenditure_id', $expenditureId)
+                ->whereNull('parent_id');
+            $maxIndex = $query->max('sort_index') ?? 0;
+            $nextIndex = (string) ((int) $maxIndex + 1);
+            Log::info('Top-level next: ' . $nextIndex . ' (max was ' . $maxIndex . ')');
+            return $nextIndex;
+        }
+
+        // Sub-row: parent prefix + max child num +1
+        $parent = ProjectActivityDefinition::findOrFail($parentId);
+        $parentPrefix = $parent->sort_index;
+        Log::info('Parent found: ID=' . $parentId . ', prefix=' . $parentPrefix);
+
+        // FIXED: Query siblings by parent_id (direct children only)
+        $siblingsQuery = ProjectActivityDefinition::where('project_id', $projectId)
+            ->where('expenditure_id', $expenditureId)
+            ->where('parent_id', $parentId);
+
+        $siblingsCount = $siblingsQuery->count();
+        Log::info('Siblings count under parent ' . $parentId . ': ' . $siblingsCount);
+
+        if ($siblingsCount === 0) {
+            $nextIndex = $parentPrefix . '.1';
+            Log::info('No siblings, next: ' . $nextIndex);
+            return $nextIndex;
+        }
+
+        // FIXED: PG-compatible max last part (split_part returns last '.', cast to int)
+        $maxChildNum = $siblingsQuery->max(DB::raw('CAST(split_part(sort_index, \'.\', -1) AS INTEGER)')) ?? 0;
+        $nextIndex = $parentPrefix . '.' . ($maxChildNum + 1);
+        Log::info('Max child num: ' . $maxChildNum . ', next: ' . $nextIndex);
+
+        return $nextIndex;
+    }
+
+    /**
+     * Store activities (batch save from form; service handles temp/new)
+     */
     public function store(StoreProjectActivityRequest $request): Response
     {
         try {
+            // Note: Ensure service handles temp IDs, hierarchy, and re-indexing
             $this->activityService->storeActivities($request->validated());
 
             return redirect()
@@ -142,19 +441,9 @@ class ProjectActivityController extends Controller
         $project = $this->repository->findProjectWithAccessCheck($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
-        [$capitalPlans, $recurrentPlans, $capitalSums, $recurrentSums] =
-            $this->repository->getPlansWithSums($projectId, $fiscalYearId);
+        [$capitalPlans, $recurrentPlans, $capitalSums, $recurrentSums] = $this->repository->getPlansWithSums($projectId, $fiscalYearId);
 
-        return view('admin.project-activities.show', compact(
-            'project',
-            'fiscalYear',
-            'capitalPlans',
-            'recurrentPlans',
-            'projectId',
-            'fiscalYearId',
-            'capitalSums',
-            'recurrentSums'
-        ));
+        return view('admin.project-activities.show', compact('project', 'fiscalYear', 'capitalPlans', 'recurrentPlans', 'capitalSums', 'recurrentSums', 'projectId', 'fiscalYearId'));
     }
 
     public function edit(int $projectId, int $fiscalYearId): View
@@ -177,7 +466,7 @@ class ProjectActivityController extends Controller
             $fiscalYearId
         );
 
-        return view('admin.project-activities.edit', compact(
+        return view('admin.projectActivities.edit', compact(
             'project',
             'fiscalYear',
             'projectOptions',
@@ -252,29 +541,6 @@ class ProjectActivityController extends Controller
         return response()->json([
             'success' => true,
             'data' => $budgetData,
-        ]);
-    }
-
-    public function getActivityData(Request $request): Response
-    {
-        abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
-
-        $request->validate([
-            'project_id' => 'required|exists:projects,id',
-            'fiscal_year_id' => 'required|exists:fiscal_years,id',
-        ]);
-
-        $project = $this->repository->findProjectWithAccessCheck($request->integer('project_id'));
-
-        [$capitalRows, $recurrentRows] = $this->activityService->getActivityDataForAjax(
-            $project,
-            $request->integer('fiscal_year_id')
-        );
-
-        return response()->json([
-            'success' => true,
-            'capital_rows' => $capitalRows,
-            'recurrent_rows' => $recurrentRows,
         ]);
     }
 
