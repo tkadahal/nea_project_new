@@ -5,29 +5,41 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Models\Project;
-use App\Models\Directorate;
+use Illuminate\View\View;
 use App\Models\FiscalYear;
-use App\Models\ProjectExpenseFundingAllocation;
-use App\Models\BudgetQuaterAllocation;
+use App\Models\Directorate;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\View\View;
+use App\Exports\Reports\Consolidated\BudgetReportExport;
 use App\Http\Controllers\Controller;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Models\BudgetQuaterAllocation;
+use App\Models\ProjectExpenseFundingAllocation;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Exports\Reports\Consolidated\AnnualProgramReportExport;
 
 class ReportController extends Controller
 {
     /**
-     * Show the report generation view
+     * Shared data for report views
+     */
+    private function reportViewData(): array
+    {
+        return [
+            'fiscalYears'  => FiscalYear::orderBy('title', 'desc')->get(),
+            'directorates' => Directorate::orderBy('title')->get(),
+        ];
+    }
+
+    /**
+     * Show the progress report generation view
      */
     public function showConsolidatedAnnualReport(): View
     {
-        $fiscalYears = FiscalYear::orderBy('title', 'desc')->get();
-        $directorates = Directorate::orderBy('title')->get();
-
-        return view('admin.reports.consolidated-annual', compact('fiscalYears', 'directorates'));
+        return view(
+            'admin.reports.consolidated-annual',
+            $this->reportViewData()
+        );
     }
 
     /**
@@ -55,7 +67,7 @@ class ReportController extends Controller
     }
 
     /**
-     * Generate and download the consolidated annual report
+     * Generate and download the consolidated progress report
      */
     public function consolidatedAnnualReport(Request $request): BinaryFileResponse
     {
@@ -235,5 +247,21 @@ class ReportController extends Controller
         ];
 
         return $quarters[$quarter] ?? '1';
+    }
+
+    /**
+     * Show the budgeting report generation view
+     */
+    public function showBudgetReportView(): View
+    {
+        return view(
+            'admin.reports.budgets',
+            $this->reportViewData()
+        );
+    }
+
+    public function BudgetReport()
+    {
+        return Excel::download(new BudgetReportExport, 'budget_report_file.xlsx');
     }
 }

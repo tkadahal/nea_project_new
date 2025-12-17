@@ -29,6 +29,8 @@ class StoreBudgetRequest extends FormRequest
             'government_loan.*' => 'nullable|numeric|min:0',
             'foreign_loan_budget.*' => 'nullable|numeric|min:0',
             'foreign_subsidy_budget.*' => 'nullable|numeric|min:0',
+            'foreign_loan_source.*' => 'nullable',
+            'foreign_subsidy_source.*' => 'nullable',
             'total_budget.*' => 'nullable|numeric|min:0',
             'decision_date' => 'nullable|date',
             'remarks' => 'nullable|string|max:255',
@@ -45,6 +47,8 @@ class StoreBudgetRequest extends FormRequest
             'government_loan',
             'foreign_loan_budget',
             'foreign_subsidy_budget',
+            'foreign_loan_source',
+            'foreign_subsidy_source',
             'total_budget',
         ];
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exports\Reports;
 
+use App\Models\Budget;
 use App\Models\ProjectActivityPlan;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Models\ProjectActivityDefinition;
@@ -23,6 +24,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
     protected $fiscalYearId;
     protected $project;
     protected $fiscalYear;
+    protected $budget; // NEW: Budget data
     protected $totalRows = [];
     protected $headerRows = [];
     protected $parentRows = [];
@@ -38,6 +40,11 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $this->project = $project;
         $this->fiscalYear = $fiscalYear;
         $this->project->load('projectManager');
+
+        // NEW: Load budget data for this project and fiscal year
+        $this->budget = Budget::where('project_id', $projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->first();
     }
 
     private function toNepaliDigits($num): string
@@ -47,42 +54,67 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         return str_replace($arabic, $devanagari, (string) $num);
     }
 
+    private function formatBudgetAmount($amount): string
+    {
+        // Convert to thousands and format with Nepali digits
+        $thousands = round($amount / 1000, 2);
+        return $this->toNepaliDigits(number_format($thousands, 2));
+    }
+
     public function array(): array
     {
         $data = [];
 
-        // ========== HEADER SECTION (Refined: Removed all blank rows for compactness) ==========
+        // ========== HEADER SECTION ==========
         $data[] = ['नेपाल सरकार'];
         $data[] = ['.................. मन्त्रालय/निकाय'];
         $data[] = ['वार्षिक कार्यक्रम'];
 
-        // Form section rows (compact, no blanks)
-        // Row 4 (adjusted for compactness)
-        $row4 = array_fill(0, 25, '');
+        // ========== BUDGET SECTION (UPDATED) ==========
         $fyTitle = $this->fiscalYear->title ?? '';
+
+        // Calculate budget components
+        $totalBudget = $this->budget ? $this->budget->total_budget : 0;
+        $internalTotal = $this->budget
+            ? ($this->budget->government_loan + $this->budget->government_share + $this->budget->internal_budget)
+            : 0;
+        $nepalGovTotal = $this->budget
+            ? ($this->budget->government_loan + $this->budget->government_share)
+            : 0;
+        $neaTotal = $this->budget ? $this->budget->internal_budget : 0;
+        $foreignTotal = $this->budget
+            ? ($this->budget->foreign_loan_budget + $this->budget->foreign_subsidy_budget)
+            : 0;
+        $foreignLoan = $this->budget ? $this->budget->foreign_loan_budget : 0;
+        $foreignLoanSource = $this->budget ? ($this->budget->foreign_loan_source ?: 'N/A') : 'N/A';
+        $foreignSubsidy = $this->budget ? $this->budget->foreign_subsidy_budget : 0;
+        $foreignSubsidySource = $this->budget ? ($this->budget->foreign_subsidy_source ?: 'N/A') : 'N/A';
+
+        // Row 4
+        $row4 = array_fill(0, 25, '');
         $row4[0] = '१. आ.व.:– ' . $fyTitle;
-        $row4[7] = '१०. वार्षिक बजेट रु.:';
+        $row4[7] = '१०. वार्षिक बजेट रु.: ' . $this->formatBudgetAmount($totalBudget);
         $row4[15] = '११. कार्यक्रम/आयोजनाको कुल लागत:';
         $data[] = $row4;
 
         // Row 5
         $row5 = array_fill(0, 25, '');
         $row5[0] = '२. बजेट उपशीर्षक नं.:';
-        $row5[7] = '(क) आन्तरिक';
-        $row5[15] = '(क) आन्तरिक';
+        $row5[7] = '(क) आन्तरिक: ' . $this->formatBudgetAmount($internalTotal);
+        $row5[15] = '(क) आन्तरिक:';
         $data[] = $row5;
 
         // Row 6
         $row6 = array_fill(0, 25, '');
         $row6[0] = '३. मन्त्रालय/निकाय:';
-        $row6[7] = '(१) नेपाल सरकार:';
+        $row6[7] = '(१) नेपाल सरकार: ' . $this->formatBudgetAmount($nepalGovTotal);
         $row6[15] = '(१) नेपाल सरकार:';
         $data[] = $row6;
 
         // Row 7
         $row7 = array_fill(0, 25, '');
         $row7[0] = '४. विभाग/कार्यालय:';
-        $row7[7] = '(२) संस्था/निकाय:';
+        $row7[7] = '(२) संस्था/निकाय (NEA): ' . $this->formatBudgetAmount($neaTotal);
         $row7[15] = '(२) संस्था/निकाय:';
         $data[] = $row7;
 
@@ -97,14 +129,14 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Row 9
         $row9 = array_fill(0, 25, '');
         $row9[0] = '६. स्थान: (क) जिल्ला:';
-        $row9[7] = '(ख) वैदेशिक';
-        $row9[15] = '(ख) वैदेशिक';
+        $row9[7] = '(ख) वैदेशिक: ' . $this->formatBudgetAmount($foreignTotal);
+        $row9[15] = '(ख) वैदेशिक:';
         $data[] = $row9;
 
         // Row 10
         $row10 = array_fill(0, 25, '');
         $row10[0] = '(ख) गाउँपालिका/नगरपालिका:';
-        $row10[7] = '(१) ऋण:';
+        $row10[7] = '(१) ऋण: ' . $this->formatBudgetAmount($foreignLoan);
         $row10[15] = '(१) ऋण:';
         $data[] = $row10;
 
@@ -119,14 +151,14 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $startDate = $this->project->start_date ? $this->project->start_date->format('Y-m-d') : '';
         $row12[0] = '७. कार्यक्रम/आयोजना सुरु भएको मिति: ' . $startDate;
         $row12[7] = '(ग) मुद्रा:';
-        $row12[15] = '(२) अनुदान:';
+        $row12[15] = '(२) अनुदान: ' . $this->formatBudgetAmount($foreignSubsidy);
         $data[] = $row12;
 
         // Row 13
         $row13 = array_fill(0, 25, '');
         $endDate = $this->project->end_date ? $this->project->end_date->format('Y-m-d') : '';
         $row13[0] = '८. कार्यक्रम/आयोजना पूरा हुने मिति: ' . $endDate;
-        $row13[7] = '(घ) दातृपक्ष/संस्था:';
+        $row13[7] = '(घ) दातृपक्ष/संस्था: ' . $foreignLoanSource . ' / ' . $foreignSubsidySource;
         $data[] = $row13;
 
         // Row 14
@@ -170,7 +202,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $noteRow[24] = '(रकम रु. हजारमा)';
         $data[] = $noteRow;
 
-        // ========== TABLE SECTION ==========
+        // ========== TABLE SECTION (unchanged) ==========
         $this->tableHeaderRow = count($data) + 1;
 
         // Main Table Headers
@@ -204,27 +236,27 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Sub-sub header row
         $subSubHeader = array_fill(0, 25, '');
-        $subSubHeader[3] = 'परिमाण'; // D
-        $subSubHeader[4] = 'लागत'; // E
-        $subSubHeader[5] = 'भार'; // F
-        $subSubHeader[6] = 'सम्पन्न परिमाण'; // G
-        $subSubHeader[7] = 'खर्च'; // H
-        $subSubHeader[8] = 'भारित प्रगति'; // I
-        $subSubHeader[9] = 'परिमाण'; // J
-        $subSubHeader[10] = 'भार'; // K
-        $subSubHeader[11] = 'बजेट'; // L
-        $subSubHeader[12] = 'परिमाण'; // M
-        $subSubHeader[13] = 'भार'; // N
-        $subSubHeader[14] = 'बजेट'; // O
-        $subSubHeader[15] = 'परिमाण'; // P
-        $subSubHeader[16] = 'भार'; // Q
-        $subSubHeader[17] = 'बजेट'; // R
-        $subSubHeader[18] = 'परिमाण'; // S
-        $subSubHeader[19] = 'भार'; // T
-        $subSubHeader[20] = 'बजेट'; // U
-        $subSubHeader[21] = 'परिमाण'; // V
-        $subSubHeader[22] = 'भार'; // W
-        $subSubHeader[23] = 'बजेट'; // X
+        $subSubHeader[3] = 'परिमाण';
+        $subSubHeader[4] = 'लागत';
+        $subSubHeader[5] = 'भार';
+        $subSubHeader[6] = 'सम्पन्न परिमाण';
+        $subSubHeader[7] = 'खर्च';
+        $subSubHeader[8] = 'भारित प्रगति';
+        $subSubHeader[9] = 'परिमाण';
+        $subSubHeader[10] = 'भार';
+        $subSubHeader[11] = 'बजेट';
+        $subSubHeader[12] = 'परिमाण';
+        $subSubHeader[13] = 'भार';
+        $subSubHeader[14] = 'बजेट';
+        $subSubHeader[15] = 'परिमाण';
+        $subSubHeader[16] = 'भार';
+        $subSubHeader[17] = 'बजेट';
+        $subSubHeader[18] = 'परिमाण';
+        $subSubHeader[19] = 'भार';
+        $subSubHeader[20] = 'बजेट';
+        $subSubHeader[21] = 'परिमाण';
+        $subSubHeader[22] = 'भार';
+        $subSubHeader[23] = 'बजेट';
         $data[] = $subSubHeader;
 
         // Numbers row with Nepali digits
@@ -374,6 +406,9 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         return $data;
     }
 
+    // ... (All other methods remain unchanged: buildActivityRows, buildActivityRow, buildTotalRow,
+    // calculateTotalsForParent, sumLeafNodes, calculateOverallTotals, title, styles, registerEvents)
+
     private function buildActivityRows(Collection $rootDefinitions, SupportCollection $plans, string $expenditureType, int $activityStartRow, float $globalX): array
     {
         $rows = [];
@@ -430,36 +465,9 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $program = $plan->effective_program ?? $definition->program ?? '';
 
         if ($hasChildren) {
-            return [
-                $number,
-                $program,
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                ''
-            ];
+            return array_fill(0, 25, '') + [0 => $number, 1 => $program];
         }
 
-        // Leaf nodes
         $displayTotalQuantity = (float) ($definition->total_quantity ?? 0);
         $displayTotalBudget = (float) ($definition->total_budget ?? 0);
         $displayCompletedQuantity = (float) ($plan->completed_quantity ?? 0);
@@ -478,7 +486,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $isCapital = $expenditureType === 'capital';
         $budget = $displayTotalBudget;
 
-        // FIXED: Calculate raw weight first (float), then format for display
         $rawWeightBudget = $globalX > 0 ? ($budget / $globalX) * 100 : 0.0;
         $weightBudget = number_format($rawWeightBudget, 2);
 
@@ -628,7 +635,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             }
 
             if ($totalQuantity > 0 && $def->expenditure_id == 1) {
-                $progress = $totals['completed_quantity'] / $totalQuantity;  // Use accumulated, but since leaf, same
+                $progress = $totals['completed_quantity'] / $totalQuantity;
                 $totals['weighted_expense_contrib'] += $progress * $budget;
 
                 $plannedProgress = $totals['planned_quantity'] / $totalQuantity;

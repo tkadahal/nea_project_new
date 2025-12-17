@@ -75,8 +75,12 @@ class ProjectExpenseController extends Controller
 
         $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
 
-        $selectedFiscalYearId = $request->integer('fiscal_year_id')
-            ?: collect($fiscalYears)->firstWhere('selected', true)['value'] ?? null;
+        $selectedFiscalYearId = $request->integer('fiscal_year_id');
+
+        if ($selectedFiscalYearId === null) {
+            $default = collect($fiscalYears)->firstWhere('selected', true);
+            $selectedFiscalYearId = $default ? (int)$default['value'] : null;
+        }
 
         $projectOptions = $projects->map(function (Project $project) use ($selectedProjectId) {
             return [

@@ -94,7 +94,13 @@
                                 {{ trans('global.budget.fields.foreign_loan_budget') }}</th>
                             <th
                                 class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider text-right">
+                                Source</th>
+                            <th
+                                class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider text-right">
                                 {{ trans('global.budget.fields.foreign_subsidy_budget') }}</th>
+                            <th
+                                class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider text-right">
+                                Source</th>
                             <th
                                 class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider text-right">
                                 {{ trans('global.budget.fields.internal_budget') }}</th>
@@ -135,11 +141,23 @@
                                         data-project-id="{{ $project->id }}" placeholder="0.00" />
                                 </td>
                                 <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right relative">
+                                    <input name="foreign_loan_source[{{ $project->id }}]" type="text"
+                                        value="{{ old('foreign_loan_source.' . $project->id, '') }}"
+                                        class="w-full border-0 p-1 text-right foreign-loan-source-input tooltip-error"
+                                        data-project-id="{{ $project->id }}" placeholder="" />
+                                </td>
+                                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right relative">
                                     <input name="foreign_subsidy_budget[{{ $project->id }}]" type="number"
                                         step="0.01" min="0"
-                                        value="old('foreign_subsidy_budget.' . $project->id, '')"
+                                        value="{{ old('foreign_subsidy_budget.' . $project->id, '') }}"
                                         class="w-full border-0 p-1 text-right foreign-subsidy-budget-input tooltip-error"
                                         data-project-id="{{ $project->id }}" placeholder="0.00" />
+                                </td>
+                                <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right relative">
+                                    <input name="foreign_subsidy_source[{{ $project->id }}]" type="text"
+                                        value="{{ old('foreign_subsidy_source.' . $project->id, '') }}"
+                                        class="w-full border-0 p-1 text-right foreign-subsidy-source-input tooltip-error"
+                                        data-project-id="{{ $project->id }}" placeholder="" />
                                 </td>
                                 <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right relative">
                                     <input name="internal_budget[{{ $project->id }}]" type="number" step="0.01"
@@ -302,7 +320,9 @@
                         governmentLoan: $row.find(`input[name="government_loan[${projectId}]"]`),
                         governmentShare: $row.find(`input[name="government_share[${projectId}]"]`),
                         foreignLoan: $row.find(`input[name="foreign_loan_budget[${projectId}]"]`),
+                        foreignLoanSource: $row.find(`input[name="foreign_loan_source[${projectId}]"]`),
                         foreignSubsidy: $row.find(`input[name="foreign_subsidy_budget[${projectId}]"]`),
+                        foreignSubsidySource: $row.find(`input[name="foreign_subsidy_source[${projectId}]"]`),
                         internal: $row.find(`input[name="internal_budget[${projectId}]"]`),
                         total: $row.find(`input[name="total_budget[${projectId}]"]`)
                     };

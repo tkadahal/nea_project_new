@@ -21,7 +21,12 @@ return new class extends Migration
             $table->decimal('government_loan', 15, 2)->nullable();
             $table->decimal('foreign_loan_budget', 15, 2)->nullable();
             $table->decimal('foreign_subsidy_budget', 15, 2)->nullable();
+
+            $table->text('foreign_loan_source')->nullable();
+            $table->text('foreign_subsidy_source')->nullable();
+
             $table->integer('budget_revision')->default(1);
+
             $table->timestamps();
             $table->softDeletes();
 

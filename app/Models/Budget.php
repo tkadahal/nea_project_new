@@ -33,6 +33,8 @@ class Budget extends Model
         'government_loan',
         'foreign_loan_budget',
         'foreign_subsidy_budget',
+        'foreign_loan_source', // new (column F value)
+        'foreign_subsidy_source', // new (column H value)
         'budget_revision',
         'created_at',
         'updated_at',

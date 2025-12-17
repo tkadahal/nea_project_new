@@ -17,67 +17,109 @@ class ProjectActivityRepository
 {
     public function getActivitiesForUser(User $user)
     {
-        $query = ProjectActivityPlan::query()
+        $accessibleProjectIds = Project::query()
+            ->with('users')
+            ->get()
+            ->filter(fn($project) => $this->userCanAccessProject($user, $project))
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($accessibleProjectIds)) {
+            return collect();
+        }
+
+        return ProjectActivityPlan::query()
             ->with(['fiscalYear'])
             ->join('project_activity_definitions', 'project_activity_plans.activity_definition_id', '=', 'project_activity_definitions.id')
             ->join('projects', 'project_activity_definitions.project_id', '=', 'projects.id')
-            // Left join to check if a parent has children
             ->leftJoin('project_activity_definitions as child_defs', 'project_activity_definitions.id', '=', 'child_defs.parent_id')
+            ->whereIn('projects.id', $accessibleProjectIds)
+
             ->selectRaw('project_activity_definitions.project_id as project_id')
             ->addSelect('project_activity_plans.fiscal_year_id')
             ->addSelect('projects.title as project_title')
-            // Sum for capital budget:
-            // - Include if it's a child row (parent_id IS NOT NULL)
-            // - OR if it's a parent with no children (parent_id IS NULL AND no child exists)
+
+            // Capital
             ->selectRaw('SUM(CASE
             WHEN project_activity_definitions.expenditure_id = 1
-                AND (
-                    project_activity_definitions.parent_id IS NOT NULL
-                    OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
-                )
+            AND (
+                project_activity_definitions.parent_id IS NOT NULL
+                OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+            )
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) as capital_budget')
+
+            // Recurrent
             ->selectRaw('SUM(CASE
             WHEN project_activity_definitions.expenditure_id = 2
-                AND (
-                    project_activity_definitions.parent_id IS NOT NULL
-                    OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
-                )
+            AND (
+                project_activity_definitions.parent_id IS NOT NULL
+                OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+            )
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) as recurrent_budget')
+
+            // Total
             ->selectRaw('SUM(CASE
             WHEN project_activity_definitions.parent_id IS NOT NULL
-                OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+            OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) as total_budget')
+
             ->selectRaw('MAX(project_activity_plans.created_at) as latest_created_at')
-            // FIXED: Fully qualify project_id in GROUP BY
-            ->groupBy('project_activity_definitions.project_id', 'project_activity_plans.fiscal_year_id', 'projects.title')
+            ->groupBy(
+                'project_activity_definitions.project_id',
+                'project_activity_plans.fiscal_year_id',
+                'projects.title'
+            )
             ->havingRaw('SUM(CASE
             WHEN project_activity_definitions.parent_id IS NOT NULL
-                OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+            OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) > 0')
-            ->orderByDesc('latest_created_at');
-
-        $this->applyUserFilter($query, $user);
-
-        return $query->get();
+            ->orderByDesc('latest_created_at')
+            ->get();
     }
 
     public function findProjectWithAccessCheck(int $projectId): Project
     {
-        $project = Project::findOrFail($projectId);
+        $project = Project::with('users')->findOrFail($projectId);
 
-        if (!$project->users->contains(Auth::id())) {
+        if (!$this->userCanAccessProject(Auth::user(), $project)) {
             abort(Response::HTTP_FORBIDDEN, '403 Forbidden');
         }
 
         return $project;
+    }
+
+    private function userCanAccessProject(User $user, Project $project): bool
+    {
+        $roleIds = $user->roles->pluck('id')->toArray();
+
+        // Superadmin / Admin → all access
+        if (
+            in_array(Role::SUPERADMIN, $roleIds) ||
+            in_array(Role::ADMIN, $roleIds)
+        ) {
+            return true;
+        }
+
+        // Directorate user → same directorate
+        if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
+            return $user->directorate_id !== null
+                && $project->directorate_id === $user->directorate_id;
+        }
+
+        // Project user → assigned project
+        if (in_array(Role::PROJECT_USER, $roleIds)) {
+            return $project->users->contains($user->id);
+        }
+
+        return false;
     }
 
     public function getPlansWithSums(int $projectId, int $fiscalYearId): array

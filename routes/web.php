@@ -267,6 +267,9 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             // Get project count for preview
             Route::get('project-count', [ReportController::class, 'getProjectCount'])
                 ->name('projectCount');
+
+            // Budget Report
+            Route::get('budgetReport', [ReportController::class, 'showBudgetReportView'])->name('budgetReport.view');
         });
 
         // Notifications

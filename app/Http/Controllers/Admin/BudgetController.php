@@ -160,7 +160,9 @@ class BudgetController extends Controller
                 'government_share' => $validatedData['government_share'][$projectId] ?? 0,
                 'government_loan' => $validatedData['government_loan'][$projectId] ?? 0,
                 'foreign_loan_budget' => $validatedData['foreign_loan_budget'][$projectId] ?? 0,
+                'foreign_loan_source' => $validatedData['foreign_loan_source'][$projectId] ?? 0,
                 'foreign_subsidy_budget' => $validatedData['foreign_subsidy_budget'][$projectId] ?? 0,
+                'foreign_subsidy_source' => $validatedData['foreign_subsidy_source'][$projectId] ?? 0,
                 'total_budget' => $validatedData['total_budget'][$projectId] ?? 0,
                 'decision_date' => $validatedData['decision_date'] ?? null,
                 'remarks' => $validatedData['remarks'] ?? null,
@@ -185,7 +187,9 @@ class BudgetController extends Controller
                     'budget_revision' => $existingBudget->budget_revision + 1,
                     'internal_budget' => $existingBudget->internal_budget + $budgetData['internal_budget'],
                     'foreign_loan_budget' => $existingBudget->foreign_loan_budget + $budgetData['foreign_loan_budget'],
+                    'foreign_loan_source' => $budgetData['foreign_loan_source'],
                     'foreign_subsidy_budget' => $existingBudget->foreign_subsidy_budget + $budgetData['foreign_subsidy_budget'],
+                    'foreign_subsidy_source' => $budgetData['foreign_subsidy_source'],
                     'government_loan' => $existingBudget->government_loan + $budgetData['government_loan'],
                     'government_share' => $existingBudget->government_share + $budgetData['government_share'],
                     'total_budget' => $existingBudget->total_budget + $budgetData['total_budget'],
@@ -229,7 +233,16 @@ class BudgetController extends Controller
 
         $projects = $this->getUserProjects();
 
-        return Excel::download(new BudgetTemplateExport($projects), 'budget_template.xlsx');
+        // Get the directorate title from the authenticated user
+        // Adjust this line based on your User model relationship
+        $directorateTitle = Auth::user()->directorate?->title
+            ?? Auth::user()->directorate_name // fallback if stored directly
+            ?? 'Budget Template'; // final fallback
+
+        return Excel::download(
+            new BudgetTemplateExport($projects, $directorateTitle),
+            'budget_template.xlsx'
+        );
     }
 
     public function uploadIndex(): View
@@ -253,7 +266,6 @@ class BudgetController extends Controller
         abort_if(Gate::denies('budget_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         if (!$request->hasFile('excel_file')) {
-            Log::error('No file uploaded');
             return redirect()->back()->withErrors(['excel_file' => 'No file was uploaded.'])->withInput();
         }
 
@@ -264,112 +276,113 @@ class BudgetController extends Controller
 
         try {
             if (!$file->isValid()) {
-                Log::error('Invalid file uploaded', ['error' => $file->getErrorMessage()]);
                 throw new \Exception('File upload failed: ' . $file->getErrorMessage());
             }
 
-            $import = new BudgetImport();
-            $data = $import->import($file);
-            Log::info('Excel data parsed', ['row_count' => count($data)]);
+            // Extract fiscal year from row 2 of the Excel file
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $fiscalYearRow = $worksheet->getCell('A2')->getValue();
 
-            if ($data->isEmpty()) {
-                Log::warning('No valid data found in Excel file');
+            // Extract fiscal year from "Fiscal Year: 2082/83" format
+            preg_match('/Fiscal Year:\s*(.+)/', $fiscalYearRow, $matches);
+            $fiscalYearTitle = isset($matches[1]) ? trim($matches[1]) : null;
+
+            if (!$fiscalYearTitle) {
                 return redirect()->back()->withErrors([
-                    'excel_file' => 'No valid data found in the Excel file. Ensure the Fiscal Year and Project Title columns are filled with valid values.'
+                    'excel_file' => 'Could not extract fiscal year from the template. Expected format: "Fiscal Year: YYYY/YY" in row 2.'
                 ])->withInput();
             }
 
-            $fiscalYears = FiscalYear::pluck('id', 'title')->toArray();
+            Log::info('Extracted fiscal year from template', ['fiscal_year' => $fiscalYearTitle]);
+
+            // Now import the data
+            $import = new BudgetImport();
+            $data = $import->import($file);
+
+            if ($data->isEmpty()) {
+                return redirect()->back()->withErrors([
+                    'excel_file' => 'No valid data found in the Excel file.'
+                ])->withInput();
+            }
+
+            // Get fiscal year ID
+            $fiscalYear = FiscalYear::where('title', $fiscalYearTitle)->first();
+
+            if (!$fiscalYear) {
+                return redirect()->back()->withErrors([
+                    'excel_file' => "Fiscal year '{$fiscalYearTitle}' not found in the system. Please ensure it exists before uploading."
+                ])->withInput();
+            }
+
+            $fiscalYearId = $fiscalYear->id;
+
+            // Get all projects with normalized titles
             $projects = Project::all()->mapWithKeys(function ($project) {
                 $title = normalizer_normalize(trim($project->title), Normalizer::FORM_C);
                 $title = preg_replace('/\s+/', ' ', $title);
                 return [$title => $project->id];
             })->toArray();
 
-            Log::info('Available fiscal years', ['titles' => array_keys($fiscalYears)]);
-            Log::info('Available projects', ['titles' => array_keys($projects)]);
-
             $budgetData = [];
             $errors = [];
 
             foreach ($data as $index => $row) {
-                $fiscalYearTitle = trim($row['fiscal_year'] ?? '');
                 $projectTitle = trim($row['project_title'] ?? '');
 
-                if (
-                    strpos($fiscalYearTitle, 'Instructions:') === 0 ||
-                    strpos($fiscalYearTitle, '- Fiscal Year is pre-filled') === 0 ||
-                    strpos($fiscalYearTitle, '- Enter budget amounts') === 0 ||
-                    strpos($fiscalYearTitle, '- Total Budget will auto-calculate') === 0
-                ) {
-                    Log::info('Skipping instruction row', ['row_number' => $index + 2, 'row' => $row]);
-                    continue;
-                }
-
-                Log::info('Processing row', [
-                    'row_number' => $index + 2,
-                    'fiscal_year' => $fiscalYearTitle,
-                    'project' => $projectTitle,
-                    'total_budget' => $row['total_budget'],
-                    'raw_row' => $row,
-                ]);
-
-                if (empty($fiscalYearTitle)) {
-                    $errors[] = "Missing or invalid fiscal year at row " . ($index + 2);
-                    continue;
-                }
-
                 if (empty($projectTitle)) {
-                    $errors[] = "Missing project title at row " . ($index + 2);
+                    $errors[] = "Missing project title at row " . ($index + 4); // +4 because data starts at row 4
                     continue;
                 }
 
                 $normalizedProjectTitle = normalizer_normalize($projectTitle, Normalizer::FORM_C);
                 $normalizedProjectTitle = preg_replace('/\s+/', ' ', $normalizedProjectTitle);
 
-                $fiscalYearId = $fiscalYears[$fiscalYearTitle] ?? null;
                 $projectId = $projects[$normalizedProjectTitle] ?? null;
 
-                if (!$fiscalYearId) {
-                    $errors[] = "Invalid fiscal year: '{$fiscalYearTitle}' at row " . ($index + 2);
-                    continue;
-                }
-
                 if (!$projectId) {
-                    $errors[] = "Invalid project: '{$projectTitle}' at row " . ($index + 2);
+                    $errors[] = "Invalid project '{$projectTitle}' at row " . ($index + 4);
                     continue;
                 }
 
                 $budgetData[] = [
-                    'fiscal_year_id' => $fiscalYearId,
+                    'fiscal_year_id' => $fiscalYearId, // Use the fiscal year from row 2
                     'project_id' => $projectId,
                     'government_loan' => floatval($row['government_loan'] ?? 0),
                     'government_share' => floatval($row['government_share'] ?? 0),
                     'foreign_loan_budget' => floatval($row['foreign_loan_budget'] ?? 0),
+                    'foreign_loan_source' => trim($row['foreign_loan_source'] ?? ''),
                     'foreign_subsidy_budget' => floatval($row['foreign_subsidy_budget'] ?? 0),
+                    'foreign_subsidy_source' => trim($row['foreign_subsidy_source'] ?? ''),
                     'internal_budget' => floatval($row['internal_budget'] ?? 0),
                     'total_budget' => floatval($row['total_budget'] ?? 0),
                 ];
             }
 
             if (!empty($errors)) {
-                Log::warning('Validation errors in Excel data', ['errors' => $errors]);
                 return redirect()->back()->withErrors($errors)->withInput();
             }
 
             if (empty($budgetData)) {
-                Log::warning('No valid budget data to process');
                 return redirect()->back()->withErrors([
-                    'excel_file' => 'No valid budget data found. Ensure at least one row has non-zero budget values and valid fiscal year and project title.'
+                    'excel_file' => 'No valid budget data found after validation.'
                 ])->withInput();
             }
 
             $createdBudgets = 0;
             $updatedBudgets = 0;
+            $skippedBudgets = 0;
 
             foreach ($budgetData as $data) {
-                if (array_sum(array_slice($data, 2, 5)) == 0) {
-                    Log::info('Skipping row with zero budget values', ['data' => $data]);
+                // Check if any numeric budget field is > 0
+                $numericSum = $data['government_loan'] +
+                    $data['government_share'] +
+                    $data['foreign_loan_budget'] +
+                    $data['foreign_subsidy_budget'] +
+                    $data['internal_budget'];
+
+                if ($numericSum == 0) {
+                    $skippedBudgets++;
                     continue;
                 }
 
@@ -383,43 +396,37 @@ class BudgetController extends Controller
                         'internal_budget' => $existingBudget->internal_budget + $data['internal_budget'],
                         'foreign_loan_budget' => $existingBudget->foreign_loan_budget + $data['foreign_loan_budget'],
                         'foreign_subsidy_budget' => $existingBudget->foreign_subsidy_budget + $data['foreign_subsidy_budget'],
+                        'foreign_loan_source' => $data['foreign_loan_source'],
+                        'foreign_subsidy_source' => $data['foreign_subsidy_source'],
                         'government_loan' => $existingBudget->government_loan + $data['government_loan'],
                         'government_share' => $existingBudget->government_share + $data['government_share'],
                         'total_budget' => $existingBudget->total_budget + $data['total_budget'],
                     ]);
-                    $revision = $existingBudget->revisions()->create($data);
+                    $existingBudget->revisions()->create($data);
                     $updatedBudgets++;
-                    Log::info('Updated budget', ['project_id' => $data['project_id'], 'fiscal_year_id' => $data['fiscal_year_id'], 'total_budget' => $data['total_budget']]);
                 } else {
                     $budget = Budget::create(array_merge([
                         'budget_revision' => 1,
-                        'project_id' => $data['project_id'],
                     ], $data));
-                    $revision = $budget->revisions()->create($data);
+                    $budget->revisions()->create($data);
                     $createdBudgets++;
-                    Log::info('Created budget', ['project_id' => $data['project_id'], 'fiscal_year_id' => $data['fiscal_year_id'], 'total_budget' => $data['total_budget']]);
                 }
             }
 
-            $message = '';
-            if ($createdBudgets > 0) {
-                $message .= "Created budgets for {$createdBudgets} project(s). ";
-            }
-            if ($updatedBudgets > 0) {
-                $message .= "Updated budgets for {$updatedBudgets} project(s). ";
-            }
-            if (empty($message)) {
-                $message = 'No budgets were created or updated. Ensure at least one project has non-zero budget values.';
-            }
+            $message = "Import completed for fiscal year '{$fiscalYearTitle}'. ";
+            if ($createdBudgets > 0) $message .= "Created budgets for {$createdBudgets} project(s). ";
+            if ($updatedBudgets > 0) $message .= "Updated budgets for {$updatedBudgets} project(s). ";
+            if ($skippedBudgets > 0) $message .= "Skipped {$skippedBudgets} project(s) with zero budget. ";
 
-            Log::info('Upload completed', ['message' => $message]);
             return redirect()->route('admin.budget.index')->with('success', $message);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            Log::error('Excel validation error', ['errors' => $e->errors(), 'message' => $e->getMessage()]);
-            return redirect()->back()->withErrors(['excel_file' => 'Excel file validation failed: ' . $e->getMessage()])->withInput();
+            return redirect()->back()->withErrors(['excel_file' => 'Validation failed: ' . $e->getMessage()])->withInput();
         } catch (\Exception $e) {
-            Log::error('Upload exception', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return redirect()->back()->withErrors(['excel_file' => 'Error processing Excel file: ' . $e->getMessage()])->withInput();
+            Log::error('Budget upload error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return redirect()->back()->withErrors(['excel_file' => 'Error: ' . $e->getMessage()])->withInput();
         }
     }
 

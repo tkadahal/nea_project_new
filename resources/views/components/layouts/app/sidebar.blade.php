@@ -377,7 +377,7 @@
 
                     <div
                         class="js-submenu mt-1 ml-6 space-y-1 hidden border-l-2 border-gray-300 dark:border-gray-600 pl-2">
-                        <a href="#"
+                        <a href="{{ route('admin.reports.consolidatedAnnual.view') }}"
                             class="block px-3 py-2 text-sm rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                             <div class="flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none"
@@ -385,10 +385,10 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
-                                <span>Profile</span>
+                                <span>Progress Report</span>
                             </div>
                         </a>
-                        <a href="login.html"
+                        <a href="{{ route('admin.reports.budgetReport.view') }}"
                             class="block px-3 py-2 text-sm rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                             <div class="flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none"
@@ -396,7 +396,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                                 </svg>
-                                <span>Login</span>
+                                <span>Budget Allocation</span>
                             </div>
                         </a>
                         <a href="register.html"
