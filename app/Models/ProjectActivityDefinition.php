@@ -287,6 +287,48 @@ class ProjectActivityDefinition extends Model
     }
 
     /**
+     * Check if the current user can edit this activity definition
+     */
+    public function canBeEditedBy(?User $user = null): bool
+    {
+        $user = $user ?? Auth::user();
+
+        if (!$user) return false;
+
+        $roleIds = $user->roles->pluck('id')->toArray();
+
+        // Approved = locked for everyone
+        if ($this->status === 'approved') {
+            return false;
+        }
+
+        // Under review = no editing
+        if ($this->status === 'under_review') {
+            return false;
+        }
+
+        // Draft = only Project Users can edit
+        if ($this->status === 'draft') {
+            return in_array(Role::PROJECT_USER, $roleIds);
+        }
+
+        return false;
+    }
+
+    /**
+     * Scope to get only editable activities for current user
+     */
+    public function scopeEditableBy($query, ?User $user = null)
+    {
+        $user = $user ?? Auth::user();
+
+        return $query->where(function ($q) use ($user) {
+            $q->where('status', 'draft')
+                ->whereHas('project.users', fn($sq) => $sq->where('users.id', $user->id));
+        });
+    }
+
+    /**
      * Activity log configuration
      */
     public function getActivitylogOptions(): LogOptions

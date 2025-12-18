@@ -25,8 +25,10 @@ class Project extends Model
     protected $fillable = [
         'directorate_id',
         'department_id',
+        'budget_heading_id',
         'title',
         'description',
+        'location',
         'start_date',
         'end_date',
         'status_id',
@@ -55,6 +57,11 @@ class Project extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function budgetHeading(): BelongsTo
+    {
+        return $this->belongsTo(BudgetHeading::class);
     }
 
     public function status(): BelongsTo

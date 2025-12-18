@@ -22,7 +22,8 @@
 
     @if (session('success'))
         <div
-            class="mb-6 p-4 bg-green-100 text-green-800 border border-green-300 rounded-lg dark:bg-green-900 dark:text-green-200 dark:border-green-700">
+            class="mb-6 p-4 bg-green-100 text-green-800 border border-green-300 rounded-lg
+                    dark:bg-green-900 dark:text-green-200 dark:border-green-700">
             {{ session('success') }}
         </div>
     @endif
@@ -43,7 +44,6 @@
                         </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            <!-- MODIFIED: Label reflects year-specific planned total budget (from plans) -->
                             {{ trans('global.projectActivity.fields.total_planned_budget') }}
                         </th>
                         <th
@@ -70,7 +70,6 @@
                                 {{ $activity->project_title ?? 'N/A' }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-right">
-                                <!-- MODIFIED: Displays planned total (from plans), not fixed total (from definitions) -->
                                 {{ number_format($activity->total_budget ?? 0, 2) }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-right">
@@ -79,20 +78,98 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-right">
                                 {{ number_format($activity->recurrent_budget ?? 0, 2) }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                @can('projectActivity_edit')
-                                    <a href="{{ route('admin.projectActivity.edit', [$activity->project_id, $activity->fiscal_year_id]) }}"
-                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">
-                                        Edit
-                                    </a>
-                                @endcan
 
-                                @can('projectActivity_show')
-                                    <a href="{{ route('admin.projectActivity.show', [$activity->project_id, $activity->fiscal_year_id]) }}"
-                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-                                        View
-                                    </a>
-                                @endcan
+                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                <div class="flex flex-wrap justify-center gap-2">
+
+                                    <!-- View Button -->
+                                    @can('projectActivity_show')
+                                        <a href="{{ route('admin.projectActivity.show', [$activity->project_id, $activity->fiscal_year_id]) }}"
+                                            class="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">
+                                            View
+                                        </a>
+                                    @endcan
+
+                                    <!-- Edit + Send for Review (Project User - Draft only) -->
+                                    @if ($activity->status === 'draft' && auth()->user()->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER))
+                                        @can('projectActivity_edit')
+                                            <a href="{{ route('admin.projectActivity.edit', [$activity->project_id, $activity->fiscal_year_id]) }}"
+                                                class="px-3 py-1 bg-indigo-500 text-white rounded text-xs hover:bg-indigo-600">
+                                                Edit
+                                            </a>
+                                        @endcan
+
+                                        <form method="POST"
+                                            action="{{ route('admin.projectActivity.sendForReview', $activity->project_id) }}"
+                                            class="inline"
+                                            onsubmit="return confirm('Send for review? Editing will be locked.')">
+                                            @csrf
+                                            <button type="submit"
+                                                class="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700">
+                                                Send for Review
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    <!-- Mark Reviewed (Directorate User - Under Review, not yet reviewed) -->
+                                    @if (
+                                        $activity->status === 'under_review' &&
+                                            is_null($activity->reviewed_at) &&
+                                            auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER))
+                                        <form method="POST"
+                                            action="{{ route('admin.projectActivity.review', $activity->project_id) }}"
+                                            class="inline" onsubmit="return confirm('Mark as reviewed?')">
+                                            @csrf
+                                            <button type="submit"
+                                                class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                                                Mark Reviewed
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    <!-- Approve (Admin/Superadmin - Under Review + Already Reviewed) -->
+                                    @if (
+                                        $activity->status === 'under_review' &&
+                                            $activity->reviewed_at &&
+                                            auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())
+                                        <form method="POST"
+                                            action="{{ route('admin.projectActivity.approve', $activity->project_id) }}"
+                                            class="inline"
+                                            onsubmit="return confirm('Approve permanently? This cannot be undone.')">
+                                            @csrf
+                                            <button type="submit"
+                                                class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                                                Approve
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    <!-- Dynamic Status Badge -->
+                                    @php
+                                        $badgeColors = [
+                                            'draft' => 'gray',
+                                            'under_review' => 'yellow',
+                                            'approved' => 'green',
+                                        ];
+
+                                        $color = $badgeColors[$activity->status] ?? 'gray';
+                                        $text = ucfirst(str_replace('_', ' ', $activity->status));
+
+                                        if ($activity->status === 'under_review') {
+                                            $color = $activity->reviewed_at ? 'purple' : 'yellow';
+                                            $text = $activity->reviewed_at ? 'Reviewed' : 'Under Review';
+                                        }
+                                    @endphp
+
+                                    <span
+                                        class="inline-block px-3 py-1 rounded-full text-xs font-medium
+                                                 bg-{{ $color }}-100 text-{{ $color }}-800
+                                                 dark:bg-{{ $color }}-900/50 dark:text-{{ $color }}-300
+                                                 border border-{{ $color }}-300 dark:border-{{ $color }}-700">
+                                        {{ $text }}
+                                    </span>
+
+                                </div>
                             </td>
                         </tr>
                     @empty

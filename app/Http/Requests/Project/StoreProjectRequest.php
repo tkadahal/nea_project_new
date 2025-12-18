@@ -22,8 +22,10 @@ class StoreProjectRequest extends FormRequest
         return [
             'directorate_id' => ['required', 'exists:directorates,id'],
             'department_id' => ['nullable', 'exists:departments,id'],
+            'budget_heading_id' => ['nullable', 'exists:budget_headings,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'location' => ['nullable', 'string'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'status_id' => ['required', 'exists:statuses,id'],

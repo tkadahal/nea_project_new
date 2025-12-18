@@ -8,11 +8,13 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Illuminate\Support\Collection;
 
 class AnnualProgramReportExport implements
@@ -21,7 +23,8 @@ class AnnualProgramReportExport implements
     WithStyles,
     WithColumnWidths,
     WithTitle,
-    WithEvents
+    WithEvents,
+    WithColumnFormatting
 {
     protected $fiscalYear;
     protected $quarter;
@@ -111,7 +114,7 @@ class AnnualProgramReportExport implements
                 // Add project rows
                 foreach ($directorateProjects as $project) {
                     $data->push([
-                        $directorateSerialNumber++, // क्र.सं. - starts from 1 for each directorate
+                        $directorateSerialNumber++, // क्र.सं.
                         $project['title'] ?? '', // आयोजनाको नाम
                         $project['budget_heading'] ?? '', // बजेट शीर्षक नं.
                         $project['progress_percent'] ?? '',
@@ -130,10 +133,10 @@ class AnnualProgramReportExport implements
                         $project['expense_total_nepal_gov'] ?? '',
                         $project['expense_nea'] ?? '',
                         $project['expense_total'] ?? '',
-                        // अवधि लक्ष्यको तुलनामा खर्च प्रतिशत (3 columns)
-                        $project['target_nepal_gov_percent'] ?? '',
-                        $project['target_nea_percent'] ?? '',
-                        $project['target_total_percent'] ?? '',
+                        // अवधि लक्ष्यको तुलनामा खर्च प्रतिशत (3 columns) - as decimal for % formatting
+                        ($project['target_nepal_gov_percent'] ?? 0) / 100,
+                        ($project['target_nea_percent'] ?? 0) / 100,
+                        ($project['target_total_percent'] ?? 0) / 100,
                         // Additional columns (6 columns)
                         $project['semi_annual_total_expense'] ?? '',
                         $project['semi_annual_progress_percent'] ?? '',
@@ -144,7 +147,7 @@ class AnnualProgramReportExport implements
                     ]);
                     $currentRow++;
 
-                    // Accumulate totals
+                    // Accumulate totals (only numeric fields, skip percentages for now)
                     foreach ($totals as $key => $value) {
                         $totals[$key] += floatval($project[$key] ?? 0);
                     }
@@ -172,9 +175,9 @@ class AnnualProgramReportExport implements
                     $totals['expense_total_nepal_gov'],
                     $totals['expense_nea'],
                     $totals['expense_total'],
-                    '',
-                    '',
-                    '',
+                    '', // R - leave empty or calculate average if needed
+                    '', // S
+                    '', // T
                     '',
                     '',
                     '',
@@ -202,6 +205,18 @@ class AnnualProgramReportExport implements
     public function headings(): array
     {
         return [];
+    }
+
+    /**
+     * Format specific columns (adds % sign to R, S, T)
+     */
+    public function columnFormats(): array
+    {
+        return [
+            'R' => NumberFormat::FORMAT_PERCENTAGE_00, // e.g., 75.50%
+            'S' => NumberFormat::FORMAT_PERCENTAGE_00,
+            'T' => NumberFormat::FORMAT_PERCENTAGE_00,
+        ];
     }
 
     /**
@@ -323,7 +338,7 @@ class AnnualProgramReportExport implements
                 // ========== ROW 3: EMPTY ==========
                 $sheet->mergeCells('A3:Z3');
 
-                // ========== ROW 4-7: HEADERS (same as before) ==========
+                // ========== ROW 4-7: HEADERS ==========
                 $sheet->mergeCells('A4:A7');
                 $sheet->setCellValue('A4', 'क्र.सं.');
 

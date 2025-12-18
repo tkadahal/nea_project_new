@@ -39,7 +39,14 @@ class ProjectActivityRepository
             ->addSelect('project_activity_plans.fiscal_year_id')
             ->addSelect('projects.title as project_title')
 
-            // Capital
+            // ADD THESE LINES - CRITICAL FOR WORKFLOW
+            ->selectRaw('MAX(project_activity_definitions.status) as status')
+            ->selectRaw('MAX(project_activity_definitions.reviewed_at) as reviewed_at')
+            ->selectRaw('MAX(project_activity_definitions.reviewed_by) as reviewed_by')
+            ->selectRaw('MAX(project_activity_definitions.approved_at) as approved_at')
+            ->selectRaw('MAX(project_activity_definitions.approved_by) as approved_by')
+
+            // Your existing budget sums...
             ->selectRaw('SUM(CASE
             WHEN project_activity_definitions.expenditure_id = 1
             AND (
@@ -50,7 +57,6 @@ class ProjectActivityRepository
             ELSE 0
         END) as capital_budget')
 
-            // Recurrent
             ->selectRaw('SUM(CASE
             WHEN project_activity_definitions.expenditure_id = 2
             AND (
@@ -61,7 +67,6 @@ class ProjectActivityRepository
             ELSE 0
         END) as recurrent_budget')
 
-            // Total
             ->selectRaw('SUM(CASE
             WHEN project_activity_definitions.parent_id IS NOT NULL
             OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
@@ -70,6 +75,7 @@ class ProjectActivityRepository
         END) as total_budget')
 
             ->selectRaw('MAX(project_activity_plans.created_at) as latest_created_at')
+
             ->groupBy(
                 'project_activity_definitions.project_id',
                 'project_activity_plans.fiscal_year_id',

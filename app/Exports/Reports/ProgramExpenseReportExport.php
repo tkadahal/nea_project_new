@@ -164,7 +164,7 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
         $headerRows[] = array_fill(0, 23, null);
         $headerRows[15][21] = '(रकम रु. हजारमा)';
 
-        // Main headers (row 17-19)
+        // Main headers
         $headerRows[] = array_fill(0, 23, null);
         $headerRows[16][0] = 'क्रम संख्या';
         $headerRows[16][1] = 'कार्यक्रम/क्रियाकलापहरु';
@@ -206,455 +206,415 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
         }
         $headerRows[] = $numberRow;
 
+        $dataRows = [];
+
         if (!$this->projectId || !$this->fiscalYearId || !$project || !$fiscalYear) {
-            $dataRows = [];
-            for ($i = 0; $i < 20; $i++) {
+            // Empty report
+            for ($i = 0; $i < 40; $i++) {
                 $dataRows[] = array_fill(0, 23, '');
             }
-            return collect(array_merge($headerRows, $dataRows));
-        }
 
-        // === NEW: Accurate spent amounts from ProjectExpenseFundingAllocation ===
-        $allocations = ProjectExpenseFundingAllocation::where('project_id', $this->projectId)
-            ->where('fiscal_year_id', $this->fiscalYearId)
-            ->where('quarter', '<=', $this->quarter)
-            ->get();
-
-        $spent_internal = $allocations->sum('internal_budget');
-        $spent_gov_share = $allocations->sum('government_share');
-        $spent_gov_loan = $allocations->sum('government_loan');
-        $spent_foreign_loan = $allocations->sum('foreign_loan_budget');
-        $spent_foreign_subsidy = $allocations->sum('foreign_subsidy_budget');
-
-        $spent_gov = $spent_gov_share + $spent_gov_loan;
-        $spent_internal_total = $spent_internal + $spent_gov;
-        $spent_foreign_total = $spent_foreign_loan + $spent_foreign_subsidy;
-        $total_period_spent = $spent_internal_total + $spent_foreign_total;
-
-        // Fallback to old method if no allocation data
-        if ($total_period_spent == 0) {
-            $allExpenses = $project->expenses()
-                ->with('quarters')
-                ->where('fiscal_year_id', $this->fiscalYearId)
-                ->get();
-
-            $periodSpent = [
-                'internal' => 0.0,
-                'government_share' => 0.0,
-                'government_loan' => 0.0,
-                'foreign_loan' => 0.0,
-                'foreign_subsidy' => 0.0,
-            ];
-            foreach ($allExpenses as $exp) {
-                $type = $exp->budget_type;
-                if (isset($periodSpent[$type])) {
-                    foreach ($exp->quarters as $qtr) {
-                        if ($qtr->quarter <= $this->quarter) {
-                            $periodSpent[$type] += (float) ($qtr->amount ?? 0);
-                        }
-                    }
-                }
-            }
-            $spent_internal = $periodSpent['internal'];
-            $spent_gov_share = $periodSpent['government_share'];
-            $spent_gov_loan = $periodSpent['government_loan'];
-            $spent_gov = $spent_gov_share + $spent_gov_loan;
-            $spent_internal_total = $spent_internal + $spent_gov;
-            $spent_foreign_loan = $periodSpent['foreign_loan'];
-            $spent_foreign_subsidy = $periodSpent['foreign_subsidy'];
-            $spent_foreign_total = $spent_foreign_loan + $spent_foreign_subsidy;
-            $total_period_spent = $spent_internal_total + $spent_foreign_total;
-        }
-
-        // Fill header section ७ and ८
-        $headerRows[2][11] .= $this->formatAmount($total_period_spent / 1000, 2);
-        $headerRows[3][11] .= $this->formatAmount($spent_internal_total / 1000, 2);
-        $headerRows[4][11] .= $this->formatAmount($spent_gov / 1000, 2);
-        $headerRows[5][11] .= $this->formatAmount($spent_internal / 1000, 2);
-        $headerRows[6][11] .= $this->formatAmount($spent_foreign_total / 1000, 2);
-        $headerRows[7][11] .= $this->formatAmount($spent_foreign_loan / 1000, 2);
-        $headerRows[8][11] .= $this->formatAmount($spent_foreign_subsidy / 1000, 2);
-        // $headerRows[9][11] .= $this->formatAmount($total_period_spent / 1000, 2);
-
-        // ८. चौमासिक लक्ष्यको तुलनामा खर्च प्रतिशत
-        $annual_expense_percent = $totalBudget > 0
-            ? ($total_period_spent / $totalBudget) * 100
-            : 0.0;
-
-        $headerRows[9][11] .= $this->formatPercent($annual_expense_percent);
-
-        // === Rest of the activity data processing (unchanged except using $total_period_spent for cumulative) ===
-
-        $definitions = ProjectActivityDefinition::forProject($this->projectId)->get([
-            'id',
-            'parent_id',
-            'program',
-            'expenditure_id',
-            'total_budget',
-            'total_quantity',
-            'sort_index',
-        ]);
-
-        $defIds = $definitions->pluck('id');
-        $activities = ProjectActivityPlan::whereIn('activity_definition_id', $defIds)
-            ->where('fiscal_year_id', $this->fiscalYearId)
-            ->with('activityDefinition')
-            ->get([
-                'id',
-                'activity_definition_id',
-                'program_override',
-                'planned_quantity',
-                'planned_budget',
-                'q1_quantity',
-                'q2_quantity',
-                'q3_quantity',
-                'q4_quantity',
-                'q1_amount',
-                'q2_amount',
-                'q3_amount',
-                'q4_amount',
-            ]);
-
-        if ($activities->isEmpty()) {
-            $dataRows = [];
-            for ($i = 0; $i < 20; $i++) {
-                $dataRows[] = array_fill(0, 23, '');
-            }
             $time_percent = ($this->quarter / 4) * 100;
             $headerRows[13][11] .= $this->formatPercent($time_percent);
             $headerRows[14][11] .= '०.००';
-            return collect(array_merge($headerRows, $dataRows));
-        }
-
-        $planIds = $activities->pluck('id');
-        $expensesCollection = ProjectExpense::with(['quarters'])
-            ->whereIn('project_activity_plan_id', $planIds)
-            ->get()
-            ->groupBy('project_activity_plan_id');
-
-        $activities = $activities->map(function ($act) use ($expensesCollection) {
-            $act->setRelation('expenses', $expensesCollection->get($act->id, collect()));
-            return $act;
-        });
-
-        $activityMap = $activities->keyBy(fn($plan) => $plan->activityDefinition->id);
-        $groupedActivities = $activities->groupBy(fn($plan) => $plan->activityDefinition->parent_id ?? 'null');
-
-        $capital_roots = $activities->filter(fn($plan) => is_null($plan->activityDefinition->parent_id) && $plan->activityDefinition->expenditure_id == 1);
-        $recurrent_roots = $activities->filter(fn($plan) => is_null($plan->activityDefinition->parent_id) && $plan->activityDefinition->expenditure_id == 2);
-
-        $hasChildrenMap = $groupedActivities->keys()->filter(fn($key) => $key !== 'null')->values()->toArray();
-
-        $leafValues = [];
-        foreach ($activities as $act) {
-            $defId = $act->activityDefinition->id;
-            $period_qty_planned = 0.0;
-            $period_amt_planned = 0.0;
-            for ($i = 1; $i <= $this->quarter; $i++) {
-                $period_qty_planned += (float) ($act->{"q{$i}_quantity"} ?? 0);
-                $period_amt_planned += (float) ($act->{"q{$i}_amount"} ?? 0);
-            }
-
-            $period_qty_actual = 0.0;
-            $period_amt_actual = 0.0;
-            $quarter_qty_actual = 0.0;
-            $quarter_amt_actual = 0.0;
-            foreach ($act->expenses as $exp) {
-                foreach ($exp->quarters as $qtr) {
-                    if ($qtr->quarter <= $this->quarter) {
-                        $period_qty_actual += (float) $qtr->quantity;
-                        $period_amt_actual += (float) $qtr->amount;
-                    }
-                    if ($qtr->quarter == $this->quarter) {
-                        $quarter_qty_actual += (float) $qtr->quantity;
-                        $quarter_amt_actual += (float) $qtr->amount;
-                    }
-                }
-            }
-
-            $total_qty = (float) ($act->activityDefinition->total_quantity ?? 0);
-            $total_budget = (float) ($act->activityDefinition->total_budget ?? 0);
-            $annual_qty = (float) ($act->planned_quantity ?? 0);
-            $annual_amt = (float) ($act->planned_budget ?? 0);
-            $quarter_amt_planned = (float) ($act->{"q{$this->quarter}_amount"} ?? 0);
-
-            if (in_array($defId, $hasChildrenMap)) {
-                $annual_qty = 0.0;
-                $annual_amt = 0.0;
-                $period_qty_planned = 0.0;
-                $period_amt_planned = 0.0;
-                $quarter_amt_planned = 0.0;
-            }
-
-            $weighted_annual_qty = $total_qty > 0 ? ($annual_qty / $total_qty * $total_budget) : 0.0;
-            $weighted_quarter_physical = $total_qty > 0 ? ($quarter_qty_actual / $total_qty * $total_budget) : 0.0;
-            $weighted_period_physical = $total_qty > 0 ? ($period_qty_actual / $total_qty * $total_budget) : 0.0;
-
-            $leafValues[$defId] = [
-                'total_qty' => $total_qty,
-                'total_budget' => $total_budget,
-                'annual_qty' => $annual_qty,
-                'annual_amt' => $annual_amt,
-                'period_qty_planned' => $period_qty_planned,
-                'period_amt_planned' => $period_amt_planned,
-                'period_qty_actual' => $period_qty_actual,
-                'period_amt_actual' => $period_amt_actual,
-                'quarter_qty_actual' => $quarter_qty_actual,
-                'quarter_amt_actual' => $quarter_amt_actual,
-                'quarter_amt_planned' => $quarter_amt_planned,
-                'weighted_annual_qty' => $weighted_annual_qty,
-                'weighted_quarter_physical' => $weighted_quarter_physical,
-                'weighted_period_physical' => $weighted_period_physical,
-            ];
-        }
-
-        $defaultSums = [
-            'total_qty' => 0.0,
-            'total_budget' => 0.0,
-            'annual_qty' => 0.0,
-            'annual_amt' => 0.0,
-            'period_qty_planned' => 0.0,
-            'period_amt_planned' => 0.0,
-            'period_qty_actual' => 0.0,
-            'period_amt_actual' => 0.0,
-            'quarter_qty_actual' => 0.0,
-            'quarter_amt_actual' => 0.0,
-            'quarter_amt_planned' => 0.0,
-            'weighted_annual_qty' => 0.0,
-            'weighted_quarter_physical' => 0.0,
-            'weighted_period_physical' => 0.0,
-        ];
-
-        $capitalSectionSums = $defaultSums;
-        $recurrentSectionSums = $defaultSums;
-
-        $subtreeSums = [];
-        $defaultSums = array_fill_keys(array_keys($leafValues[$defId] ?? $leafValues[array_key_first($leafValues)] ?? []), 0.0);
-
-        $computeSubtreeSums = function ($defId) use ($leafValues, $groupedActivities, $defaultSums, &$subtreeSums, &$computeSubtreeSums) {
-            if (isset($subtreeSums[$defId])) {
-                return $subtreeSums[$defId];
-            }
-
-            $sums = $leafValues[$defId] ?? $defaultSums;
-
-            $children = $groupedActivities[$defId] ?? collect();
-            foreach ($children as $child) {
-                $childDefId = $child->activityDefinition->id;
-                $childSums = $computeSubtreeSums($childDefId);
-                foreach ($sums as $key => &$value) {
-                    $value += $childSums[$key];
-                }
-            }
-
-            $subtreeSums[$defId] = $sums;
-            return $sums;
-        };
-
-        $allRoots = $capital_roots->concat($recurrent_roots);
-        foreach ($allRoots as $root) {
-            $computeSubtreeSums($root->activityDefinition->id);
-        }
-
-        $this->globalXCapital = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['total_budget']);
-        $this->globalXRecurrent = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['total_budget']);
-        $this->totalProjectCost = $this->globalXCapital + $this->globalXRecurrent;
-        $this->capitalPeriodTotal = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['period_amt_planned']);
-        $this->recurrentPeriodTotal = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['period_amt_planned']);
-        $capitalAnnualPlanned = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['annual_amt']);
-        $recurrentAnnualPlanned = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['annual_amt']);
-        $this->totalAnnualPlanned = $capitalAnnualPlanned + $recurrentAnnualPlanned;
-
-        // Cumulative spent from start of project (for header ९)
-        $cumulativeSpent = $total_period_spent;
-        $pastFys = FiscalYear::where('start_date', '<', $fiscalYear->start_date)->get();
-        foreach ($pastFys as $pastFy) {
-            $pastAlloc = ProjectExpenseFundingAllocation::where('project_id', $this->projectId)
-                ->where('fiscal_year_id', $pastFy->id)
+        } else {
+            // === Accurate spent amounts ===
+            $allocations = ProjectExpenseFundingAllocation::where('project_id', $this->projectId)
+                ->where('fiscal_year_id', $this->fiscalYearId)
+                ->where('quarter', '<=', $this->quarter)
                 ->get();
-            $cumulativeSpent += $pastAlloc->sum('internal_budget') + $pastAlloc->sum('government_share') +
-                $pastAlloc->sum('government_loan') + $pastAlloc->sum('foreign_loan_budget') +
-                $pastAlloc->sum('foreign_subsidy_budget');
-        }
-        $cumulative_percent = $this->totalProjectCost > 0 ? ($cumulativeSpent / $this->totalProjectCost * 100) : 0.0;
 
-        $headerRows[11][11] .= $this->formatPercent($cumulative_percent);
-        $headerRows[12][11] .= $this->formatPercent($cumulative_percent);
-        $time_percent = ($this->quarter / 4) * 100;
-        $headerRows[13][11] .= $this->formatPercent($time_percent);
+            $spent_internal = $allocations->sum('internal_budget');
+            $spent_gov_share = $allocations->sum('government_share');
+            $spent_gov_loan = $allocations->sum('government_loan');
+            $spent_foreign_loan = $allocations->sum('foreign_loan_budget');
+            $spent_foreign_subsidy = $allocations->sum('foreign_subsidy_budget');
 
-        // Build data rows
-        $dataRows = [];
+            $spent_gov = $spent_gov_share + $spent_gov_loan;
+            $spent_internal_total = $spent_internal + $spent_gov;
+            $spent_foreign_total = $spent_foreign_loan + $spent_foreign_subsidy;
+            $total_period_spent = $spent_internal_total + $spent_foreign_total;
 
-        $traverse = function ($acts, $level = 0, $path = [], $globalX, $periodTotal) use (&$dataRows, &$traverse, $groupedActivities, $subtreeSums) {
-            foreach ($acts as $index => $act) {
-                $def = $act->activityDefinition;
-                $defId = $def->id;
+            if ($total_period_spent == 0) {
+                $allExpenses = $project->expenses()
+                    ->with('quarters')
+                    ->where('fiscal_year_id', $this->fiscalYearId)
+                    ->get();
 
-                // CHANGED: Use sort_index from definition instead of array index
-                $sortIndex = $def->sort_index ?? (string)($index + 1);
-
-                // Parse sort_index to get the serial number
-                // If it's already hierarchical (e.g., "1.1.2"), use it directly
-                // If it's a simple number at root level, use it as-is
-                if (empty($path)) {
-                    // Root level: use sort_index directly
-                    $serial = $sortIndex;
-                } else {
-                    // Child level: sort_index already contains the full path (e.g., "1.1", "1.2")
-                    $serial = $sortIndex;
+                $periodSpent = [
+                    'internal' => 0.0,
+                    'government_share' => 0.0,
+                    'government_loan' => 0.0,
+                    'foreign_loan' => 0.0,
+                    'foreign_subsidy' => 0.0,
+                ];
+                foreach ($allExpenses as $exp) {
+                    $type = $exp->budget_type;
+                    if (isset($periodSpent[$type])) {
+                        foreach ($exp->quarters as $qtr) {
+                            if ($qtr->quarter <= $this->quarter) {
+                                $periodSpent[$type] += (float) ($qtr->amount ?? 0);
+                            }
+                        }
+                    }
                 }
-
-                $indent = str_repeat('  ', $level * 1);
-                $effectiveProgram = $act->program_override ?? $def->program ?? '';
-
-                $row = array_fill(0, 23, '');
-                $row[0] = $this->convertToNepaliDigits($serial);
-                $row[1] = $indent . $effectiveProgram;
-
-                $children = $groupedActivities[$defId] ?? collect();
-                $hasChildren = $children->isNotEmpty();
-
-                $subtree = $subtreeSums[$defId];
-
-                if (!$hasChildren) {
-                    // Leaf - fill all values as before
-                    $row[3] = $this->formatQuantity($subtree['total_qty'], 2);
-                    $weightProject = $globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0;
-                    $row[4] = $this->formatPercent($weightProject);
-                    $row[5] = $this->formatAmount($subtree['total_budget'] / 1000, 2);
-
-                    $row[6] = $this->formatQuantity($subtree['annual_qty'], 2);
-                    $weightAnnual = $globalX > 0 ? ($subtree['weighted_annual_qty'] / $globalX * 100) : 0;
-                    $row[7] = $this->formatPercent($weightAnnual);
-                    $row[8] = $this->formatAmount($subtree['annual_amt'] / 1000, 2);
-
-                    $row[9] = $this->formatQuantity($subtree['period_qty_planned'], 2);
-                    $weightPeriod = $periodTotal > 0 ? ($subtree['period_amt_planned'] / $periodTotal * 100) : 0;
-                    $row[10] = $this->formatPercent($weightPeriod);
-                    $row[11] = $this->formatAmount($subtree['period_amt_planned'] / 1000, 2);
-
-                    $row[12] = $this->formatQuantity($subtree['quarter_qty_actual'], 2);
-                    $weightQuarter = $globalX > 0 ? ($subtree['weighted_quarter_physical'] / $globalX * 100) : 0;
-                    $row[13] = $this->formatPercent($weightQuarter);
-                    $quarterPerc = $subtree['annual_qty'] > 0 ? ($subtree['quarter_qty_actual'] / $subtree['annual_qty'] * 100) : 0;
-                    $row[14] = $this->formatPercent($quarterPerc);
-
-                    $row[15] = $this->formatAmount($subtree['quarter_amt_actual'] / 1000, 2);
-                    $quarterExpPerc = $subtree['quarter_amt_planned'] > 0 ? ($subtree['quarter_amt_actual'] / $subtree['quarter_amt_planned'] * 100) : 0;
-                    $row[16] = $this->formatPercent($quarterExpPerc);
-
-                    $row[17] = $this->formatQuantity($subtree['period_qty_actual'], 2);
-                    $weightPeriodPhysical = $globalX > 0 ? ($subtree['weighted_period_physical'] / $globalX * 100) : 0;
-                    $row[18] = $this->formatPercent($weightPeriodPhysical);
-                    $periodPerc = $subtree['annual_qty'] > 0 ? ($subtree['period_qty_actual'] / $subtree['annual_qty'] * 100) : 0;
-                    $row[19] = $this->formatPercent($periodPerc);
-
-                    $row[20] = $this->formatAmount($subtree['period_amt_actual'] / 1000, 2);
-                    $expPerc = $subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0;
-                    $row[21] = $this->formatPercent($expPerc);
-                } else {
-                    // Parent - mostly empty except serial and name
-                    $row[3] = $this->formatQuantity(0, 2);
-                    $row[4] = '';
-                    $row[5] = $this->formatAmount(0, 2);
-                    $row[6] = $this->formatQuantity(0, 2);
-                    $row[7] = '';
-                    $row[8] = $this->formatAmount(0, 2);
-                    $row[9] = $this->formatQuantity(0, 2);
-                    $row[10] = '';
-                    $row[11] = $this->formatAmount(0, 2);
-                    $row[12] = $this->formatQuantity(0, 2);
-                    $row[13] = '';
-                    $row[14] = $this->formatPercent(0);
-                    $row[15] = $this->formatAmount(0, 2);
-                    $row[16] = $this->formatPercent(0);
-                    $row[17] = $this->formatQuantity(0, 2);
-                    $row[18] = '';
-                    $row[19] = $this->formatPercent(0);
-                    $row[20] = $this->formatAmount(0, 2);
-                    $row[21] = $this->formatPercent(0);
-                }
-
-                $dataRows[] = $row;
-
-                if ($hasChildren) {
-                    // CHANGED: Pass serial as path for children (not array-based path)
-                    $traverse($children, $level + 1, [$serial], $globalX, $periodTotal);
-
-                    // Total row for parent
-                    $totalRow = array_fill(0, 23, '');
-                    $totalRow[0] = '';
-                    $totalRow[1] = $indent . 'Total of ' . $serial; // Use sort_index-based serial
-
-                    $totalRow[3] = $this->formatQuantity($subtree['total_qty'], 2);
-                    $totalRow[4] = $this->formatPercent($globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0);
-                    $totalRow[5] = $this->formatAmount($subtree['total_budget'] / 1000, 2);
-                    $totalRow[6] = $this->formatQuantity($subtree['annual_qty'], 2);
-                    $totalRow[7] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_annual_qty'] / $globalX * 100) : 0);
-                    $totalRow[8] = $this->formatAmount($subtree['annual_amt'] / 1000, 2);
-                    $totalRow[9] = $this->formatQuantity($subtree['period_qty_planned'], 2);
-                    $totalRow[10] = $this->formatPercent($periodTotal > 0 ? ($subtree['period_amt_planned'] / $periodTotal * 100) : 0);
-                    $totalRow[11] = $this->formatAmount($subtree['period_amt_planned'] / 1000, 2);
-                    $totalRow[12] = $this->formatQuantity($subtree['quarter_qty_actual'], 2);
-                    $totalRow[13] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_quarter_physical'] / $globalX * 100) : 0);
-                    $totalRow[14] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['quarter_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
-                    $totalRow[15] = $this->formatAmount($subtree['quarter_amt_actual'] / 1000, 2);
-                    $totalRow[16] = $this->formatPercent($subtree['quarter_amt_planned'] > 0 ? ($subtree['quarter_amt_actual'] / $subtree['quarter_amt_planned'] * 100) : 0);
-                    $totalRow[17] = $this->formatQuantity($subtree['period_qty_actual'], 2);
-                    $totalRow[18] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_period_physical'] / $globalX * 100) : 0);
-                    $totalRow[19] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['period_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
-                    $totalRow[20] = $this->formatAmount($subtree['period_amt_actual'] / 1000, 2);
-                    $totalRow[21] = $this->formatPercent($subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0);
-
-                    $dataRows[] = $totalRow;
-                }
-            }
-        };
-
-        // Capital Section
-        $capitalHeader = array_fill(0, 23, null);
-        $capitalHeader[0] = 'पुँजीगत वर्षान्तक कार्यक्रम :';
-        $dataRows[] = $capitalHeader;
-
-        if ($capital_roots->isNotEmpty()) {
-            $traverse($capital_roots, 0, [], $this->globalXCapital, $this->capitalPeriodTotal);
-
-            $sectionSums = array_fill_keys(array_keys($defaultSums), 0.0);
-            foreach ($capital_roots as $root) {
-                $sums = $subtreeSums[$root->activityDefinition->id];
-                foreach ($sums as $key => $val) {
-                    $sectionSums[$key] += $val;
-                }
+                $spent_internal = $periodSpent['internal'];
+                $spent_gov_share = $periodSpent['government_share'];
+                $spent_gov_loan = $periodSpent['government_loan'];
+                $spent_gov = $spent_gov_share + $spent_gov_loan;
+                $spent_internal_total = $spent_internal + $spent_gov;
+                $spent_foreign_loan = $periodSpent['foreign_loan'];
+                $spent_foreign_subsidy = $periodSpent['foreign_subsidy'];
+                $spent_foreign_total = $spent_foreign_loan + $spent_foreign_subsidy;
+                $total_period_spent = $spent_internal_total + $spent_foreign_total;
             }
 
-            $capitalTotalRow = array_fill(0, 23, '');
-            $capitalTotalRow[1] = '(क) जम्मा';
-            // Fill same way as parent total row
-            $capitalTotalRow[3] = $this->formatQuantity($sectionSums['total_qty'], 2);
-            $capitalTotalRow[4] = $this->formatPercent($this->globalXCapital > 0 ? ($sectionSums['total_budget'] / $this->globalXCapital * 100) : 0);
-            $capitalTotalRow[5] = $this->formatAmount($sectionSums['total_budget'] / 1000, 2);
-            // ... (same pattern for all columns as in parent total)
-            // (omitted for brevity – copy from parent total logic above)
+            // Fill header spent amounts
+            $headerRows[2][11] .= $this->formatAmount($total_period_spent / 1000, 2);
+            $headerRows[3][11] .= $this->formatAmount($spent_internal_total / 1000, 2);
+            $headerRows[4][11] .= $this->formatAmount($spent_gov / 1000, 2);
+            $headerRows[5][11] .= $this->formatAmount($spent_internal / 1000, 2);
+            $headerRows[6][11] .= $this->formatAmount($spent_foreign_total / 1000, 2);
+            $headerRows[7][11] .= $this->formatAmount($spent_foreign_loan / 1000, 2);
+            $headerRows[8][11] .= $this->formatAmount($spent_foreign_subsidy / 1000, 2);
 
-            $dataRows[] = $capitalTotalRow;
+            $annual_expense_percent = $totalBudget > 0 ? ($total_period_spent / $totalBudget) * 100 : 0.0;
+            $headerRows[9][11] .= $this->formatPercent($annual_expense_percent);
+
+            // === Activity processing ===
+            $definitions = ProjectActivityDefinition::forProject($this->projectId)->get([
+                'id',
+                'parent_id',
+                'program',
+                'expenditure_id',
+                'total_budget',
+                'total_quantity',
+                'sort_index',
+            ]);
+
+            $defIds = $definitions->pluck('id');
+
+            $activities = ProjectActivityPlan::whereIn('activity_definition_id', $defIds)
+                ->where('fiscal_year_id', $this->fiscalYearId)
+                ->with('activityDefinition')
+                ->get([
+                    'id',
+                    'activity_definition_id',
+                    'program_override',
+                    'planned_quantity',
+                    'planned_budget',
+                    'q1_quantity',
+                    'q2_quantity',
+                    'q3_quantity',
+                    'q4_quantity',
+                    'q1_amount',
+                    'q2_amount',
+                    'q3_amount',
+                    'q4_amount',
+                ]);
+
+            if ($activities->isEmpty()) {
+                for ($i = 0; $i < 20; $i++) {
+                    $dataRows[] = array_fill(0, 23, '');
+                }
+                $time_percent = ($this->quarter / 4) * 100;
+                $headerRows[13][11] .= $this->formatPercent($time_percent);
+                $headerRows[14][11] .= '०.००';
+            } else {
+                $planIds = $activities->pluck('id');
+                $expensesCollection = ProjectExpense::with(['quarters'])
+                    ->whereIn('project_activity_plan_id', $planIds)
+                    ->get()
+                    ->groupBy('project_activity_plan_id');
+
+                $activities = $activities->map(function ($act) use ($expensesCollection) {
+                    $act->setRelation('expenses', $expensesCollection->get($act->id, collect()));
+                    return $act;
+                });
+
+                $activityMap = $activities->keyBy(fn($plan) => $plan->activityDefinition->id);
+                $groupedActivities = $activities->groupBy(fn($plan) => $plan->activityDefinition->parent_id ?? 'null');
+
+                $capital_roots = $activities->filter(fn($plan) => is_null($plan->activityDefinition->parent_id) && $plan->activityDefinition->expenditure_id == 1);
+                $recurrent_roots = $activities->filter(fn($plan) => is_null($plan->activityDefinition->parent_id) && $plan->activityDefinition->expenditure_id == 2);
+
+                $hasChildrenMap = $groupedActivities->keys()->filter(fn($key) => $key !== 'null')->values()->toArray();
+
+                $leafValues = [];
+                foreach ($activities as $act) {
+                    $defId = $act->activityDefinition->id;
+                    $period_qty_planned = 0.0;
+                    $period_amt_planned = 0.0;
+                    for ($i = 1; $i <= $this->quarter; $i++) {
+                        $period_qty_planned += (float) ($act->{"q{$i}_quantity"} ?? 0);
+                        $period_amt_planned += (float) ($act->{"q{$i}_amount"} ?? 0);
+                    }
+
+                    $period_qty_actual = 0.0;
+                    $period_amt_actual = 0.0;
+                    $quarter_qty_actual = 0.0;
+                    $quarter_amt_actual = 0.0;
+                    foreach ($act->expenses as $exp) {
+                        foreach ($exp->quarters as $qtr) {
+                            if ($qtr->quarter <= $this->quarter) {
+                                $period_qty_actual += (float) $qtr->quantity;
+                                $period_amt_actual += (float) $qtr->amount;
+                            }
+                            if ($qtr->quarter == $this->quarter) {
+                                $quarter_qty_actual += (float) $qtr->quantity;
+                                $quarter_amt_actual += (float) $qtr->amount;
+                            }
+                        }
+                    }
+
+                    $total_qty = (float) ($act->activityDefinition->total_quantity ?? 0);
+                    $total_budget = (float) ($act->activityDefinition->total_budget ?? 0);
+                    $annual_qty = (float) ($act->planned_quantity ?? 0);
+                    $annual_amt = (float) ($act->planned_budget ?? 0);
+                    $quarter_amt_planned = (float) ($act->{"q{$this->quarter}_amount"} ?? 0);
+
+                    if (in_array($defId, $hasChildrenMap)) {
+                        $annual_qty = 0.0;
+                        $annual_amt = 0.0;
+                        $period_qty_planned = 0.0;
+                        $period_amt_planned = 0.0;
+                        $quarter_amt_planned = 0.0;
+                    }
+
+                    $weighted_annual_qty = $total_qty > 0 ? ($annual_qty / $total_qty * $total_budget) : 0.0;
+                    $weighted_quarter_physical = $total_qty > 0 ? ($quarter_qty_actual / $total_qty * $total_budget) : 0.0;
+                    $weighted_period_physical = $total_qty > 0 ? ($period_qty_actual / $total_qty * $total_budget) : 0.0;
+
+                    $leafValues[$defId] = [
+                        'total_qty' => $total_qty,
+                        'total_budget' => $total_budget,
+                        'annual_qty' => $annual_qty,
+                        'annual_amt' => $annual_amt,
+                        'period_qty_planned' => $period_qty_planned,
+                        'period_amt_planned' => $period_amt_planned,
+                        'period_qty_actual' => $period_qty_actual,
+                        'period_amt_actual' => $period_amt_actual,
+                        'quarter_qty_actual' => $quarter_qty_actual,
+                        'quarter_amt_actual' => $quarter_amt_actual,
+                        'quarter_amt_planned' => $quarter_amt_planned,
+                        'weighted_annual_qty' => $weighted_annual_qty,
+                        'weighted_quarter_physical' => $weighted_quarter_physical,
+                        'weighted_period_physical' => $weighted_period_physical,
+                    ];
+                }
+
+                $defaultSums = array_fill_keys(array_keys($leafValues[array_key_first($leafValues)] ?? []), 0.0);
+
+                $subtreeSums = [];
+                $computeSubtreeSums = function ($defId) use ($leafValues, $groupedActivities, $defaultSums, &$subtreeSums, &$computeSubtreeSums) {
+                    if (isset($subtreeSums[$defId])) {
+                        return $subtreeSums[$defId];
+                    }
+
+                    $sums = $leafValues[$defId] ?? $defaultSums;
+
+                    $children = $groupedActivities[$defId] ?? collect();
+                    foreach ($children as $child) {
+                        $childDefId = $child->activityDefinition->id;
+                        $childSums = $computeSubtreeSums($childDefId);
+                        foreach ($childSums as $key => $val) {
+                            $sums[$key] += $val;
+                        }
+                    }
+
+                    $subtreeSums[$defId] = $sums;
+                    return $sums;
+                };
+
+                $allRoots = $capital_roots->concat($recurrent_roots);
+                foreach ($allRoots as $root) {
+                    $computeSubtreeSums($root->activityDefinition->id);
+                }
+
+                $this->globalXCapital = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['total_budget']);
+                $this->globalXRecurrent = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['total_budget']);
+                $this->totalProjectCost = $this->globalXCapital + $this->globalXRecurrent;
+                $this->capitalPeriodTotal = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['period_amt_planned']);
+                $this->recurrentPeriodTotal = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['period_amt_planned']);
+
+                // Cumulative spent for header ९
+                $cumulativeSpent = $total_period_spent;
+                $pastFys = FiscalYear::where('start_date', '<', $fiscalYear->start_date)->get();
+                foreach ($pastFys as $pastFy) {
+                    $pastAlloc = ProjectExpenseFundingAllocation::where('project_id', $this->projectId)
+                        ->where('fiscal_year_id', $pastFy->id)
+                        ->get();
+                    $cumulativeSpent += $pastAlloc->sum(fn($a) => $a->internal_budget + $a->government_share + $a->government_loan + $a->foreign_loan_budget + $a->foreign_subsidy_budget);
+                }
+                $cumulative_percent = $this->totalProjectCost > 0 ? ($cumulativeSpent / $this->totalProjectCost * 100) : 0.0;
+                $headerRows[11][11] .= $this->formatPercent($cumulative_percent);
+
+                $time_percent = ($this->quarter / 4) * 100;
+                $headerRows[13][11] .= $this->formatPercent($time_percent);
+
+                // === Build data rows ===
+                $traverse = function ($acts, $level = 0) use (&$dataRows, &$traverse, $groupedActivities, $subtreeSums, $defaultSums) {
+                    foreach ($acts as $act) {
+                        $def = $act->activityDefinition;
+                        $defId = $def->id;
+                        $sortIndex = $def->sort_index ?? '';
+
+                        $indent = str_repeat('  ', $level);
+                        $effectiveProgram = $act->program_override ?? $def->program ?? '';
+
+                        $row = array_fill(0, 23, '');
+                        $row[0] = $this->convertToNepaliDigits($sortIndex);
+                        $row[1] = $indent . $effectiveProgram;
+
+                        $children = $groupedActivities[$defId] ?? collect();
+                        $hasChildren = $children->isNotEmpty();
+
+                        $subtree = $subtreeSums[$defId];
+
+                        $globalX = ($def->expenditure_id == 1) ? $this->globalXCapital : $this->globalXRecurrent;
+                        $periodTotal = ($def->expenditure_id == 1) ? $this->capitalPeriodTotal : $this->recurrentPeriodTotal;
+
+                        if (!$hasChildren) {
+                            // Leaf row
+                            $row[3] = $this->formatQuantity($subtree['total_qty'], 2);
+                            $row[4] = $this->formatPercent($globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0);
+                            $row[5] = $this->formatAmount($subtree['total_budget'] / 1000, 2);
+
+                            $row[6] = $this->formatQuantity($subtree['annual_qty'], 2);
+                            $row[7] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_annual_qty'] / $globalX * 100) : 0);
+                            $row[8] = $this->formatAmount($subtree['annual_amt'] / 1000, 2);
+
+                            $row[9] = $this->formatQuantity($subtree['period_qty_planned'], 2);
+                            $row[10] = $this->formatPercent($periodTotal > 0 ? ($subtree['period_amt_planned'] / $periodTotal * 100) : 0);
+                            $row[11] = $this->formatAmount($subtree['period_amt_planned'] / 1000, 2);
+
+                            $row[12] = $this->formatQuantity($subtree['quarter_qty_actual'], 2);
+                            $row[13] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_quarter_physical'] / $globalX * 100) : 0);
+                            $row[14] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['quarter_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
+
+                            $row[15] = $this->formatAmount($subtree['quarter_amt_actual'] / 1000, 2);
+                            $row[16] = $this->formatPercent($subtree['quarter_amt_planned'] > 0 ? ($subtree['quarter_amt_actual'] / $subtree['quarter_amt_planned'] * 100) : 0);
+
+                            $row[17] = $this->formatQuantity($subtree['period_qty_actual'], 2);
+                            $row[18] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_period_physical'] / $globalX * 100) : 0);
+                            $row[19] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['period_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
+
+                            $row[20] = $this->formatAmount($subtree['period_amt_actual'] / 1000, 2);
+                            $row[21] = $this->formatPercent($subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0);
+                        }
+                        // Parent row: only serial and name (values remain empty or zero)
+
+                        $dataRows[] = $row;
+
+                        if ($hasChildren) {
+                            $traverse($children, $level + 1);
+
+                            // Subtotal row for this parent
+                            $totalRow = array_fill(0, 23, '');
+                            $totalRow[1] = $indent . 'Total of ' . $sortIndex;
+
+                            $totalRow[3] = $this->formatQuantity($subtree['total_qty'], 2);
+                            $totalRow[4] = $this->formatPercent($globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0);
+                            $totalRow[5] = $this->formatAmount($subtree['total_budget'] / 1000, 2);
+                            $totalRow[6] = $this->formatQuantity($subtree['annual_qty'], 2);
+                            $totalRow[7] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_annual_qty'] / $globalX * 100) : 0);
+                            $totalRow[8] = $this->formatAmount($subtree['annual_amt'] / 1000, 2);
+                            $totalRow[9] = $this->formatQuantity($subtree['period_qty_planned'], 2);
+                            $totalRow[10] = $this->formatPercent($periodTotal > 0 ? ($subtree['period_amt_planned'] / $periodTotal * 100) : 0);
+                            $totalRow[11] = $this->formatAmount($subtree['period_amt_planned'] / 1000, 2);
+                            $totalRow[12] = $this->formatQuantity($subtree['quarter_qty_actual'], 2);
+                            $totalRow[13] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_quarter_physical'] / $globalX * 100) : 0);
+                            $totalRow[14] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['quarter_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
+                            $totalRow[15] = $this->formatAmount($subtree['quarter_amt_actual'] / 1000, 2);
+                            $totalRow[16] = $this->formatPercent($subtree['quarter_amt_planned'] > 0 ? ($subtree['quarter_amt_actual'] / $subtree['quarter_amt_planned'] * 100) : 0);
+                            $totalRow[17] = $this->formatQuantity($subtree['period_qty_actual'], 2);
+                            $totalRow[18] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_period_physical'] / $globalX * 100) : 0);
+                            $totalRow[19] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['period_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
+                            $totalRow[20] = $this->formatAmount($subtree['period_amt_actual'] / 1000, 2);
+                            $totalRow[21] = $this->formatPercent($subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0);
+
+                            $dataRows[] = $totalRow;
+                        }
+                    }
+                };
+
+                // Capital Section
+                $capitalHeader = array_fill(0, 23, null);
+                $capitalHeader[0] = 'पुँजीगत कार्यक्रमहरु :';
+                $dataRows[] = $capitalHeader;
+
+                $capitalSectionSums = $defaultSums;
+                if ($capital_roots->isNotEmpty()) {
+                    $traverse($capital_roots);
+                    foreach ($capital_roots as $root) {
+                        $sums = $subtreeSums[$root->activityDefinition->id];
+                        foreach ($sums as $key => $val) {
+                            $capitalSectionSums[$key] += $val;
+                        }
+                    }
+                    $dataRows[] = $this->makeTotalRow('(क) जम्मा', $capitalSectionSums, $this->globalXCapital, $this->capitalPeriodTotal);
+                }
+
+                // Recurrent Section
+                $recurrentHeader = array_fill(0, 23, null);
+                $recurrentHeader[0] = '(ख) चालु कार्यक्रमहरु';
+                $dataRows[] = $recurrentHeader;
+
+                $recurrentSectionSums = $defaultSums;
+                if ($recurrent_roots->isNotEmpty()) {
+                    $traverse($recurrent_roots);
+                    foreach ($recurrent_roots as $root) {
+                        $sums = $subtreeSums[$root->activityDefinition->id];
+                        foreach ($sums as $key => $val) {
+                            $recurrentSectionSums[$key] += $val;
+                        }
+                    }
+                    $dataRows[] = $this->makeTotalRow('(ख) जम्मा', $recurrentSectionSums, $this->globalXRecurrent, $this->recurrentPeriodTotal);
+                }
+
+                // Grand Total
+                $grandSums = $defaultSums;
+                foreach ($capitalSectionSums as $key => $val) $grandSums[$key] += $val;
+                foreach ($recurrentSectionSums as $key => $val) $grandSums[$key] += $val;
+
+                $dataRows[] = $this->makeTotalRow('जम्मा', $grandSums, $this->totalProjectCost, ($this->capitalPeriodTotal + $this->recurrentPeriodTotal));
+
+                // Physical progress percentage
+                $total_annual_qty = $capitalSectionSums['annual_qty'] + $recurrentSectionSums['annual_qty'];
+                $total_period_qty_actual = $capitalSectionSums['period_qty_actual'] + $recurrentSectionSums['period_qty_actual'];
+                $physical_percent = $total_annual_qty > 0 ? ($total_period_qty_actual / $total_annual_qty * 100) : 0.0;
+                $headerRows[14][11] .= $this->formatPercent($physical_percent);
+            }
         }
 
-        // Recurrent Section
-        $recurrentHeader = array_fill(0, 23, null);
-        $recurrentHeader[0] = '(ख) चालु कार्यक्रम';
-        $dataRows[] = $recurrentHeader;
+        // === Calculate Quarterly Financial Progress Percentage ===
+        $period_planned_total = $grandSums['period_amt_planned'];
+        $period_actual_total = $grandSums['period_amt_actual'];
 
-        if ($recurrent_roots->isNotEmpty()) {
-            $traverse($recurrent_roots, 0, [], $this->globalXRecurrent, $this->recurrentPeriodTotal);
-            // Similar section total logic...
-        }
+        $quarterly_financial_progress = $period_planned_total > 0
+            ? ($period_actual_total / $period_planned_total) * 100
+            : 0.0;
 
-        // Final physical progress for header row 14 (११)
-        $total_annual_qty = $capitalSectionSums['annual_qty'] ?? 0 + $recurrentSectionSums['annual_qty'] ?? 0;
-        $total_period_qty_actual = $capitalSectionSums['period_qty_actual'] ?? 0 + $recurrentSectionSums['period_qty_actual'] ?? 0;
-        $physical_percent = $total_annual_qty > 0 ? ($total_period_qty_actual / $total_annual_qty * 100) : 0.0;
-        $headerRows[14][11] .= $this->formatPercent($physical_percent);
+        // === Signature block with calculated progress percentage ===
+        $dataRows[] = array_fill(0, 23, ''); // blank row for spacing
+
+        $progressRow = array_fill(0, 23, '');
+        $progressRow[0] = $this->reportingPeriod
+            . ' प्रगति प्रतिशत : '
+            . $this->formatPercent($quarterly_financial_progress);
+        $dataRows[] = $progressRow;
+
+        $signatureHeader = array_fill(0, 23, '');
+        $signatureHeader[2] = 'आयोजना/कार्यालय प्रमुख :-';
+        $signatureHeader[10] = 'विभागीय/संस्था प्रमुख :-';
+        $signatureHeader[18] = 'प्रमाणित गर्ने :-';
+        $dataRows[] = $signatureHeader;
+
+        $dateRow = array_fill(0, 23, '');
+        $dateRow[2] = 'मिति :-';
+        $dateRow[10] = 'मिति :-';
+        $dateRow[18] = 'मिति :-';
+        $dataRows[] = $dateRow;
 
         return collect(array_merge($headerRows, $dataRows));
     }
@@ -818,51 +778,132 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                 $sheet->getColumnDimension('E')->setVisible(false);
                 $sheet->getColumnDimension('F')->setVisible(false);
 
-                // Set page orientation to Landscape
+                // Page setup
                 $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-
-                // Set paper size to A4
                 $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A4);
-
-                // Fit to one page wide
                 $sheet->getPageSetup()->setFitToWidth(1);
-                $sheet->getPageSetup()->setFitToHeight(0); // 0 = automatic height
-
-                // Set margins (in inches) - narrow margins for more content
+                $sheet->getPageSetup()->setFitToHeight(0);
                 $sheet->getPageMargins()->setTop(0.5);
                 $sheet->getPageMargins()->setRight(0.5);
                 $sheet->getPageMargins()->setLeft(0.5);
                 $sheet->getPageMargins()->setBottom(0.5);
                 $sheet->getPageMargins()->setHeader(0.3);
                 $sheet->getPageMargins()->setFooter(0.3);
-
-                // Center on page horizontally
                 $sheet->getPageSetup()->setHorizontalCentered(true);
-
-                // Set row/column headings to print on every page
                 $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(16, 19);
 
-                // Merge and style section headers
-                $lastRow = $sheet->getHighestRow();
-                for ($row = 20; $row <= $lastRow; $row++) {
+                // Style section headers and total rows (yellow highlight)
+                $lastRowBeforeSignatures = $sheet->getHighestRow(); // Temporary, only for this loop
+
+                for ($row = 20; $row <= $lastRowBeforeSignatures; $row++) {
                     $headerCellValue = $sheet->getCell('A' . $row)->getValue();
-                    if (is_string($headerCellValue) && (str_contains($headerCellValue, 'पुँजीगत वर्षान्तक कार्यक्रम') || str_contains($headerCellValue, 'वाह्य सहायता कार्यक्रम'))) {
+                    if (is_string($headerCellValue) && preg_match('/(पुँजीगत|चालु)\s*कार्यक्रमहरु/', $headerCellValue)) {
                         $sheet->mergeCells('A' . $row . ':W' . $row);
                         $sheet->getStyle('A' . $row)->getFont()->setBold(true)->setSize(12);
-                        $sheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+                        $sheet->getStyle('A' . $row)->getAlignment()
+                            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                            ->setVertical(Alignment::VERTICAL_CENTER);
                         $sheet->getRowDimension($row)->setRowHeight(25);
                     }
 
-                    // Highlight total rows (yellow background, bold)
+                    // Highlight total rows (including parent totals and section/grand totals)
                     $cellAValue = $sheet->getCell('A' . $row)->getValue();
                     $cellBValue = $sheet->getCell('B' . $row)->getValue();
-                    if ((is_string($cellBValue) && str_contains($cellBValue, 'Total of ')) || (is_string($cellAValue) && str_contains($cellAValue, 'जम्मा')) || (is_string($cellBValue) && str_contains($cellBValue, 'जम्मा'))) {
+                    if (
+                        (is_string($cellBValue) && str_contains($cellBValue, 'Total of ')) ||
+                        (is_string($cellAValue) && str_contains($cellAValue, 'जम्मा')) ||
+                        (is_string($cellBValue) && str_contains($cellBValue, 'जम्मा'))
+                    ) {
                         $range = 'A' . $row . ':W' . $row;
-                        $sheet->getStyle($range)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
+                        $sheet->getStyle($range)->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('FFFF00');
                         $sheet->getStyle($range)->getFont()->setBold(true);
                     }
                 }
+
+                // === NOW get the TRUE final row count (includes the 3 signature rows) ===
+                $lastRow = $sheet->getHighestRow();
+
+                // The 3 signature rows are the last 3 rows
+                $progressRowNum = $lastRow - 2; // त्रैमासिक प्रगति प्रतिशत :
+                $sigHeaderRow    = $lastRow - 1; // Signature titles
+                $dateRowNum      = $lastRow;     // Dates
+
+                // 1. Progress percentage row
+                $sheet->mergeCells("A{$progressRowNum}:W{$progressRowNum}");
+                $sheet->getStyle("A{$progressRowNum}:W{$progressRowNum}")->getFont()->setBold(true)->setSize(11);
+                $sheet->getStyle("A{$progressRowNum}")->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+                    ->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getRowDimension($progressRowNum)->setRowHeight(30);
+                $sheet->getStyle("A{$progressRowNum}:W{$progressRowNum}")->getBorders()->applyFromArray([
+                    'allBorders' => ['borderStyle' => Border::BORDER_NONE],
+                ]);
+
+                // 2. Signature titles row
+                $sheet->mergeCells("A{$sigHeaderRow}:H{$sigHeaderRow}");
+                $sheet->mergeCells("I{$sigHeaderRow}:P{$sigHeaderRow}");
+                $sheet->mergeCells("Q{$sigHeaderRow}:W{$sigHeaderRow}");
+
+                $sheet->getStyle("A{$sigHeaderRow}:W{$sigHeaderRow}")->getFont()->setSize(10);
+                $sheet->getStyle("A{$sigHeaderRow}:W{$sigHeaderRow}")->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                    ->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getRowDimension($sigHeaderRow)->setRowHeight(40);
+                $sheet->getStyle("A{$sigHeaderRow}:W{$sigHeaderRow}")->getBorders()->applyFromArray([
+                    'allBorders' => ['borderStyle' => Border::BORDER_NONE],
+                ]);
+
+                // 3. Date row
+                $sheet->mergeCells("A{$dateRowNum}:H{$dateRowNum}");
+                $sheet->mergeCells("I{$dateRowNum}:P{$dateRowNum}");
+                $sheet->mergeCells("Q{$dateRowNum}:W{$dateRowNum}");
+
+                $sheet->getStyle("A{$dateRowNum}:W{$dateRowNum}")->getFont()->setSize(10);
+                $sheet->getStyle("A{$dateRowNum}:W{$dateRowNum}")->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                    ->setVertical(Alignment::VERTICAL_TOP);
+                $sheet->getRowDimension($dateRowNum)->setRowHeight(50);
+                $sheet->getStyle("A{$dateRowNum}:W{$dateRowNum}")->getBorders()->applyFromArray([
+                    'allBorders' => ['borderStyle' => Border::BORDER_NONE],
+                ]);
             },
         ];
+    }
+
+    private function makeTotalRow(string $label, array $sums, float $globalX, float $periodTotal): array
+    {
+        $row = array_fill(0, 23, '');
+
+        $row[1] = $label;
+
+        $row[3] = $this->formatQuantity($sums['total_qty'], 2);
+        $row[4] = $this->formatPercent($globalX > 0 ? ($sums['total_budget'] / $globalX * 100) : 0);
+        $row[5] = $this->formatAmount($sums['total_budget'] / 1000, 2);
+
+        $row[6] = $this->formatQuantity($sums['annual_qty'], 2);
+        $row[7] = $this->formatPercent($globalX > 0 ? ($sums['weighted_annual_qty'] / $globalX * 100) : 0);
+        $row[8] = $this->formatAmount($sums['annual_amt'] / 1000, 2);
+
+        $row[9] = $this->formatQuantity($sums['period_qty_planned'], 2);
+        $row[10] = $this->formatPercent($periodTotal > 0 ? ($sums['period_amt_planned'] / $periodTotal * 100) : 0);
+        $row[11] = $this->formatAmount($sums['period_amt_planned'] / 1000, 2);
+
+        $row[12] = $this->formatQuantity($sums['quarter_qty_actual'], 2);
+        $row[13] = $this->formatPercent($globalX > 0 ? ($sums['weighted_quarter_physical'] / $globalX * 100) : 0);
+        $row[14] = $this->formatPercent($sums['annual_qty'] > 0 ? ($sums['quarter_qty_actual'] / $sums['annual_qty'] * 100) : 0);
+
+        $row[15] = $this->formatAmount($sums['quarter_amt_actual'] / 1000, 2);
+        $row[16] = $this->formatPercent($sums['quarter_amt_planned'] > 0 ? ($sums['quarter_amt_actual'] / $sums['quarter_amt_planned'] * 100) : 0);
+
+        $row[17] = $this->formatQuantity($sums['period_qty_actual'], 2);
+        $row[18] = $this->formatPercent($globalX > 0 ? ($sums['weighted_period_physical'] / $globalX * 100) : 0);
+        $row[19] = $this->formatPercent($sums['annual_qty'] > 0 ? ($sums['period_qty_actual'] / $sums['annual_qty'] * 100) : 0);
+
+        $row[20] = $this->formatAmount($sums['period_amt_actual'] / 1000, 2);
+        $row[21] = $this->formatPercent($sums['period_amt_planned'] > 0 ? ($sums['period_amt_actual'] / $sums['period_amt_planned'] * 100) : 0);
+
+        return $row;
     }
 }

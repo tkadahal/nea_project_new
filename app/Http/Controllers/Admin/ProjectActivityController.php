@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\Role;
 use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Http\RedirectResponse;
 use App\Services\ProjectActivityService;
 use App\Models\ProjectActivityDefinition;
 use App\Services\ProjectActivityExcelService;
@@ -453,6 +455,28 @@ class ProjectActivityController extends Controller
         $project = $this->repository->findProjectWithAccessCheck($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
+        // Check if there are any activity definitions for this project
+        $definitions = ProjectActivityDefinition::where('project_id', $projectId)->get();
+
+        if ($definitions->isNotEmpty()) {
+            // All definitions should have the same status — but let's be safe
+            $statuses = $definitions->pluck('status')->unique();
+
+            // If not in draft, block editing
+            if (!$statuses->contains('draft') || $statuses->count() > 1) {
+                abort(403, 'This project activity cannot be edited because it is not in draft status.');
+            }
+
+            // Extra layer: Only Project Users can edit draft
+            $user = Auth::user();
+            $isProjectUser = $user->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER);
+
+            if (!$isProjectUser) {
+                abort(403, 'Only project users can edit draft activities.');
+            }
+        }
+        // If no definitions yet → allow creation/editing (it will start as draft)
+
         $projects = Auth::user()->projects;
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
@@ -651,5 +675,85 @@ class ProjectActivityController extends Controller
         $safeFiscalYear = preg_replace('/[\/\\\\:*?"<>|]/', '_', $fiscalYearTitle);
 
         return 'AnnualProgram_' . $safeProject . '_' . $safeFiscalYear . '.xlsx';
+    }
+
+
+    // Actions
+    public function sendForReview(int $projectId): RedirectResponse
+    {
+        $user = Auth::user();
+        if (!$user->roles->pluck('id')->contains(Role::PROJECT_USER)) {
+            abort(403, 'Only project users can send for review.');
+        }
+
+        $definitions = ProjectActivityDefinition::where('project_id', $projectId)->get();
+
+        if ($definitions->isEmpty()) {
+            return back()->with('error', 'No activities found for this project.');
+        }
+
+        if ($definitions->first()->status !== 'draft') {
+            return back()->with('error', 'Only draft activities can be sent for review.');
+        }
+
+        ProjectActivityDefinition::where('project_id', $projectId)
+            ->update(['status' => 'under_review']);
+
+        return back()->with('success', 'Project activities sent for review successfully.');
+    }
+
+    public function review(int $projectId): RedirectResponse
+    {
+        $user = Auth::user();
+        if (!$user->roles->pluck('id')->contains(Role::DIRECTORATE_USER)) {
+            abort(403, 'Only directorate users can review.');
+        }
+
+        $definitions = ProjectActivityDefinition::where('project_id', $projectId)
+            ->where('status', 'under_review')
+            ->get();
+
+        if ($definitions->isEmpty()) {
+            return back()->with('error', 'No activities under review for this project.');
+        }
+
+        ProjectActivityDefinition::where('project_id', $projectId)
+            ->update([
+                'reviewed_by' => $user->id,
+                'reviewed_at' => now(),
+            ]);
+
+        return back()->with('success', 'Project activities reviewed and forwarded for approval.');
+    }
+
+    public function approve(int $projectId): RedirectResponse
+    {
+        $user = Auth::user();
+        $isAdmin = $user->roles->pluck('id')->intersect([Role::ADMIN, Role::SUPERADMIN])->isNotEmpty();
+
+        if (!$isAdmin) {
+            abort(403, 'Only administrators can approve.');
+        }
+
+        $definitions = ProjectActivityDefinition::where('project_id', $projectId)
+            ->where('status', 'under_review')
+            ->get();
+
+        if ($definitions->isEmpty()) {
+            return back()->with('error', 'No activities under review.');
+        }
+
+        if ($definitions->pluck('reviewed_at')->contains(null)) {
+            return back()->with('error', 'Cannot approve until reviewed by directorate.');
+        }
+
+        ProjectActivityDefinition::where('project_id', $projectId)
+            ->update([
+                'status' => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+            ]);
+
+        return back()->with('success', 'Project activities approved successfully.');
     }
 }

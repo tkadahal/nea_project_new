@@ -14,11 +14,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('directorate_id')->index()->constrained();
             $table->foreignId('department_id')->nullable()->index()->constrained();
+            $table->foreignId('budget_heading_id')->nullable()->index()->constrained();
             $table->foreignId('status_id')->index()->constrained();
             $table->foreignId('priority_id')->index()->constrained();
 
             $table->string('title');
             $table->text('description')->nullable();
+            $table->text('location')->nullable();
 
             $table->datetime('start_date');
             $table->datetime('end_date')->nullable();

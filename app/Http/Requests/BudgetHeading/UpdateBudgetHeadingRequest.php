@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\BudgetHeading;
+
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Foundation\Http\FormRequest;
+use Symfony\Component\HttpFoundation\Response;
+
+class UpdateBudgetHeadingRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        abort_if(Gate::denies('budgetHeading_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
+        return true;
+    }
+
+    public function rules(): array
+    {
+        $budgetHeadingId = $this->route('budget_heading')
+            ?? $this->route('budgetHeading')
+            ?? $this->route('id');
+
+        return [
+            'title' => [
+                'required',
+                'string',
+                'max:255',
+                "unique:budget_headings,title,{$budgetHeadingId}",
+            ],
+            'description' => [
+                'nullable',
+            ]
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'title.required' => 'शीर्षक अनिवार्य छ।',
+            'title.unique'   => 'यो शीर्षक पहिले नै प्रयोग भइसकेको छ।',
+            'title.max'      => 'शीर्षक २५५ अक्षरभन्दा बढी हुनु हुँदैन।',
+        ];
+    }
+}

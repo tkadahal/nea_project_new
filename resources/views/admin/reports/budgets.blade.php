@@ -4,41 +4,19 @@
             Budget Report
         </h1>
         <p class="text-gray-600 dark:text-gray-400 mt-1">
-            Generate budget report
+            Generate Budget Report Summary
         </p>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <form id="report-form" action="" method="GET">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <form id="report-form" action="{{ route('admin.reports.budgetReport') }}" method="GET">
+            <!-- Fiscal Year and Quarter in one row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <!-- Fiscal Year -->
                 <div class="w-full relative z-50">
-                    <x-forms.select label="Fiscal Year" name="fiscal_year_id" id="fiscal_year_id" :options="collect($fiscalYears)
-                        ->map(
-                            fn($fy) => [
-                                'value' => (string) $fy->id,
-                                'label' => $fy->title,
-                                'data-nepali-year' => $fy->title,
-                            ],
-                        )
-                        ->values()
-                        ->all()"
-                        :selected="''" placeholder="Select Fiscal Year" :error="$errors->first('fiscal_year_id')" class="js-single-select"
+                    <x-forms.select label="Fiscal Year" name="fiscal_year_id" id="fiscal_year_id" :options="$fiscalYearOptions"
+                        :selected="$selectedFiscalYearId" placeholder="Select Fiscal Year" :error="$errors->first('fiscal_year_id')" class="js-single-select"
                         required />
-                </div>
-
-                <!-- Budget Heading -->
-                <div class="w-full relative z-30">
-                    <x-forms.multi-select label="Budget Heading" name="budget_heading_ids[]" :options="collect($budgetHeadings ?? [])
-                        ->map(
-                            fn($h) => [
-                                'value' => (string) $h->id,
-                                'label' => $h->title,
-                            ],
-                        )
-                        ->values()
-                        ->all()"
-                        :selected="old('budget_heading_ids', [])" multiple placeholder="Select Budget Headings (Optional)" :error="$errors->first('budget_heading_ids')" />
                 </div>
 
                 <!-- Quarter -->
@@ -51,10 +29,32 @@
                     ]" :selected="''"
                         placeholder="Select Quarter" :error="$errors->first('quarter')" class="js-single-select" required />
                 </div>
+            </div>
 
-                <!-- Directorate (Optional) -->
+            <!-- Budget Headings (Optional) - Full width -->
+            <div class="mb-6">
                 <div class="w-full relative z-40">
-                    <x-forms.multi-select label="Directorate" name="directorate_ids[]" :options="collect($directorates)
+                    <x-forms.multi-select label="Budget Headings (Optional)" name="budget_heading_ids[]"
+                        :options="collect($budgetHeadings)
+                            ->map(
+                                fn($title, $id) => [
+                                    'value' => (string) $id,
+                                    'label' => $title,
+                                ],
+                            )
+                            ->values()
+                            ->all()" :selected="old('budget_heading_ids', [])" multiple
+                        placeholder="Select Budget Headings (Leave empty for all)" :error="$errors->first('budget_heading_ids')" />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Leave empty to include all budget headings
+                    </p>
+                </div>
+            </div>
+
+            <!-- Directorate (Optional) - Full width -->
+            <div class="mb-6">
+                <div class="w-full relative z-30">
+                    <x-forms.multi-select label="Directorate (Optional)" name="directorate_ids[]" :options="collect($directorates)
                         ->map(
                             fn($dir) => [
                                 'value' => (string) $dir->id,
@@ -63,7 +63,8 @@
                         )
                         ->values()
                         ->all()"
-                        :selected="old('directorate_ids', [])" multiple placeholder="Select Directorates (Optional)" :error="$errors->first('directorate_ids')" />
+                        :selected="old('directorate_ids', [])" multiple placeholder="Select Directorates (Leave empty for all)"
+                        :error="$errors->first('directorate_ids')" />
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Leave empty to include all directorates
                     </p>
@@ -80,15 +81,16 @@
                 <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Report Summary</h3>
                 <div class="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                     <p><span class="font-medium">Fiscal Year:</span> <span id="summary-fy">-</span></p>
-                    <p><span class="font-medium">Budget Heading:</span> <span id="summary-budget">-</span></p>
                     <p><span class="font-medium">Quarter:</span> <span id="summary-quarter">-</span></p>
+                    <p><span class="font-medium">Budget Headings:</span> <span id="summary-budget-headings">All</span>
+                    </p>
                     <p><span class="font-medium">Directorates:</span> <span id="summary-directorates">All</span></p>
                     <p><span class="font-medium">Total Projects:</span> <span id="summary-projects">-</span></p>
                 </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex gap-3">
+            <div class="flex flex-col sm:flex-row gap-3">
                 <button type="submit" id="generate-btn"
                     class="px-6 py-2.5 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     <svg class="inline-block w-5 h-5 mr-2 -mt-1" fill="none" stroke="currentColor"
@@ -131,21 +133,25 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function() {
-                // Get hidden inputs for custom selects
-                const fiscalYearHiddenInput = document.querySelector(
-                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
-                const budgetHeadingHiddenInput = document.querySelector(
-                    '.js-multiselect-select[data-name="budget_heading_ids[]"] .js-hidden-input');
-                const quarterHiddenInput = document.querySelector(
-                    '.js-single-select[data-name="quarter"] .js-hidden-input');
-                const directorateHiddenInputs = document.querySelectorAll(
-                    '.js-multi-select[data-name="directorate_ids[]"] .js-hidden-input');
-
+                const form = document.getElementById('report-form');
                 const generateBtn = document.getElementById('generate-btn');
-                const previewBtn = document.getElementById('preview-btn');
-                const reportSummary = document.getElementById('report-summary');
                 const loadingModal = document.getElementById('loading-modal');
                 const fiscalYearHidden = document.getElementById('fiscal_year');
+
+                // Hidden iframe to handle file download
+                let downloadIframe = document.getElementById('download-iframe');
+                if (!downloadIframe) {
+                    downloadIframe = document.createElement('iframe');
+                    downloadIframe.id = 'download-iframe';
+                    downloadIframe.style.display = 'none';
+                    document.body.appendChild(downloadIframe);
+                }
+
+                // Selectors for custom select components
+                const fiscalYearHiddenInput = document.querySelector(
+                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
+                const quarterHiddenInput = document.querySelector(
+                    '.js-single-select[data-name="quarter"] .js-hidden-input');
 
                 function getFiscalYearValue() {
                     return fiscalYearHiddenInput ? fiscalYearHiddenInput.value : '';
@@ -155,183 +161,207 @@
                     return quarterHiddenInput ? quarterHiddenInput.value : '';
                 }
 
-                function getBudgetHeadValues() {
+                function getBudgetHeadingValues() {
                     const values = [];
-                    budgetHeadingHiddenInput.forEach(input => {
-                        if (input.value) values.push(input.value);
+
+                    // Try multiple selector strategies
+                    let inputs = document.querySelectorAll('input[name="budget_heading_ids[]"]');
+
+                    if (inputs.length === 0) {
+                        inputs = document.querySelectorAll(
+                            '.js-multi-select[data-name="budget_heading_ids[]"] .js-hidden-input');
+                    }
+
+                    if (inputs.length === 0) {
+                        inputs = document.querySelectorAll('input[name^="budget_heading_ids"]');
+                    }
+
+                    inputs.forEach(input => {
+                        const val = input.value.trim();
+                        if (val && !values.includes(val)) {
+                            values.push(val);
+                        }
                     });
+
+                    console.log('💼 Budget Heading IDs found:', values);
                     return values;
                 }
 
                 function getDirectorateValues() {
                     const values = [];
-                    directorateHiddenInputs.forEach(input => {
-                        if (input.value) values.push(input.value);
+
+                    // Try multiple selector strategies
+                    let inputs = document.querySelectorAll('input[name="directorate_ids[]"]');
+
+                    if (inputs.length === 0) {
+                        inputs = document.querySelectorAll(
+                            '.js-multi-select[data-name="directorate_ids[]"] .js-hidden-input');
+                    }
+
+                    if (inputs.length === 0) {
+                        inputs = document.querySelectorAll('input[name^="directorate_ids"]');
+                    }
+
+                    inputs.forEach(input => {
+                        const val = input.value.trim();
+                        if (val && !values.includes(val)) {
+                            values.push(val);
+                        }
                     });
+
+                    console.log('📊 Directorate IDs found:', values);
                     return values;
                 }
 
                 function getFiscalYearText() {
                     const fyId = getFiscalYearValue();
                     if (!fyId) return '-';
-                    const select = document.querySelector('.js-single-select[data-name="fiscal_year_id"]');
-                    const option = select?.querySelector(`[data-value="${fyId}"]`);
+                    const option = document.querySelector(
+                        `.js-single-select[data-name="fiscal_year_id"] [data-value="${fyId}"]`);
                     return option?.textContent.trim() || fyId;
                 }
 
-                function getQuarterText() {
-                    const quarter = getQuarterValue();
-                    if (!quarter) return '-';
-                    const select = document.querySelector('.js-single-select[data-name="quarter"]');
-                    const option = select?.querySelector(`[data-value="${quarter}"]`);
-                    return option?.textContent.trim() || quarter;
+                function validateForm() {
+                    const isValid = getFiscalYearValue() && getQuarterValue();
+                    generateBtn.disabled = !isValid;
+                    document.getElementById('preview-btn').disabled = !isValid;
                 }
 
-                function getBudgetHeadText() {
-                    const values = getBudgetHeadValues();
-                    if (values.length === 0) return 'All BudgetHeads';
-
-                    const labels = [];
-                    values.forEach(value => {
-                        const select = document.querySelector(
-                            '.js-multi-select[data-name="budget_heading_ids[]"]');
-                        const option = select?.querySelector(`[data-value="${value}"]`);
-                        if (option) labels.push(option.textContent.trim());
-                    });
-                    return labels.join(', ') || 'Selected';
-                }
-
-                function getDirectorateText() {
-                    const values = getDirectorateValues();
-                    if (values.length === 0) return 'All Directorates';
-
-                    const labels = [];
-                    values.forEach(value => {
-                        const select = document.querySelector(
-                            '.js-multi-select[data-name="directorate_ids[]"]');
-                        const option = select?.querySelector(`[data-value="${value}"]`);
-                        if (option) labels.push(option.textContent.trim());
-                    });
-                    return labels.join(', ') || 'Selected';
-                }
-
-                // Update hidden fiscal year field when selection changes
+                // Update fiscal_year hidden field when selection changes
                 if (fiscalYearHiddenInput) {
-                    const observer = new MutationObserver(function() {
-                        const fyId = getFiscalYearValue();
-                        const fyText = getFiscalYearText();
-                        fiscalYearHidden.value = fyText;
+                    new MutationObserver(() => {
+                        fiscalYearHidden.value = getFiscalYearText();
                         validateForm();
-                    });
-                    observer.observe(fiscalYearHiddenInput, {
+                    }).observe(fiscalYearHiddenInput, {
                         attributes: true,
                         attributeFilter: ['value']
                     });
                 }
 
                 if (quarterHiddenInput) {
-                    const observer = new MutationObserver(validateForm);
-                    observer.observe(quarterHiddenInput, {
+                    new MutationObserver(validateForm).observe(quarterHiddenInput, {
                         attributes: true,
                         attributeFilter: ['value']
                     });
                 }
 
-                function validateForm() {
-                    const isValid = getFiscalYearValue() && getQuarterValue();
-                    generateBtn.disabled = !isValid;
-                    previewBtn.disabled = !isValid;
-                }
-
-                // Preview Summary
-                previewBtn.addEventListener('click', async function() {
+                // Preview button
+                document.getElementById('preview-btn').addEventListener('click', async function() {
                     const fiscalYearId = getFiscalYearValue();
-                    const quarter = getQuarterValue();
+                    const budgetHeadingIds = getBudgetHeadingValues();
                     const directorateIds = getDirectorateValues();
-                    const budgetHeadIds = getBudgetHeadValues();
 
-                    if (!fiscalYearId || !quarter) {
+                    if (!fiscalYearId || !getQuarterValue()) {
                         alert('Please select Fiscal Year and Quarter');
                         return;
                     }
 
-                    // Show loading
                     loadingModal.classList.remove('hidden');
 
                     try {
-                        // Fetch project count
                         const url = new URL('{{ route('admin.reports.projectCount') }}', window.location
                             .origin);
                         url.searchParams.append('fiscal_year_id', fiscalYearId);
-                        if (directorateIds.length > 0) {
-                            directorateIds.forEach(id => url.searchParams.append('directorate_ids[]', id));
-                        }
 
-                        if (budgetHeadIds.length > 0) {
-                            budgetHeadIds.forEach(id => url.searchParams.append('budget_heading_ids[]',
-                                id));
-                        }
+                        budgetHeadingIds.forEach(id => {
+                            url.searchParams.append('budget_heading_ids[]', id);
+                        });
+
+                        directorateIds.forEach(id => {
+                            url.searchParams.append('directorate_ids[]', id);
+                        });
+
+                        console.log('🔍 Preview URL:', url.toString());
 
                         const response = await fetch(url);
                         const data = await response.json();
 
-                        // Update summary
                         document.getElementById('summary-fy').textContent = getFiscalYearText();
-                        document.getElementById('summary-quarter').textContent = getQuarterText();
-                        document.getElementById('summary-directorates').textContent = getDirectorateText();
+                        document.getElementById('summary-quarter').textContent = getQuarterValue();
+                        document.getElementById('summary-budget-headings').textContent =
+                            budgetHeadingIds.length === 0 ? 'All Budget Headings' :
+                            `${budgetHeadingIds.length} Selected`;
+                        document.getElementById('summary-directorates').textContent =
+                            directorateIds.length === 0 ? 'All Directorates' :
+                            `${directorateIds.length} Selected`;
                         document.getElementById('summary-projects').textContent = data.project_count || 0;
 
-                        reportSummary.classList.remove('hidden');
+                        document.getElementById('report-summary').classList.remove('hidden');
                     } catch (error) {
-                        console.error('Error fetching summary:', error);
-                        alert('Failed to load summary. Please try again.');
+                        console.error('❌ Preview error:', error);
+                        alert('Failed to load summary.');
                     } finally {
                         loadingModal.classList.add('hidden');
                     }
                 });
 
-                // Generate Report
-                document.getElementById('report-form').addEventListener('submit', function(e) {
-                    // Get values and add them to the form
+                // Form submit handler
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+
                     const fyId = getFiscalYearValue();
                     const quarter = getQuarterValue();
+                    const budgetHeadingIds = getBudgetHeadingValues();
                     const directorateIds = getDirectorateValues();
 
                     if (!fyId || !quarter) {
-                        e.preventDefault();
                         alert('Please select Fiscal Year and Quarter');
                         return;
                     }
 
-                    // Update form action with proper parameters
-                    const form = this;
-                    const url = new URL(form.action, window.location.origin);
+                    // Build download URL
+                    const baseUrl = '{{ route('admin.reports.budgetReport') }}';
+                    const url = new URL(baseUrl, window.location.origin);
+
                     url.searchParams.set('fiscal_year_id', fyId);
                     url.searchParams.set('quarter', quarter);
-                    url.searchParams.set('fiscal_year', fiscalYearHidden.value);
+                    url.searchParams.set('fiscal_year', getFiscalYearText());
                     url.searchParams.set('include_data', '1');
 
-                    if (directorateIds.length > 0) {
-                        directorateIds.forEach(id => url.searchParams.append('directorate_ids[]', id));
-                    }
+                    budgetHeadingIds.forEach(id => {
+                        url.searchParams.append('budget_heading_ids[]', id);
+                    });
 
-                    form.action = url.toString();
+                    directorateIds.forEach(id => {
+                        url.searchParams.append('directorate_ids[]', id);
+                    });
 
+                    console.log('📥 Download URL:', url.toString());
+                    console.log('📋 Parameters:', {
+                        fiscal_year_id: fyId,
+                        quarter: quarter,
+                        budget_heading_ids: budgetHeadingIds,
+                        directorate_ids: directorateIds
+                    });
+
+                    // Show loading
                     loadingModal.classList.remove('hidden');
                     generateBtn.disabled = true;
-                    generateBtn.innerHTML =
-                        '<svg class="inline-block w-5 h-5 mr-2 -mt-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Generating...';
+                    generateBtn.innerHTML = `
+                        <svg class="inline-block w-5 h-5 mr-2 -mt-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" opacity="0.3"/>
+                            <path d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Generating...
+                    `;
 
-                    // Allow form to submit naturally (will download file)
+                    // Trigger download via hidden iframe
+                    downloadIframe.src = url.toString();
+
+                    // Reset UI after delay
                     setTimeout(() => {
                         loadingModal.classList.add('hidden');
                         generateBtn.disabled = false;
-                        generateBtn.innerHTML =
-                            '<svg class="inline-block w-5 h-5 mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Generate Report';
+                        generateBtn.innerHTML = `
+                            <svg class="inline-block w-5 h-5 mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Generate Report
+                        `;
                     }, 2000);
                 });
 
-                // Initialize
                 validateForm();
             });
         </script>

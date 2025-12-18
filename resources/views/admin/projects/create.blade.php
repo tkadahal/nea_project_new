@@ -64,6 +64,16 @@
                             </div>
 
                             <div class="col-span-full">
+                                <x-forms.select label="{{ trans('global.project.fields.budgetHeadings') }}"
+                                    name="budget_heading_id" id="budget_heading_id" :options="collect($budgetHeadings)
+                                        ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
+                                        ->values()
+                                        ->all()" :selected="old('budget_heading_id')"
+                                    placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('budget_heading_id')"
+                                    class="js-single-select" />
+                            </div>
+
+                            <div class="col-span-full">
                                 <x-forms.select label="{{ trans('global.project.fields.project_manager') }}"
                                     name="project_manager" id="project_manager_select" :options="[]"
                                     :selected="old('project_manager')" placeholder="{{ trans('global.pleaseSelect') }}"
@@ -79,6 +89,11 @@
                             <div class="col-span-full">
                                 <x-forms.text-area label="{{ trans('global.project.fields.description') }}"
                                     name="description" :value="old('description')" :error="$errors->first('description')" />
+                            </div>
+
+                            <div class="col-span-full">
+                                <x-forms.text-area label="{{ trans('global.project.fields.location') }}"
+                                    name="location" :value="old('location')" :error="$errors->first('location')" />
                             </div>
                         </div>
                     </div>
@@ -379,8 +394,7 @@
                                     value: String(dept.value),
                                     label: String(dept.label),
                                 }))
-                                .filter((opt) => opt.value && opt.label) :
-                                [];
+                                .filter((opt) => opt.value && opt.label) : [];
                             let initialDepartmentSelected = "";
                             if (selectedDepartmentId && formattedData.some(opt => String(opt.value) ===
                                     String(selectedDepartmentId))) {
@@ -433,8 +447,7 @@
                                     value: String(user.value),
                                     label: String(user.label),
                                 }))
-                                .filter((opt) => opt.value && opt.label) :
-                                [];
+                                .filter((opt) => opt.value && opt.label) : [];
                             let initialUserSelected = "";
                             if (selectedUserId && formattedData.some(opt => String(opt.value) === String(
                                     selectedUserId))) {

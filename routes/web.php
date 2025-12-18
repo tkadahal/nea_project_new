@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\{
     PermissionController,
     DirectorateController,
     NotificationController,
+    BudgetHeadingController,
     ProjectExpenseController,
     ProjectActivityController,
     ContractExtensionController,
@@ -111,6 +112,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('status', StatusController::class);
         Route::resource('priority', PriorityController::class);
         Route::resource('fiscalYear', FiscalYearController::class);
+        Route::resource('budgetHeading', BudgetHeadingController::class);
 
         // Projects
         Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
@@ -130,35 +132,45 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         //     Route::get('{projectId}/{fiscalYearId}/download-activities', 'downloadActivities')->name('download-activities');
         // });
         Route::prefix('projectActivity')->name('projectActivity.')->group(function () {
+
             // Standard CRUD
             Route::get('/', [ProjectActivityController::class, 'index'])->name('index');
             Route::get('create', [ProjectActivityController::class, 'create'])->name('create');
             Route::post('/', [ProjectActivityController::class, 'store'])->name('store');
 
-            // UPDATED: AJAX endpoints for dynamic row management (addRow to POST for CSRF/consistency)
+            // AJAX endpoints
             Route::post('add-row', [ProjectActivityController::class, 'addRow'])->name('addRow');
             Route::delete('delete-row/{id}', [ProjectActivityController::class, 'deleteRow'])->name('deleteRow');
             Route::post('update-field', [ProjectActivityController::class, 'updateField'])->name('updateField');
             Route::get('get-activities', [ProjectActivityController::class, 'getActivities'])->name('getActivities');
-
-            // Existing AJAX helpers (unchanged; assume getRows exists in controller if used)
             Route::get('rows', [ProjectActivityController::class, 'getRows'])->name('getRows');
             Route::get('budgetData', [ProjectActivityController::class, 'getBudgetData'])->name('budgetData');
 
-            // Excel operations (unchanged)
+            // Excel
             Route::get('template', [ProjectActivityController::class, 'downloadTemplate'])->name('template');
             Route::get('upload-form', [ProjectActivityController::class, 'showUploadForm'])->name('uploadForm');
             Route::post('upload', [ProjectActivityController::class, 'uploadExcel'])->name('upload');
 
-            // Composite key operations (unchanged)
+            // Show / Edit / Update / Download
             Route::get('show/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'show'])->name('show');
             Route::get('edit/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'edit'])->name('edit');
             Route::put('{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'update'])->name('update');
-            Route::get('{projectId}/{fiscalYearId}/download', [ProjectActivityController::class, 'downloadActivities'])->name('downloadAcitivites');
+            Route::get('{projectId}/{fiscalYearId}/download', [ProjectActivityController::class, 'downloadActivities'])
+                ->name('downloadActivities');
 
-            // Delete (unchanged)
             Route::delete('{id}', [ProjectActivityController::class, 'destroy'])->name('destroy');
+
+            // === WORKFLOW ACTIONS ===
+            Route::post('{projectId}/send-for-review', [ProjectActivityController::class, 'sendForReview'])
+                ->name('sendForReview');
+
+            Route::post('{projectId}/review', [ProjectActivityController::class, 'review'])
+                ->name('review');
+
+            Route::post('{projectId}/approve', [ProjectActivityController::class, 'approve'])
+                ->name('approve');
         });
+
         // Contracts
         Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
             Route::get('projects/{directorate_id}', 'getProjects')->name('projects');
@@ -256,20 +268,26 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
         // Reprots
         Route::prefix('reports')->name('reports.')->group(function () {
-            // Show report generation view
+            // Show progress report generation view
             Route::get('consolidated-annual', [ReportController::class, 'showConsolidatedAnnualReport'])
                 ->name('consolidatedAnnual.view');
 
-            // Generate and download report
+            // Generate and download progress report
             Route::get('consolidated-annual/download', [ReportController::class, 'consolidatedAnnualReport'])
                 ->name('consolidatedAnnual');
+
+
+            // Show budget report generation view
+            Route::get('budgetReport', [ReportController::class, 'showBudgetReportView'])
+                ->name('budgetReport.view');
+
+            // Generate and download budget report
+            Route::get('budgetReport/download', [ReportController::class, 'budgetReport'])
+                ->name('budgetReport');
 
             // Get project count for preview
             Route::get('project-count', [ReportController::class, 'getProjectCount'])
                 ->name('projectCount');
-
-            // Budget Report
-            Route::get('budgetReport', [ReportController::class, 'showBudgetReportView'])->name('budgetReport.view');
         });
 
         // Notifications

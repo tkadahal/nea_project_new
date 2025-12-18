@@ -13,6 +13,7 @@ use Illuminate\View\View;
 use App\Models\Department;
 use App\Models\FiscalYear;
 use App\Models\Directorate;
+use App\Models\BudgetHeading;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -154,6 +155,7 @@ class ProjectController extends Controller
         $statuses = Status::pluck('title', 'id');
         $priorities = Priority::pluck('title', 'id');
         $fiscalYears = FiscalYear::pluck('title', 'id');
+        $budgetHeadings = BudgetHeading::pluck('title', 'id');
 
         if (in_array(Role::SUPERADMIN, $roleIds)) {
             $directorates = Directorate::pluck('title', 'id');
@@ -162,7 +164,7 @@ class ProjectController extends Controller
             $directorates = Directorate::where('id', $fixedDirectorateId)->pluck('title', 'id');
         }
 
-        return view('admin.projects.create', compact('directorates', 'departments', 'statuses', 'priorities', 'fiscalYears', 'users'));
+        return view('admin.projects.create', compact('directorates', 'departments', 'budgetHeadings', 'statuses', 'priorities', 'fiscalYears', 'users'));
     }
 
     public function store(StoreProjectRequest $request): RedirectResponse
@@ -247,6 +249,7 @@ class ProjectController extends Controller
         $statuses = Status::pluck('title', 'id');
         $priorities = Priority::pluck('title', 'id');
         $fiscalYears = FiscalYear::pluck('title', 'id');
+        $budgetHeadings = BudgetHeading::pluck('title', 'id');
 
         $project->load(['budgets', 'files']);
 
@@ -278,6 +281,7 @@ class ProjectController extends Controller
             'project',
             'directorates',
             'departments',
+            'budgetHeadings',
             'users',
             'statuses',
             'priorities',

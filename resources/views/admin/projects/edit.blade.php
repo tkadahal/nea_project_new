@@ -84,6 +84,16 @@
                             </div>
 
                             <div class="col-span-full">
+                                <x-forms.select label="{{ trans('global.project.fields.budgetHeadings') }}"
+                                    name="budget_heading_id" id="budget_heading_id" :options="collect($budgetHeadings)
+                                        ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
+                                        ->values()
+                                        ->all()" :selected="old('budget_heading_id', $project->budget_heading_id)"
+                                    placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('budget_heading_id')"
+                                    class="js-single-select" />
+                            </div>
+
+                            <div class="col-span-full">
                                 <x-forms.select label="{{ trans('global.project.fields.project_manager') }}"
                                     name="project_manager" id="project_manager_select" :options="collect($users)
                                         ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
@@ -103,6 +113,11 @@
                             <div class="col-span-full">
                                 <x-forms.text-area label="{{ trans('global.project.fields.description') }}"
                                     name="description" :value="old('description', $project->description)" :error="$errors->first('description')" />
+                            </div>
+
+                            <div class="col-span-full">
+                                <x-forms.text-area label="{{ trans('global.project.fields.location') }}"
+                                    name="location" :value="old('location', $project->location)" :error="$errors->first('location')" />
                             </div>
                         </div>
                     </div>
@@ -329,7 +344,7 @@
                 $container.find(".js-toggle-dropdown").off("click").on("click", function(e) {
                     e.stopPropagation();
                     if ($container.find("select").prop("disabled"))
-                return; // Prevent dropdown for disabled fields
+                        return; // Prevent dropdown for disabled fields
                     $(".js-dropdown").not($dropdown).addClass("hidden");
                     $dropdown.toggleClass("hidden");
                     if (!$dropdown.hasClass("hidden")) {
@@ -401,8 +416,7 @@
                             data.map((dept) => ({
                                 value: String(dept.value),
                                 label: String(dept.label),
-                            })).filter((opt) => opt.value && opt.label) :
-                            [];
+                            })).filter((opt) => opt.value && opt.label) : [];
                         updateSelectOptions(departmentSelectContainer, formattedData,
                             selectedDepartmentId);
                     },
@@ -445,8 +459,7 @@
                             data.map((user) => ({
                                 value: String(user.value),
                                 label: String(user.label),
-                            })).filter((opt) => opt.value && opt.label) :
-                            [];
+                            })).filter((opt) => opt.value && opt.label) : [];
                         updateSelectOptions(userSelectContainer, formattedData, selectedUserId);
                     },
                     error: function(xhr) {
