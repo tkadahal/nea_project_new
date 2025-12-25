@@ -15,11 +15,11 @@ return new class extends Migration
             $table->foreignId('project_id')->nullable()->constrained('projects')->onDelete('cascade');
             $table->foreignId('fiscal_year_id')->nullable()->constrained('fiscal_years')->onDelete('cascade');
             $table->unsignedTinyInteger('quarter')->nullable(); // 1-4
-            $table->decimal('internal_budget', 15, 2)->default(0);
-            $table->decimal('government_share', 15, 2)->default(0);
-            $table->decimal('government_loan', 15, 2)->default(0);
-            $table->decimal('foreign_loan_budget', 15, 2)->default(0);
-            $table->decimal('foreign_subsidy_budget', 15, 2)->default(0);
+            $table->decimal('internal_budget', 18, 2)->default(0);
+            $table->decimal('government_share', 18, 2)->default(0);
+            $table->decimal('government_loan', 18, 2)->default(0);
+            $table->decimal('foreign_loan_budget', 18, 2)->default(0);
+            $table->decimal('foreign_subsidy_budget', 18, 2)->default(0);
             $table->timestamps();
             $table->softDeletes();
         });

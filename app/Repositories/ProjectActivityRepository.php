@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Budget;
 use App\Models\Project;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ProjectActivityPlan;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,64 +31,73 @@ class ProjectActivityRepository
 
         return ProjectActivityPlan::query()
             ->with(['fiscalYear'])
-            ->join('project_activity_definitions', 'project_activity_plans.activity_definition_id', '=', 'project_activity_definitions.id')
-            ->join('projects', 'project_activity_definitions.project_id', '=', 'projects.id')
-            ->leftJoin('project_activity_definitions as child_defs', 'project_activity_definitions.id', '=', 'child_defs.parent_id')
+            ->join('project_activity_definitions as defs', 'project_activity_plans.activity_definition_version_id', '=', 'defs.id')
+            ->join('projects', 'defs.project_id', '=', 'projects.id')
+            ->leftJoin('project_activity_definitions as child_defs', 'defs.id', '=', 'child_defs.parent_id')
             ->whereIn('projects.id', $accessibleProjectIds)
+            ->where('defs.is_current', true)
 
-            ->selectRaw('project_activity_definitions.project_id as project_id')
+            // Add version
+            ->selectRaw('MAX(defs.version) as current_version')
+
+            ->selectRaw('defs.project_id as project_id')
             ->addSelect('project_activity_plans.fiscal_year_id')
             ->addSelect('projects.title as project_title')
 
-            // ADD THESE LINES - CRITICAL FOR WORKFLOW
-            ->selectRaw('MAX(project_activity_definitions.status) as status')
-            ->selectRaw('MAX(project_activity_definitions.reviewed_at) as reviewed_at')
-            ->selectRaw('MAX(project_activity_definitions.reviewed_by) as reviewed_by')
-            ->selectRaw('MAX(project_activity_definitions.approved_at) as approved_at')
-            ->selectRaw('MAX(project_activity_definitions.approved_by) as approved_by')
-
-            // Your existing budget sums...
+            // Budget aggregations (leaf + root nodes)
             ->selectRaw('SUM(CASE
-            WHEN project_activity_definitions.expenditure_id = 1
+            WHEN defs.expenditure_id = 1
             AND (
-                project_activity_definitions.parent_id IS NOT NULL
-                OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+                defs.parent_id IS NOT NULL
+                OR (defs.parent_id IS NULL AND child_defs.id IS NULL)
             )
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) as capital_budget')
 
             ->selectRaw('SUM(CASE
-            WHEN project_activity_definitions.expenditure_id = 2
+            WHEN defs.expenditure_id = 2
             AND (
-                project_activity_definitions.parent_id IS NOT NULL
-                OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+                defs.parent_id IS NOT NULL
+                OR (defs.parent_id IS NULL AND child_defs.id IS NULL)
             )
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) as recurrent_budget')
 
             ->selectRaw('SUM(CASE
-            WHEN project_activity_definitions.parent_id IS NOT NULL
-            OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+            WHEN defs.parent_id IS NOT NULL
+            OR (defs.parent_id IS NULL AND child_defs.id IS NULL)
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) as total_budget')
 
-            ->selectRaw('MAX(project_activity_plans.created_at) as latest_created_at')
+            // Workflow from plans
+            ->selectRaw('MAX(project_activity_plans.status) as status')
+            ->selectRaw('MAX(project_activity_plans.reviewed_at) as reviewed_at')
+            ->selectRaw('MAX(project_activity_plans.reviewed_by) as reviewed_by')
+            ->selectRaw('MAX(project_activity_plans.approved_at) as approved_at')
+            ->selectRaw('MAX(project_activity_plans.approved_by) as approved_by')
+            ->selectRaw('MAX(project_activity_plans.rejection_reason) as rejection_reason')
+            ->selectRaw('MAX(project_activity_plans.rejected_at) as rejected_at')
+            ->selectRaw('MAX(project_activity_plans.rejected_by) as rejected_by')
+
+            ->selectRaw('MAX(project_activity_plans.updated_at) as latest_updated_at')
 
             ->groupBy(
-                'project_activity_definitions.project_id',
+                'defs.project_id',
                 'project_activity_plans.fiscal_year_id',
                 'projects.title'
             )
+
             ->havingRaw('SUM(CASE
-            WHEN project_activity_definitions.parent_id IS NOT NULL
-            OR (project_activity_definitions.parent_id IS NULL AND child_defs.id IS NULL)
+            WHEN defs.parent_id IS NOT NULL
+            OR (defs.parent_id IS NULL AND child_defs.id IS NULL)
             THEN project_activity_plans.planned_budget
             ELSE 0
         END) > 0')
-            ->orderByDesc('latest_created_at')
+
+            ->orderByDesc('latest_updated_at')
             ->get();
     }
 
@@ -128,52 +138,77 @@ class ProjectActivityRepository
         return false;
     }
 
-    public function getPlansWithSums(int $projectId, int $fiscalYearId): array
+    public function getPlansWithSums(int $projectId, int $fiscalYearId, ?int $version = null): array
     {
-        $capitalPlans = ProjectActivityDefinition::forProject($projectId)
-            // ->active()
-            ->whereNull('parent_id')
+        // Base query starting from the correct version
+        if ($version === null) {
+            // Use the existing static helper that returns a query for the current version
+            $baseQuery = ProjectActivityDefinition::currentVersion($projectId);
+        } else {
+            // For historical versions: get all for project, filter by version
+            $baseQuery = ProjectActivityDefinition::forProject($projectId)
+                ->where('version', $version)
+                ->ordered(); // keep same ordering as currentVersion()
+        }
+
+        // Now clone for capital and recurrent
+        $capitalPlans = (clone $baseQuery)
+            ->topLevel()
             ->where('expenditure_id', 1)
             ->with($this->plansWithHierarchy($fiscalYearId))
             ->get();
 
-        $recurrentPlans = ProjectActivityDefinition::forProject($projectId)
-            // ->active()
-            ->whereNull('parent_id')
+        $recurrentPlans = (clone $baseQuery)
+            ->topLevel()
             ->where('expenditure_id', 2)
             ->with($this->plansWithHierarchy($fiscalYearId))
             ->get();
 
-        // NEW: Pre-compute subtree sums for each top-level activity (fixed + FY-specific)
+        // Compute subtree sums
         $this->computeSubtreeSums($capitalPlans, $fiscalYearId);
         $this->computeSubtreeSums($recurrentPlans, $fiscalYearId);
 
-        $capitalSums = $this->calculateSums($projectId, $fiscalYearId, 1);
-        $recurrentSums = $this->calculateSums($projectId, $fiscalYearId, 2);
+        // Sums — pass version to calculateSums
+        $capitalSums = $this->calculateSums($projectId, $fiscalYearId, 1, $version);
+        $recurrentSums = $this->calculateSums($projectId, $fiscalYearId, 2, $version);
 
         return [$capitalPlans, $recurrentPlans, $capitalSums, $recurrentSums];
     }
 
-    // NEW: Helper method to attach subtree sums as attributes to each activity
-    private function computeSubtreeSums($activities, int $fiscalYearId): void
+    /**
+     * Attach various subtree sums as custom attributes on each activity
+     */
+    private function computeSubtreeSums(Collection $activities, int $fiscalYearId): void
     {
-        $activities->each(function ($activity) use ($fiscalYearId) {
-            // Fixed sums from definitions (FY-agnostic)
-            $activity->subtree_total_budget = $activity->subtreeTotalBudget();
-            $activity->subtree_total_quantity = $activity->subtreeTotalQuantity();
+        $activities->each(function (ProjectActivityDefinition $activity) use ($fiscalYearId) {
+            // Fixed totals from definitions (FY-agnostic)
+            $activity->subtree_total_budget   = $this->sumSubtreeDefinitions($activity, 'total_budget');
+            $activity->subtree_total_quantity = $this->sumSubtreeDefinitions($activity, 'total_quantity');
 
-            // FY-specific sums from plans
-            $activity->subtree_planned_budget = $activity->subtreeSum('planned_budget', $fiscalYearId);
-            $activity->subtree_planned_quantity = $activity->subtreeSum('planned_quantity', $fiscalYearId);
-            $activity->subtree_total_expense = $activity->subtreeSum('total_expense', $fiscalYearId);
+            // Fiscal-year specific totals from plans
+            $activity->subtree_planned_budget     = $activity->subtreeSum('planned_budget', $fiscalYearId);
+            $activity->subtree_planned_quantity   = $activity->subtreeSum('planned_quantity', $fiscalYearId);
+            $activity->subtree_total_expense      = $activity->subtreeSum('total_expense', $fiscalYearId);
             $activity->subtree_completed_quantity = $activity->subtreeSum('completed_quantity', $fiscalYearId);
 
-            // Pre-compute all quarter sums (for tabs)
+            // Quarter-specific sums
             foreach (['q1', 'q2', 'q3', 'q4'] as $quarter) {
-                $activity->{'subtree_' . $quarter . '_amount'} = $activity->subtreeQuarterSum($quarter, $fiscalYearId);
+                $activity->{'subtree_' . $quarter . '_amount'}   = $activity->subtreeQuarterSum($quarter, $fiscalYearId);
                 $activity->{'subtree_' . $quarter . '_quantity'} = $activity->subtreeSum($quarter . '_quantity', $fiscalYearId);
             }
         });
+    }
+
+    /**
+     * Sum a column across the entire subtree from project_activity_definitions only
+     * (used for fixed total_budget/total_quantity — not fiscal-year dependent)
+     */
+    private function sumSubtreeDefinitions(ProjectActivityDefinition $activity, string $column): float
+    {
+        $ids = $activity->getDescendants()->pluck('id')->push($activity->id);
+
+        // Explicit cast to float because sum() on decimal-cast columns returns string
+        return (float) ProjectActivityDefinition::whereIn('id', $ids)->sum($column);
     }
 
     public function deleteActivity(int $id): void
@@ -237,40 +272,43 @@ class ProjectActivityRepository
         ];
     }
 
-    private function calculateSums(int $projectId, int $fiscalYearId, int $expenditureId): array
+    private function calculateSums(int $projectId, int $fiscalYearId, int $expenditureId, ?int $version = null): array
     {
-        // MODIFIED: Expanded to include quantities and all quarters (for tabs/grand totals)
-        $sums = ProjectActivityDefinition::forProject($projectId)
-            ->where('expenditure_id', $expenditureId)
-            // ->where('status', 'active')
+        $query = ProjectActivityDefinition::forProject($projectId)
+            ->where('expenditure_id', $expenditureId);
+
+        if ($version === null) {
+            $query->current(); // use the scope
+        } else {
+            $query->where('version', $version);
+        }
+
+        $sums = $query
             ->leftJoin('project_activity_plans', function ($join) use ($fiscalYearId) {
-                $join->on('project_activity_definitions.id', '=', 'project_activity_plans.activity_definition_id')
-                    ->where('project_activity_plans.fiscal_year_id', $fiscalYearId);
+                $join->on('project_activity_definitions.id', '=', 'project_activity_plans.activity_definition_version_id')
+                    ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+                    ->whereNull('project_activity_plans.deleted_at');
             })
             ->selectRaw('
-                -- Fixed from definitions
-                SUM(project_activity_definitions.total_budget) as total_budget,
-                SUM(project_activity_definitions.total_quantity) as total_quantity,
+            COALESCE(SUM(project_activity_definitions.total_budget), 0) as total_budget,
+            COALESCE(SUM(project_activity_definitions.total_quantity), 0) as total_quantity,
 
-                -- FY-specific from plans
-                COALESCE(SUM(project_activity_plans.total_expense), 0) as total_expense,
-                COALESCE(SUM(project_activity_plans.completed_quantity), 0) as completed_quantity,
-                COALESCE(SUM(project_activity_plans.planned_budget), 0) as planned_budget,
-                COALESCE(SUM(project_activity_plans.planned_quantity), 0) as planned_quantity,
+            COALESCE(SUM(project_activity_plans.total_expense), 0) as total_expense,
+            COALESCE(SUM(project_activity_plans.completed_quantity), 0) as completed_quantity,
+            COALESCE(SUM(project_activity_plans.planned_budget), 0) as planned_budget,
+            COALESCE(SUM(project_activity_plans.planned_quantity), 0) as planned_quantity,
 
-                -- Quarters (amounts & quantities)
-                COALESCE(SUM(project_activity_plans.q1_amount), 0) as q1_amount,
-                COALESCE(SUM(project_activity_plans.q1_quantity), 0) as q1_quantity,
-                COALESCE(SUM(project_activity_plans.q2_amount), 0) as q2_amount,
-                COALESCE(SUM(project_activity_plans.q2_quantity), 0) as q2_quantity,
-                COALESCE(SUM(project_activity_plans.q3_amount), 0) as q3_amount,
-                COALESCE(SUM(project_activity_plans.q3_quantity), 0) as q3_quantity,
-                COALESCE(SUM(project_activity_plans.q4_amount), 0) as q4_amount,
-                COALESCE(SUM(project_activity_plans.q4_quantity), 0) as q4_quantity
-            ')
-            ->first()
-            ->toArray() ?? [];
+            COALESCE(SUM(project_activity_plans.q1_amount), 0) as q1_amount,
+            COALESCE(SUM(project_activity_plans.q1_quantity), 0) as q1_quantity,
+            COALESCE(SUM(project_activity_plans.q2_amount), 0) as q2_amount,
+            COALESCE(SUM(project_activity_plans.q2_quantity), 0) as q2_quantity,
+            COALESCE(SUM(project_activity_plans.q3_amount), 0) as q3_amount,
+            COALESCE(SUM(project_activity_plans.q3_quantity), 0) as q3_quantity,
+            COALESCE(SUM(project_activity_plans.q4_amount), 0) as q4_amount,
+            COALESCE(SUM(project_activity_plans.q4_quantity), 0) as q4_quantity
+        ')
+            ->first();
 
-        return $sums;
+        return $sums ? $sums->toArray() : [];
     }
 }

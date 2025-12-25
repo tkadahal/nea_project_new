@@ -1,95 +1,129 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Exports\Templates;
 
 use App\Models\Project;
 use App\Models\FiscalYear;
-use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Models\ProjectActivityDefinition;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
-use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use App\Models\ProjectActivityPlan;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Protection;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class ProjectActivityTemplateExport implements WithMultipleSheets
 {
-    private Project $project;
-    private FiscalYear $fiscalYear;
+    public function __construct(
+        private Project $project,
+        private FiscalYear $fiscalYear,
+        private bool $isNewVersion = false
+    ) {}
 
-    public function __construct(Project $project, FiscalYear $fiscalYear)
+    public static function getCurrentDefinitionCounts(Project $project): array
     {
-        $this->project = $project;
-        $this->fiscalYear = $fiscalYear;
+        return [
+            'capital'   => ProjectActivityDefinition::forProject($project->id)
+                ->current()
+                ->where('expenditure_id', 1)
+                ->count(),
+
+            'recurrent' => ProjectActivityDefinition::forProject($project->id)
+                ->current()
+                ->where('expenditure_id', 2)
+                ->count(),
+        ];
     }
 
     public function sheets(): array
     {
         return [
-            'Instructions' => new InstructionsSheet(),
-            'पूँजीगत खर्च' => new ExpenditureSheet('पूँजीगत', $this->project, $this->fiscalYear),
-            'चालू खर्च' => new ExpenditureSheet('चालू', $this->project, $this->fiscalYear),
+            'Instructions' => new InstructionsSheet($this->project, $this->fiscalYear, $this->isNewVersion),
+            'पूँजीगत खर्च' => new ExpenditureSheet('पूँजीगत', $this->project, $this->fiscalYear, $this->isNewVersion),
+            'चालू खर्च'     => new ExpenditureSheet('चालू', $this->project, $this->fiscalYear, $this->isNewVersion),
         ];
     }
 }
 
-class InstructionsSheet implements FromCollection, WithStyles, WithColumnWidths
+class InstructionsSheet implements FromCollection, WithColumnWidths, WithEvents
 {
+    public function __construct(
+        private Project $project,
+        private FiscalYear $fiscalYear,
+        private bool $isNewVersion = false
+    ) {}
+
     public function collection()
     {
-        return collect([
+        $baseInstructions = [
             ['प्रोजेक्ट क्रियाकलाप एक्सेल टेम्प्लेट'],
             [],
-            ['अवलोकन:'],
-            ['पूँजीगत खर्च र चालू खर्च शीटहरूमा डाटा भर्नुहोस्।'],
-            ['# कलममा पदानुक्रमको लागि प्रयोग गर्नुहोस् (उदाहरण: १, १.१, १.१.१)।'],
+            ['निर्देशन:'],
+            ['• पहेँलो रंग भएका कोषहरू (E–P) मा मात्र डाटा भर्नुहोस्।'],
+            ['• कार्यक्रम नाम, कुल बजेट तथा परिमाण परिवर्तन नगर्नुहोस्।'],
+            ['• नयाँ पङ्क्ति थप्न वा हटाउन मिल्दैन (डाटा भएको अवस्थामा)।'],
             [],
-            ['मान्यता नियमहरू:'],
-            ['- **वार्षिक बजेट** (H): Q1 + Q2 + Q3 + Q4 (J+L+N+P) प्रत्येक पङ्क्तिमा **मैनुअल रूपमा** गणना गरी भर्नुहोस्।'],
-            ['- अभिभावक पङ्क्तिहरू (जस्तै १, १.१) ले प्रत्यक्ष सन्तानहरूको योग समान हुनुपर्छ, र यो **मैनुअल रूपमा** जाँच गरी भर्नुपर्नेछ।'],
-            ['- सबै अङ्कहरू गैर-नकारात्मक।'],
+            ['महत्वपूर्ण:'],
+            ['• वार्षिक बजेट (H) = Q1+Q2+Q3+Q4 (J+L+N+P) — मैनुअल'],
+            ['• अभिभावक पङ्क्ति = सन्तानहरूको योग — मैनुअल'],
             [],
-            ['प्रयोग:'],
-            ['१. हेडरहरू मुनि पङ्क्तिहरू थप्नुहोस् र डाटा भर्नुहोस्।'],
-            ['२. .xlsx को रूपमा बचत गर्नुहोस्।'],
-            ['३. एपमा अपलोड गर्नुहोस्।'],
-        ]);
-    }
+            ['अपलोड अघि .xlsx ढाँचामा सुरक्षित गर्नुहोस्।'],
+        ];
 
-    public function styles(Worksheet $sheet)
-    {
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $sheet->getStyle('A3')->getFont()->setBold(true);
-        $sheet->getStyle('A7')->getFont()->setBold(true);
-        $sheet->getStyle('A12')->getFont()->setBold(true);
-        $sheet->getStyle('A1:A15')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-        return [];
+        if ($this->isNewVersion) {
+            array_splice($baseInstructions, 6, 0, [ // Insert after "महत्वपूर्ण:"
+                [],
+                ['यो नयाँ संस्करण (New Version) टेम्प्लेट हो।'],
+                ['• तपाईंले कार्यक्रमहरू थप्न/हटाउन/सम्पादन गर्न सक्नुहुन्छ।'],
+                ['• कुल बजेट र परिमाण पनि परिवर्तन गर्न सकिन्छ।'],
+                ['• सबै कोषहरू खुला छन् — कुनै लक छैन।'],
+            ]);
+        }
+
+        return collect($baseInstructions);
     }
 
     public function columnWidths(): array
     {
-        return ['A' => 60];
+        return ['A' => 70];
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+                $sheet->getStyle('A3')->getFont()->setBold(true);
+                $sheet->getStyle('A8')->getFont()->setBold(true);
+            },
+        ];
     }
 }
 
 class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, WithEvents
 {
-    private string $type;
-    private ?Project $project;
-    private ?FiscalYear $fiscalYear;
+    private bool $hasRealData = false;
+    private bool $isDraft = true;
+    private bool $isNewVersion = false;
 
-    public function __construct(string $type, ?Project $project = null, ?FiscalYear $fiscalYear = null)
-    {
-        $this->type = $type;
-        $this->project = $project;
-        $this->fiscalYear = $fiscalYear;
-    }
+    public function __construct(
+        private string $type,
+        private Project $project,
+        private FiscalYear $fiscalYear,
+        bool $isNewVersion = false
+    ) {}
 
     public function title(): string
     {
@@ -98,139 +132,156 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
 
     public function collection()
     {
-        // Row 1: Project in A1, Fiscal Year in H1 (Planned Budget Amount position)
-        $row1 = array_fill(0, 15, '');
-        $row1[0] = $this->project?->title ?? '';
-        $row1[7] = $this->fiscalYear?->title ?? '';
+        $row1 = array_fill(0, 16, '');
+        $row1[0] = $this->project->title;
+        $row1[7] = $this->fiscalYear->title;
 
-        // Row 2: Empty
-        $row2 = array_fill(0, 15, '');
-
-        // Headers on Row 3: 16 columns (A to P)
         $headers = [
             'क्र.सं.',
             'कार्यक्रम/क्रियाकलाप',
             'कुल बजेट',
-            '',     // C:D (will be merged)
+            '',
             'कुल खर्च',
-            '',     // E:F
+            '',
             'वार्षिक बजेट',
-            '', // G:H
+            '',
             'Q1',
-            '',           // I:J
+            '',
             'Q2',
-            '',           // K:L
+            '',
             'Q3',
-            '',           // M:N
+            '',
             'Q4',
-            '',           // O:P
+            ''
         ];
 
-        // Empty row for sub-headers (Row 4, A and B will be empty after merge)
-        $row4 = array_fill(0, 15, '');
-
-        // Data rows
-        $dataRows = $this->getDataRows();
-
-        // Total row (Row after data)
-        $totalRow = ['कुल जम्मा', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
-
-        return collect([$row1, $row2, $headers, $row4, ...$dataRows, $totalRow]);
+        return collect([
+            $row1,
+            array_fill(0, 16, ''),
+            $headers,
+            array_fill(0, 16, ''),
+            ...$this->getDataRows(),
+            ['कुल जम्मा']
+        ]);
     }
 
     private function getDataRows(): array
     {
-        $expenditureId = $this->getExpenditureId();
+        $rows = [];
+        $index = 1;
 
-        $topDefinitions = ProjectActivityDefinition::where('project_id', $this->project?->id ?? 0)
-            ->where('expenditure_id', $expenditureId)
-            ->whereNull('parent_id')
-            ->with(['children' => function ($query) {
-                $query->with(['children']);
-            }])
-            ->orderBy('id')
+        // Load current version definitions only
+        $definitions = ProjectActivityDefinition::forProject($this->project->id)
+            ->current()
+            ->where('expenditure_id', $this->type === 'पूँजीगत' ? 1 : 2)
+            ->topLevel()
+            ->with('children.children')
+            ->ordered()
             ->get();
 
-        if ($topDefinitions->isEmpty()) {
-            return $this->getSampleRows();
+        if ($definitions->isNotEmpty()) {
+            $this->hasRealData = true;
+
+            // Check if any plan exists for this project + fiscal year
+            $existingPlan = ProjectActivityPlan::forProject($this->project->id)
+                ->where('fiscal_year_id', $this->fiscalYear->id)
+                ->active()
+                ->first();
+
+            if ($existingPlan) {
+                // If any plan exists, use its status to decide protection
+                $this->isDraft = ($existingPlan->status === 'draft');
+            }
+            // Else: no plan yet → treat as draft → $isDraft remains true
         }
 
-        $dataRows = [];
-        $topIndex = 1;
-        foreach ($topDefinitions as $topDef) {
-            // MODIFIED: Use total_quantity/total_budget from definitions (fixed values)
-            $totalQty = $topDef->total_quantity ?? 0;
-            $totalBudget = $topDef->total_budget ?? 0;
-
-            $dataRows[] = [$topIndex, $topDef->program, $totalQty, $totalBudget, '', '', '', '', '', '', '', '', '', '', '', ''];
-            $dataRows = array_merge($dataRows, $this->buildChildRows($topDef->children, (string) $topIndex));
-            $topIndex++;
+        if ($definitions->isEmpty()) {
+            return [
+                [1, 'मुख्य कार्यक्रम उदाहरण', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                ['1.1', 'उप कार्यक्रम उदाहरण', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+            ];
         }
 
-        return $dataRows;
-    }
+        foreach ($definitions as $def) {
+            $rows[] = [
+                $index,
+                $def->program,
+                $def->total_quantity ?? 0,
+                $def->total_budget ?? 0,
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                ''
+            ];
 
-    private function buildChildRows($children, string $parentCode): array
-    {
-        if ($children->isEmpty()) {
-            return [];
-        }
-
-        $rows = [];
-        $childIndex = 1;
-        foreach ($children->sortBy('id') as $child) {
-            $childCode = $parentCode . '.' . $childIndex;
-
-            // MODIFIED: Use total_quantity/total_budget from definitions (fixed values)
-            $totalQty = $child->total_quantity ?? 0;
-            $totalBudget = $child->total_budget ?? 0;
-
-            $rows[] = [$childCode, $child->program, $totalQty, $totalBudget, '', '', '', '', '', '', '', '', '', '', '', ''];
-
-            // Grandchildren (assuming max depth 3)
-            $grandRows = $this->buildChildRows($child->children, $childCode);
-            $rows = array_merge($rows, $grandRows);
-
-            $childIndex++;
+            $rows = array_merge($rows, $this->buildChildren($def->children, (string) $index));
+            $index++;
         }
 
         return $rows;
     }
 
-    private function getSampleRows(): array
+    private function buildChildren($children, string $parentCode): array
     {
-        return [
-            [1, 'मुख्य कार्यक्रम उदाहरण (अभिभावक)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            ['1.1', 'उप-कार्यक्रम उदाहरण (सन्तान)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            ['1.1.1', 'उप-उप-कार्यक्रम उदाहरण (सन्तानको सन्तान)', 30, 30000, 5, 5000, '', '', 5, 5000, 5, 5000, 0, 0, 0, 0],
-            [2, 'अर्को मुख्य कार्यक्रम', 20, 20000, 3, 3000, '', '', 5, 5000, 0, 0, 0, 0, 0, 0],
-        ];
-    }
+        $rows = [];
+        $i = 1;
 
-    private function getExpenditureId(): int
-    {
-        return $this->type === 'पूँजीगत' ? 1 : 2;
+        foreach ($children as $child) {
+            $code = "{$parentCode}.{$i}";
+
+            $rows[] = [
+                $code,
+                $child->program,
+                $child->total_quantity ?? 0,
+                $child->total_budget ?? 0,
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                ''
+            ];
+
+            $rows = array_merge($rows, $this->buildChildren($child->children, $code));
+            $i++;
+        }
+
+        return $rows;
     }
 
     public function columnWidths(): array
     {
         return [
-            'A' => 8,   // #
-            'B' => 40,  // Program
-            'C' => 6,   // Total Budget Qty
-            'D' => 12,  // Total Budget Amount
-            'E' => 6,   // Total Expense Qty
-            'F' => 12,  // Total Expense Amount
-            'G' => 6,   // Planned Budget Qty
-            'H' => 12,  // Planned Budget Amount
-            'I' => 6,   // Q1 Qty
-            'J' => 8,   // Q1 Amount
-            'K' => 6,   // Q2 Qty
-            'L' => 8,   // Q2 Amount
-            'M' => 6,   // Q3 Qty
-            'N' => 8,   // Q3 Amount
-            'O' => 6,   // Q4 Qty
-            'P' => 8,   // Q4 Amount
+            'A' => 8,
+            'B' => 40,
+            'C' => 10,
+            'D' => 12,
+            'E' => 10,
+            'F' => 12,
+            'G' => 10,
+            'H' => 12,
+            'I' => 10,
+            'J' => 12,
+            'K' => 10,
+            'L' => 12,
+            'M' => 10,
+            'N' => 12,
+            'O' => 10,
+            'P' => 12,
         ];
     }
 
@@ -239,109 +290,114 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
+                $highestRow = $sheet->getHighestRow();
+                $totalRow = $highestRow;
 
-                // Set page setup for A4 printing (Portrait orientation for better fit)
-                $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A4);
-                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-                $sheet->getPageMargins()->setHeader(0.5);
-                $sheet->getPageMargins()->setFooter(0.5);
-                $sheet->getPageMargins()->setLeft(0.7);
-                $sheet->getPageMargins()->setRight(0.7);
-                $sheet->getPageMargins()->setTop(0.75);
-                $sheet->getPageMargins()->setBottom(0.75);
-                $sheet->getPageSetup()->setFitToWidth(1);
-                $sheet->getPageSetup()->setFitToHeight(0); // Allow multi-page vertically
+                // Total row formulas (sum only main activities: no dot in column A)
+                $columnsToSum = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'];
+                foreach ($columnsToSum as $col) {
+                    $colIndex = Coordinate::columnIndexFromString($col);
+                    $formula = '=SUMPRODUCT(
+                        (ISNUMBER(A5:INDEX(A:A,ROW()-1))) *
+                        (ISERROR(SEARCH(".",A5:INDEX(A:A,ROW()-1)))),
+                        ' . $col . '5:INDEX(' . $col . ':' . $col . ',ROW()-1)
+                    )';
+                    $sheet->setCellValueByColumnAndRow($colIndex, $totalRow, $formula);
+                }
 
-                // --- STYLES and BORDERS ---
+                // Page setup, merges, styles, etc. (unchanged)
+                $sheet->getPageSetup()
+                    ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
+                    ->setPaperSize(PageSetup::PAPERSIZE_A4)
+                    ->setFitToWidth(1);
 
-                // Style metadata (Row 1)
-                $sheet->getStyle('A1')->getFont()->setBold(true);
-                $sheet->getStyle('H1')->getFont()->setBold(true);
-                $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                $sheet->getStyle('H1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                $sheet->getStyle('A1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('E6F3FF');
-                $sheet->getStyle('H1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFF2CC');
-
-                // Bold headers (A3:P3) - centered
-                $headerStyle = $sheet->getStyle('A3:P3');
-                $headerStyle->getFont()->setBold(true);
-                $headerStyle->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('CCCCCC');
-                $headerStyle->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-                // Merge A3:A4 and B3:B4 for two-row spanning headers - center both
                 $sheet->mergeCells('A3:A4');
                 $sheet->mergeCells('B3:B4');
-                $sheet->getStyle('A3:A4')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('B3:B4')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-                // Merge paired headers and center them
-                $mergedRanges = ['C3:D3', 'E3:F3', 'G3:H3', 'I3:J3', 'K3:L3', 'M3:N3', 'O3:P3'];
-                foreach ($mergedRanges as $range) {
-                    $sheet->mergeCells($range);
-                    $sheet->getStyle($range)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                foreach (['C3:D3', 'E3:F3', 'G3:H3', 'I3:J3', 'K3:L3', 'M3:N3', 'O3:P3'] as $r) {
+                    $sheet->mergeCells($r);
                 }
 
-                // Sub-headers for Qty/Amount on Row 4 (C to P) - centered
-                $subHeadersRow = 4;
-                $qtySub = ['परिमाण', 'रकम', 'परिमाण', 'रकम', 'परिमाण', 'रकम', 'परिमाण', 'रकम', 'परिमाण', 'रकम', 'परिमाण', 'रकम', 'परिमाण', 'रकम'];
-                for ($pair = 0; $pair < 7; $pair++) {
-                    $col = $pair * 2 + 3; // Starting from column 3 (C)
-                    $sheet->setCellValueByColumnAndRow($col, $subHeadersRow, $qtySub[$pair * 2]);
-                    $sheet->setCellValueByColumnAndRow($col + 1, $subHeadersRow, $qtySub[$pair * 2 + 1]);
-                }
-                $subHeaderStyle = $sheet->getStyle('C4:P4');
-                $subHeaderStyle->getFont()->setBold(true);
-                $subHeaderStyle->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $subHeaderStyle->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('DDDDDD');
-
-                // Ensure A4 and B4 are empty (for merges)
-                $sheet->setCellValue('A4', '');
-                $sheet->setCellValue('B4', '');
-
-                // Dynamic calculations - REMOVED (no formulas)
-
-                $highestRow = $sheet->getHighestRow();
-                $lastDataRow = $highestRow;
-                $dataStartRow = 5;
-
-                // Total style
-                $totalStyle = $sheet->getStyle('A' . $lastDataRow . ':P' . $lastDataRow);
-                $totalStyle->getFont()->setBold(true);
-                $totalStyle->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('E6E6E6');
-
-                // Right-align numerics (C3:P + data rows)
-                $sheet->getStyle('C3:P' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-                // Borders for table (A3:P lastDataRow)
-                $sheet->getStyle('A3:P' . $lastDataRow)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-
-                // --- FORMULA MODIFICATION - REMOVED ---
-
-                // --- VALIDATION ---
-                // Validation for # column (rows from dataStartRow to allow additions below total)
-                for ($row = $dataStartRow; $row <= 1000; $row++) {
-                    $cell = $sheet->getCell('A' . $row);
-                    $validation = $cell->getDataValidation();
-                    $validation->setType(DataValidation::TYPE_CUSTOM);
-                    $validation->setFormula1('=AND(ISNUMBER(VALUE(SUBSTITUTE(A' . $row . ',".",""))),LEN(A' . $row . ')>0)');
-                    $validation->setAllowBlank(true);
-                    $validation->setShowInputMessage(true);
-                    $validation->setShowErrorMessage(true);
-                    $validation->setErrorTitle('अमान्य #');
-                    $validation->setError('१ जस्तो अङ्क वा १.१ जस्तो पदानुक्रम प्रयोग गर्नुहोस्।');
+                $col = 3;
+                for ($i = 0; $i < 7; $i++) {
+                    $sheet->setCellValueByColumnAndRow($col, 4, 'परिमाण');
+                    $sheet->setCellValueByColumnAndRow($col + 1, 4, 'रकम');
+                    $col += 2;
                 }
 
-                // --- FOOTER NOTES (Updated) ---
-                $footerStart = $lastDataRow + 2;
-                $sheet->setCellValue('A' . $footerStart, 'नोट:');
-                $sheet->getStyle('A' . $footerStart)->getFont()->setBold(true);
-                $sheet->setCellValue('A' . ($footerStart + 1), '१. अभिभावक पङ्क्तिहरूमा (जस्तै १, १.१) **मैनुअल रूपमा** सन्तानको योगफल (C,D,E,F,G,H,I,J,K,L,M,N,O,P कलमहरू) भर्नुपर्नेछ।');
-                $sheet->setCellValue('A' . ($footerStart + 2), '२. वार्षिक बजेट (H) = Q1 + Q2 + Q3 + Q4 (J+L+N+P) प्रत्येक पङ्क्तिमा **मैनुअल रूपमा** गणना गरी भर्नुहोस्।');
-                $sheet->setCellValue('A' . ($footerStart + 3), '३. अभिभावक = सन्तानहरूको योग **मैनुअल रूपमा** भर्नुपर्नेछ।');
-                $sheet->setCellValue('A' . ($footerStart + 4), '४. कुल जम्मा = शीर्ष स्तर पङ्क्तिहरूको योग मात्र (१, २, ३, ...) **मैनुअल रूपमा** भर्नुहोस्।');
-                $sheet->setCellValue('A' . ($footerStart + 5), '५. नयाँ पङ्क्ति थप्न: कुल जम्मा पङ्क्तिमाथि नयाँ पङ्क्ति घुसाउनुहोस् र क्र.सं. भर्नुहोस्।');
+                $sheet->freezePane('C5');
 
-                $sheet->mergeCells('A' . $footerStart . ':B' . $footerStart);
+                $headerStyle = [
+                    'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFF'], 'size' => 11],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => '1F4E79']],
+                ];
+                $sheet->getStyle('A3:P4')->applyFromArray($headerStyle);
+
+                $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+                $sheet->getStyle('H1')->getFont()->setBold(true)->setSize(14);
+
+                $sheet->getRowDimension(1)->setRowHeight(30);
+                $sheet->getRowDimension(3)->setRowHeight(25);
+                $sheet->getRowDimension(4)->setRowHeight(35);
+                for ($row = 5; $row <= $totalRow; $row++) {
+                    $sheet->getRowDimension($row)->setRowHeight(22);
+                }
+
+                $sheet->getStyle('E5:P1000')->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFFDE7');
+
+                $totalStyle = [
+                    'font' => ['bold' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'A7C4E5']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+                ];
+                $sheet->getStyle("A{$totalRow}:P{$totalRow}")->applyFromArray($totalStyle);
+
+                for ($r = 5; $r < $totalRow; $r++) {
+                    if ($r % 2 === 0) {
+                        $sheet->getStyle("A{$r}:P{$r}")
+                            ->getFill()->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB('F9FAFB');
+                    }
+                }
+
+                $sheet->getStyle("A3:P{$totalRow}")
+                    ->getBorders()->getAllBorders()
+                    ->setBorderStyle(Border::BORDER_THIN);
+
+                $validation = $sheet->getDataValidation('C5:P1000');
+                $validation->setType(DataValidation::TYPE_DECIMAL);
+                $validation->setOperator(DataValidation::OPERATOR_GREATERTHANOREQUAL);
+                $validation->setFormula1(0);
+                $validation->setAllowBlank(true);
+                $validation->setShowDropDown(false);
+                $validation->setShowInputMessage(false);
+                $validation->setShowErrorMessage(true);
+                $validation->setErrorStyle(DataValidation::STYLE_STOP);
+                $validation->setErrorTitle('गलत इनपुट');
+                $validation->setError('केवल अंक (numeric) मान मात्र अनुमति छ।');
+
+                // === PROTECTION LOGIC ===
+                $applyProtection = $this->hasRealData && !$this->isDraft;
+
+                if ($applyProtection) {
+                    // Lock everything except input cells (E:P)
+                    $sheet->getStyle('A1:P1')->getProtection()->setLocked(Protection::PROTECTION_PROTECTED);
+                    $sheet->getStyle('A5:D1000')->getProtection()->setLocked(Protection::PROTECTION_PROTECTED);
+                    $sheet->getStyle('E5:P1000')->getProtection()->setLocked(Protection::PROTECTION_UNPROTECTED);
+                    $sheet->getStyle("C{$totalRow}:P{$totalRow}")->getProtection()->setLocked(Protection::PROTECTION_PROTECTED);
+
+                    $sheet->getProtection()->setSheet(true);
+                    $sheet->getProtection()->setPassword('nea-template');
+                    $sheet->getProtection()->setInsertRows(false);
+                    $sheet->getProtection()->setDeleteRows(false);
+                    $sheet->getProtection()->setInsertColumns(false);
+                    $sheet->getProtection()->setDeleteColumns(false);
+                }
+                // Else: fully editable (no protection) when:
+                // - No real data OR
+                // - Plan exists but status is 'draft'
             },
         ];
     }

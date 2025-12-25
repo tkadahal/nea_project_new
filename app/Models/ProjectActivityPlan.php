@@ -8,19 +8,16 @@ use Spatie\Activitylog\LogOptions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 class ProjectActivityPlan extends Model
 {
     use HasFactory, SoftDeletes, LogsActivity;
 
     protected $fillable = [
-        'activity_definition_id',
+        'activity_definition_version_id',
         'fiscal_year_id',
         'program_override',
         'override_modified_at',
@@ -36,6 +33,14 @@ class ProjectActivityPlan extends Model
         'q4_quantity',
         'total_expense',
         'completed_quantity',
+        'status',
+        'reviewed_by',
+        'reviewed_at',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
+        'rejected_by',
+        'rejected_at',
     ];
 
     protected $casts = [
@@ -52,223 +57,118 @@ class ProjectActivityPlan extends Model
         'total_expense' => 'decimal:2',
         'completed_quantity' => 'decimal:2',
         'override_modified_at' => 'datetime',
+        'reviewed_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
-    /**
-     * Get the activity definition this plan is for.
-     */
-    public function activityDefinition(): BelongsTo
+    /* -----------------------------------------------------------------
+     | Relationships
+     |----------------------------------------------------------------- */
+
+    public function definitionVersion(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivityDefinition::class, 'activity_definition_id');
+        return $this->belongsTo(ProjectActivityDefinition::class, 'activity_definition_version_id');
     }
 
-    /**
-     * Get the fiscal year for this plan.
-     */
     public function fiscalYear(): BelongsTo
     {
         return $this->belongsTo(FiscalYear::class);
     }
 
-    /**
-     * Get the expenses for this plan (quarterly actuals).
-     */
-    // public function expenses(): HasMany
-    // {
-    //     return $this->hasMany(ProjectActivityExpense::class, 'plan_id');
-    // }
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
 
-    /**
-     * Accessor: Effective program name (override or fallback).
-     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function rejectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    /* -----------------------------------------------------------------
+     | Accessors
+     |----------------------------------------------------------------- */
+
     public function getEffectiveProgramAttribute(): string
     {
-        return $this->program_override ?? $this->activityDefinition->program;
+        return $this->program_override ?? $this->definitionVersion->program ?? '';
     }
 
-    /**
-     * Accessor: Computed planned budget (sum of quarters – for validation/display).
-     */
-    public function getComputedPlannedBudgetAttribute(): string
+    public function getFormattedReviewedAtAttribute(): string
     {
-        return (string) ($this->q1_amount + $this->q2_amount + $this->q3_amount + $this->q4_amount);
+        return $this->reviewed_at?->format('M d, Y H:i') ?? 'Pending';
     }
 
-    /**
-     * Accessor: Computed planned quantity (sum of quarters).
-     */
-    public function getComputedPlannedQuantityAttribute(): string
+    public function getFormattedApprovedAtAttribute(): string
     {
-        return (string) ($this->q1_quantity + $this->q2_quantity + $this->q3_quantity + $this->q4_quantity);
+        return $this->approved_at?->format('M d, Y H:i') ?? 'Pending';
     }
 
-    /**
-     * Accessor: Total expense from expenses (dynamic – use with expenses()).
-     */
-    public function getDynamicTotalExpenseAttribute(): string
+    public function getFormattedRejectedAtAttribute(): string
     {
-        return (string) $this->expenses()->sum('amount');
+        return $this->rejected_at?->format('M d, Y H:i') ?? 'N/A';
     }
 
-    /**
-     * Accessor: Completed quantity from expenses.
-     */
-    public function getDynamicCompletedQuantityAttribute(): string
-    {
-        return (string) $this->expenses()->sum('quantity');
-    }
+    /* -----------------------------------------------------------------
+     | Scopes
+     |----------------------------------------------------------------- */
 
-    /**
-     * Scope: For a specific project (via join).
-     */
     public function scopeForProject($query, int $projectId)
     {
-        return $query->whereHas('activityDefinition', fn($q) => $q->where('project_id', $projectId));
+        return $query->whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId));
     }
 
-    /**
-     * Scope: Active (not deleted).
-     */
     public function scopeActive($query)
     {
         return $query->whereNull('deleted_at');
     }
 
-    /**
-     * Scope: Root planned budget for capital (via definitions join).
-     */
-    public static function scopeRootPlannedBudget($query, int $fiscalYearId): float
+    public function scopeDraft($query)
     {
-        return (float) self::join('project_activity_definitions', 'project_activity_plans.activity_definition_id', '=', 'project_activity_definitions.id')
-            ->where('project_activity_definitions.parent_id', null)
-            ->where('project_activity_definitions.expenditure_id', 1)
-            ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
-            ->sum('project_activity_plans.planned_budget');
+        return $query->where('status', 'draft');
     }
 
-    /**
-     * Get the planned budget sum for root nodes within this fiscal year (capital only).
-     */
-    public function getRootPlannedBudgetAttribute(): float
+    public function scopeUnderReview($query)
     {
-        return static::rootPlannedBudget($this->fiscal_year_id ?? 0);
+        return $query->where('status', 'under_review');
     }
 
-    /**
-     * Get the weighted average (proportion) for total_budget from definition.
-     */
-    public function getVarTotalBudgetAttribute(): float
+    public function scopeApproved($query)
     {
-        $x = $this->activityDefinition->subtreeTotalBudget();
-        return $x > 0 ? $this->activityDefinition->total_budget / $x : 0.0;
+        return $query->where('status', 'approved');
     }
 
-    /**
-     * Get the percentage for total_expense based on quantity completion.
-     */
-    public function getVarTotalExpenseAttribute(): float
-    {
-        $totalQty = $this->activityDefinition->total_quantity;
-        return $totalQty > 0 ? ($this->completed_quantity / $totalQty) * $this->var_total_budget : 0.0;
-    }
+    /* -----------------------------------------------------------------
+     | Business Logic
+     |----------------------------------------------------------------- */
 
-    /**
-     * Get the percentage for planned_budget based on planned quantity.
-     */
-    public function getVarPlannedBudgetAttribute(): float
+    public function canBeEditedBy(?User $user = null): bool
     {
-        $totalQty = $this->activityDefinition->total_quantity;
-        return $totalQty > 0 ? ($this->planned_quantity / $totalQty) * $this->var_total_budget : 0.0;
-    }
+        $user = $user ?? Auth::user();
+        if (!$user) return false;
 
-    /**
-     * Get the percentage for q1 based on q1 quantity.
-     */
-    public function getVarQ1Attribute(): float
-    {
-        $plannedQty = $this->planned_quantity;
-        return $plannedQty > 0 ? ($this->q1_quantity / $plannedQty) * $this->var_planned_budget : 0.0;
-    }
+        $roleIds = $user->roles->pluck('id')->toArray();
 
-    /**
-     * Get the percentage for q2 based on q2 quantity.
-     */
-    public function getVarQ2Attribute(): float
-    {
-        $plannedQty = $this->planned_quantity;
-        return $plannedQty > 0 ? ($this->q2_quantity / $plannedQty) * $this->var_planned_budget : 0.0;
-    }
-
-    /**
-     * Get the percentage for q3 based on q3 quantity.
-     */
-    public function getVarQ3Attribute(): float
-    {
-        $plannedQty = $this->planned_quantity;
-        return $plannedQty > 0 ? ($this->q3_quantity / $plannedQty) * $this->var_planned_budget : 0.0;
-    }
-
-    /**
-     * Get the percentage for q4 based on q4 quantity.
-     */
-    public function getVarQ4Attribute(): float
-    {
-        $plannedQty = $this->planned_quantity;
-        return $plannedQty > 0 ? ($this->q4_quantity / $plannedQty) * $this->var_planned_budget : 0.0;
-    }
-
-    /**
-     * Get all weighted averages (vars) as an array for the current row.
-     */
-    public function getVarsAttribute(): array
-    {
-        return [
-            'var_total_budget' => $this->var_total_budget,
-            'var_total_expense' => $this->var_total_expense,
-            'var_planned_budget' => $this->var_planned_budget,
-            'var_q1' => $this->var_q1,
-            'var_q2' => $this->var_q2,
-            'var_q3' => $this->var_q3,
-            'var_q4' => $this->var_q4,
-        ];
-    }
-
-    /**
-     * Sum a field (e.g., 'planned_budget') for this plan + all descendants' plans (for fiscal year).
-     */
-    public function getSubtreeSum(string $field, int $fiscalYearId = null): float
-    {
-        $year = $fiscalYearId ?? $this->fiscal_year_id;
-        $subtreePlans = $this->activityDefinition->subtreePlans($year);
-        return $subtreePlans->sum($field);
-    }
-
-    /**
-     * Sum quarters for subtree (e.g., total Q1 under this heading).
-     */
-    public function getSubtreeQuarterSum(string $quarter, int $fiscalYearId = null): float
-    {
-        $field = match ($quarter) {
-            'q1' => 'q1_amount',
-            'q2' => 'q2_amount',
-            'q3' => 'q3_amount',
-            'q4' => 'q4_amount',
-            default => throw new \InvalidArgumentException("Invalid quarter: {$quarter}"),
-        };
-        return $this->getSubtreeSum($field, $fiscalYearId);
-    }
-
-    /**
-     * Mutator: Auto-set override_modified_at when program_override changes.
-     */
-    public function setProgramOverrideAttribute(?string $value): void
-    {
-        $this->attributes['program_override'] = $value;
-
-        if ($value !== null && $value !== $this->activityDefinition?->program) {
-            $this->override_modified_at = Carbon::now();
+        if ($this->status === 'approved' || $this->status === 'under_review') {
+            return false;
         }
+
+        if ($this->status === 'draft') {
+            return in_array(Role::PROJECT_USER, $roleIds);
+        }
+
+        return false;
     }
+
+    /* -----------------------------------------------------------------
+     | Activity Log
+     |----------------------------------------------------------------- */
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -276,9 +176,9 @@ class ProjectActivityPlan extends Model
             ->logFillable()
             ->logOnlyDirty()
             ->useLogName('projectActivityPlan')
-            ->setDescriptionForEvent(function (string $eventName) {
-                $user = Auth::user()?->name ?? 'System';
-                return "Project Activity Plan {$eventName} by {$user}";
-            });
+            ->setDescriptionForEvent(
+                fn(string $eventName) =>
+                "Project Activity Plan {$eventName} by " . (Auth::user()?->name ?? 'System')
+            );
     }
 }

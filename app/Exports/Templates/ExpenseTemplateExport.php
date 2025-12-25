@@ -50,59 +50,59 @@ class ExpenseTemplateExport implements FromCollection, ShouldAutoSize, WithTitle
 
         // Load capital definitions and plans
         $capitalDefinitions = ProjectActivityDefinition::forProject($project->id)
+            ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
-            // ->active()
-            ->with('children.children.children')
+            ->with([
+                'children' => fn($q) => $q->current()->orderBy('sort_index'),
+                'children.children' => fn($q) => $q->current()->orderBy('sort_index')
+            ])
             ->get();
 
-        $capitalDefIds = $capitalDefinitions->flatMap(function ($def) {
-            return collect([$def])->merge($def->getDescendants());
-        })->pluck('id')->unique();
+        $capitalDefIds = $capitalDefinitions->flatMap(fn($def) => collect([$def])->merge($def->getDescendants()))
+            ->pluck('id')
+            ->unique();
 
-        $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_id', $capitalDefIds)
+        $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $capitalDefIds)
             ->where('fiscal_year_id', $fiscalYear->id)
-            // ->active()
             ->get()
-            ->keyBy('activity_definition_id');
+            ->keyBy('activity_definition_version_id');
 
-        $capitalDefToPlanMap = $capitalPlans->pluck('id', 'activity_definition_id')->toArray();
+        $capitalDefToPlanMap = $capitalPlans->pluck('id', 'activity_definition_version_id')->toArray();
 
         // Load expenses for capital
         $capitalPlanIds = array_values($capitalDefToPlanMap);
         $capitalExpenses = ProjectExpense::whereIn('project_activity_plan_id', $capitalPlanIds)
-            ->with(['quarters' => function ($q) use ($quarterNumber) {
-                $q->where('quarter', $quarterNumber);
-            }])
+            ->with(['quarters' => fn($q) => $q->where('quarter', $quarterNumber)])
             ->get()
             ->keyBy('project_activity_plan_id');
 
         // Load recurrent definitions and plans
         $recurrentDefinitions = ProjectActivityDefinition::forProject($project->id)
+            ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
-            // ->active()
-            ->with('children.children.children')
+            ->with([
+                'children' => fn($q) => $q->current()->orderBy('sort_index'),
+                'children.children' => fn($q) => $q->current()->orderBy('sort_index')
+            ])
             ->get();
 
-        $recurrentDefIds = $recurrentDefinitions->flatMap(function ($def) {
-            return collect([$def])->merge($def->getDescendants());
-        })->pluck('id')->unique();
+        $recurrentDefIds = $recurrentDefinitions->flatMap(fn($def) => collect([$def])->merge($def->getDescendants()))
+            ->pluck('id')
+            ->unique();
 
-        $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_id', $recurrentDefIds)
+        $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $recurrentDefIds)
             ->where('fiscal_year_id', $fiscalYear->id)
-            // ->active()
             ->get()
-            ->keyBy('activity_definition_id');
+            ->keyBy('activity_definition_version_id');
 
-        $recurrentDefToPlanMap = $recurrentPlans->pluck('id', 'activity_definition_id')->toArray();
+        $recurrentDefToPlanMap = $recurrentPlans->pluck('id', 'activity_definition_version_id')->toArray();
 
         // Load expenses for recurrent
         $recurrentPlanIds = array_values($recurrentDefToPlanMap);
         $recurrentExpenses = ProjectExpense::whereIn('project_activity_plan_id', $recurrentPlanIds)
-            ->with(['quarters' => function ($q) use ($quarterNumber) {
-                $q->where('quarter', $quarterNumber);
-            }])
+            ->with(['quarters' => fn($q) => $q->where('quarter', $quarterNumber)])
             ->get()
             ->keyBy('project_activity_plan_id');
 

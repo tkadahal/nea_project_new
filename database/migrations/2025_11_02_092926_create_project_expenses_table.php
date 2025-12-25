@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('description')->nullable();
             $table->date('effective_date')->nullable();
-            $table->decimal('grand_total', 15, 2)->default(0.00);
+            $table->decimal('grand_total', 18, 2)->default(0.00);
             $table->timestamps();
             $table->softDeletes();
 

@@ -269,6 +269,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Capital Section
         $capitalTotals = [];
         $capitalDefinitions = ProjectActivityDefinition::forProject($this->projectId)
+            ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
             ->orderBy('sort_index')
@@ -279,10 +280,10 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             return collect([$def])->merge($def->getDescendants());
         })->pluck('id')->unique();
 
-        $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_id', $capitalDefIds)
+        $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $capitalDefIds)
             ->where('fiscal_year_id', $this->fiscalYearId)
             ->get()
-            ->keyBy('activity_definition_id');
+            ->keyBy('activity_definition_version_id');
 
         if ($capitalDefinitions->isNotEmpty()) {
             $capitalTotals = $this->calculateOverallTotals($capitalDefinitions, $capitalPlans);
@@ -302,6 +303,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         // Recurrent Section
         $recurrentTotals = [];
         $recurrentDefinitions = ProjectActivityDefinition::forProject($this->projectId)
+            ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
             ->orderBy('sort_index')
@@ -312,10 +314,10 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             return collect([$def])->merge($def->getDescendants());
         })->pluck('id')->unique();
 
-        $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_id', $recurrentDefIds)
+        $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $recurrentDefIds)
             ->where('fiscal_year_id', $this->fiscalYearId)
             ->get()
-            ->keyBy('activity_definition_id');
+            ->keyBy('activity_definition_version_id');
 
         if ($recurrentDefinitions->isNotEmpty()) {
             $recurrentTotals = $this->calculateOverallTotals($recurrentDefinitions, $recurrentPlans);

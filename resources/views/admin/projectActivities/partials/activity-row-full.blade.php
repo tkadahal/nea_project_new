@@ -5,17 +5,24 @@
     $displayIndex = $sortIndex;
     $isPreloaded = $isPreloaded ?? true;
 
-    // Helper function to get value or empty if zero
+    // Helper for editable numeric fields (supports old() and cleans commas)
     $valueOrEmpty = function ($oldKey, $modelValue, $decimals = 0) {
         $val = old($oldKey, $modelValue ?? 0);
-        return $val > 0 ? number_format($val, $decimals, '.', ',') : '';
+
+        if (is_string($val)) {
+            $val = str_replace(',', '', $val);
+        }
+
+        $val = (float) $val;
+
+        return $val > 0.0001 ? number_format($val, $decimals, '.', ',') : '';
     };
 @endphp
 
 <tr class="activity-row" data-id="{{ $activity->id }}" data-depth="{{ $depth }}" data-parent-id="{{ $parentId }}"
     data-sort-index="{{ $sortIndex }}" data-is-preloaded="{{ $isPreloaded ? 'true' : 'false' }}">
 
-    <!-- Hidden inputs for submit -->
+    <!-- Hidden inputs for hierarchy -->
     <input type="hidden" name="{{ $type }}[{{ $activity->id }}][sort_index]" value="{{ $sortIndex }}">
     <input type="hidden" name="{{ $type }}[{{ $activity->id }}][parent_id]" value="{{ $parentId }}">
     <input type="hidden" name="{{ $type }}[{{ $activity->id }}][depth]" value="{{ $depth }}">
@@ -26,32 +33,32 @@
         {{ $displayIndex }}
     </td>
 
-    <!-- Program Column -->
+    <!-- Program Column - NOW EDITABLE -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 w-80 sticky left-12 z-30 bg-white dark:bg-gray-800 left-sticky"
         style="padding-left: {{ $depth * 20 + 8 }}px;">
         <input name="{{ $type }}[{{ $activity->id }}][program]" type="text"
             value="{{ old($type . '.' . $activity->id . '.program', $activity->program ?? '') }}"
-            class="w-full border-0 p-1 program-input tooltip-error focus:ring-2 focus:ring-blue-500 rounded"
-            placeholder="Enter program name" data-id="{{ $activity->id }}">
+            class="w-full border-0 p-1 program-input tooltip-error focus:ring-2 focus:ring-blue-500 rounded font-medium text-gray-800 dark:text-gray-200"
+            placeholder="Program name" data-id="{{ $activity->id }}">
     </td>
 
-    <!-- Total Budget Quantity -->
+    <!-- Total Budget Quantity - NOW EDITABLE -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
         <input name="{{ $type }}[{{ $activity->id }}][total_budget_quantity]" type="text"
-            value="{{ $valueOrEmpty($type . '.' . $activity->id . '.total_budget_quantity', $activity->total_budget_quantity ?? ($activity->total_quantity ?? 0), 0) }}"
-            class="w-full border-0 p-1 text-right total-budget-quantity-input tooltip-error numeric-input focus:ring-2 focus:ring-blue-500 rounded"
+            value="{{ $valueOrEmpty($type . '.' . $activity->id . '.total_budget_quantity', $activity->total_quantity ?? 0, 0) }}"
+            class="w-full border-0 p-1 text-right total-budget-quantity-input tooltip-error numeric-input focus:ring-2 focus:ring-blue-500 rounded font-medium text-gray-800 dark:text-gray-200"
             placeholder="0" data-id="{{ $activity->id }}">
     </td>
 
-    <!-- Total Budget -->
+    <!-- Total Budget - NOW EDITABLE -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
         <input name="{{ $type }}[{{ $activity->id }}][total_budget]" type="text"
             value="{{ $valueOrEmpty($type . '.' . $activity->id . '.total_budget', $activity->total_budget ?? 0, 2) }}"
-            class="w-full border-0 p-1 text-right total-budget-input tooltip-error numeric-input focus:ring-2 focus:ring-blue-500 rounded"
+            class="w-full border-0 p-1 text-right total-budget-input tooltip-error numeric-input focus:ring-2 focus:ring-blue-500 rounded font-medium text-gray-800 dark:text-gray-200"
             placeholder="0.00" data-id="{{ $activity->id }}">
     </td>
 
-    <!-- Total Expense Quantity -->
+    <!-- Total Expense Quantity - Editable -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
         <input name="{{ $type }}[{{ $activity->id }}][total_expense_quantity]" type="text"
             value="{{ $valueOrEmpty($type . '.' . $activity->id . '.total_expense_quantity', $activity->total_expense_quantity ?? 0, 0) }}"
@@ -59,7 +66,7 @@
             placeholder="0" data-id="{{ $activity->id }}">
     </td>
 
-    <!-- Total Expense -->
+    <!-- Total Expense - Editable -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
         <input name="{{ $type }}[{{ $activity->id }}][total_expense]" type="text"
             value="{{ $valueOrEmpty($type . '.' . $activity->id . '.total_expense', $activity->total_expense ?? 0, 2) }}"
@@ -67,7 +74,7 @@
             placeholder="0.00" data-id="{{ $activity->id }}">
     </td>
 
-    <!-- Planned Budget Quantity -->
+    <!-- Planned Budget Quantity - Editable -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-24">
         <input name="{{ $type }}[{{ $activity->id }}][planned_budget_quantity]" type="text"
             value="{{ $valueOrEmpty($type . '.' . $activity->id . '.planned_budget_quantity', $activity->planned_budget_quantity ?? 0, 0) }}"
@@ -75,7 +82,7 @@
             placeholder="0" data-id="{{ $activity->id }}">
     </td>
 
-    <!-- Planned Budget -->
+    <!-- Planned Budget - Editable -->
     <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right w-28">
         <input name="{{ $type }}[{{ $activity->id }}][planned_budget]" type="text"
             value="{{ $valueOrEmpty($type . '.' . $activity->id . '.planned_budget', $activity->planned_budget ?? 0, 2) }}"
@@ -154,7 +161,7 @@
             @if ($depth < 2)
                 <button type="button"
                     class="add-subrow cursor-pointer text-2xl text-blue-500 hover:text-blue-700 font-bold"
-                    data-parent-id="{{ $activity->id }}" title="Add sub-row (Current depth: {{ $depth }})">
+                    data-parent-id="{{ $activity->id }}" title="Add sub-row">
                     +
                 </button>
             @endif

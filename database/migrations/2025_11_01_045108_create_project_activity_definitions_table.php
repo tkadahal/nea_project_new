@@ -13,23 +13,40 @@ return new class extends Migration
         Schema::create('project_activity_definitions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
+
             $table->string('sort_index', 50)->index();
-            $table->tinyInteger('depth')->default(0);
-            $table->string('program')->nullable()->index();
-            $table->integer('expenditure_id'); // can be only two: 1 for capital, 2 for recurrent
+            $table->tinyInteger('depth')->unsigned()->default(0);
+            $table->string('program')->nullable();
+            $table->tinyInteger('expenditure_id')->unsigned(); // 1 = capital, 2 = recurrent
             $table->text('description')->nullable();
-            $table->decimal('total_budget', 15, 2)->default(0);
-            $table->decimal('total_quantity', 10, 2)->default(0);
-            $table->foreignId('parent_id')->nullable()->constrained('project_activity_definitions')->onDelete('cascade');
-            $table->enum('status', ['draft', 'under_review', 'approved'])->default('draft');
-            $table->foreignId('reviewed_by')->nullable()->constrained('users');
-            $table->foreignId('approved_by')->nullable()->constrained('users');
-            $table->timestamp('reviewed_at')->nullable();
-            $table->timestamp('approved_at')->nullable();
+            $table->decimal('total_budget', 18, 2)->default(0.00);
+            $table->decimal('total_quantity', 18, 2)->default(0.00);
+
+            $table->foreignId('parent_id')
+                ->nullable()
+                ->constrained('project_activity_definitions')
+                ->onDelete('cascade');
+
+            // Versioning
+            $table->unsignedBigInteger('version')->default(1);
+            $table->foreignId('previous_version_id')
+                ->nullable();
+            $table->boolean('is_current')->default(true);
+            $table->timestamp('versioned_at')->useCurrent();
+
             $table->timestamps();
 
-            $table->unique(['project_id', 'program']);
+            // Indexes
+            $table->index(['project_id', 'sort_index']);
+            $table->index(['project_id', 'version']);
+            $table->index(['project_id', 'is_current']);
             $table->index('parent_id');
+            $table->index('program');
+
+            // Also keep program unique per project + version (your original rule)
+            $table->unique(['project_id', 'program', 'version'], 'unique_program_per_project_version');
+
+            $table->index(['project_id', 'is_current', 'sort_index']);
         });
     }
 };

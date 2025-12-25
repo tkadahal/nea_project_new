@@ -18,12 +18,6 @@
         $qQuantity = $hasChildren ? 0 : $actPlan?->{$currentQuarter . '_quantity'} ?? 0; // From Plan
         $qAmount = $hasChildren ? 0 : $actPlan?->{$currentQuarter . '_amount'} ?? 0; // From Plan
 
-        // OPTIONAL: If you want subtree sums for parent rows here (instead of 0), uncomment:
-        // $totalQuantity = $activity->subtree_total_quantity ?? 0;
-        // $totalBudget = $activity->subtree_total_budget ?? 0;
-        // $completedQuantity = $activity->subtree_completed_quantity ?? 0;
-        // ... etc. (from repo pre-compute)
-
     @endphp
     <tr class="projectActivity-row {{ $bgClass }}" data-depth="{{ $depth }}">
         <td

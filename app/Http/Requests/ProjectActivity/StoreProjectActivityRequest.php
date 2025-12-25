@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\ProjectActivity;
 
 use Closure;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Http\FormRequest;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,8 +30,9 @@ class StoreProjectActivityRequest extends FormRequest
         return true;
     }
 
-    public function rules(): array
+    public function rules(Request $request): array
     {
+        // dd($request->all());
         $sectionRules = $this->getSectionRules();
 
         return [

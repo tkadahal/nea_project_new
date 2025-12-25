@@ -11,6 +11,7 @@ use App\Models\FiscalYear;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use App\Models\ProjectActivityPlan;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
 use App\Repositories\ProjectActivityRepository;
 use App\Exports\Templates\ProjectActivityTemplateExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Exceptions\StructuralChangeRequiresConfirmationException;
 use App\Http\Requests\ProjectActivity\StoreProjectActivityRequest;
 use App\Http\Requests\ProjectActivity\UpdateProjectActivityRequest;
 
@@ -42,10 +44,24 @@ class ProjectActivityController extends Controller
 
         $activities = $this->repository->getActivitiesForUser(Auth::user());
 
+        $currentFiscalYear = FiscalYear::currentFiscalYear();
+        $hasPlanForCurrentYear = false;
+
+        if ($currentFiscalYear) {
+            $hasPlanForCurrentYear = $activities->contains(function ($activity) use ($currentFiscalYear) {
+                return $activity->fiscal_year_id === $currentFiscalYear->id;
+            });
+        }
+
+        $canCreate = $currentFiscalYear && ! $hasPlanForCurrentYear;
+
         return view('admin.projectActivities.index', [
             'headers' => $this->getTableHeaders(),
             'data' => $this->formatActivitiesForTable($activities),
             'activities' => $activities,
+            'currentFiscalYear' => $currentFiscalYear,
+            'canCreate' => $canCreate,
+            'hasPlanForCurrentYear' => $hasPlanForCurrentYear,
             'routePrefix' => 'admin.projectActivity',
             'actions' => ['view', 'edit', 'delete'],
             'deleteConfirmationMessage' => 'Are you sure you want to delete this project activity?',
@@ -75,12 +91,12 @@ class ProjectActivityController extends Controller
         $recurrentActivities = collect();
 
         if ($selectedProject) {
-            $capitalActivities = ProjectActivityDefinition::where('project_id', $selectedProject->id)
+            $capitalActivities = ProjectActivityDefinition::currentVersion((int) $selectedProject->id)
                 ->where('expenditure_id', 1)
                 ->orderBy('sort_index')
                 ->get();
 
-            $recurrentActivities = ProjectActivityDefinition::where('project_id', $selectedProject->id)
+            $recurrentActivities = ProjectActivityDefinition::currentVersion((int) $selectedProject->id)
                 ->where('expenditure_id', 2)
                 ->orderBy('sort_index')
                 ->get();
@@ -355,7 +371,8 @@ class ProjectActivityController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $activities = ProjectActivityDefinition::where('project_id', $validated['project_id'])
+        // Only fetch current version (is_current = true)
+        $activities = ProjectActivityDefinition::currentVersion((int) $validated['project_id'])
             ->where('expenditure_id', $validated['expenditure_id'])
             ->orderBy('sort_index')
             ->get();
@@ -367,6 +384,7 @@ class ProjectActivityController extends Controller
             $html .= view('admin.projectActivities.partials.activity-row-full', [
                 'activity' => $activity,
                 'type' => $type,
+                'isCreateMode' => true, // NEW flag
             ])->render();
         }
 
@@ -379,8 +397,6 @@ class ProjectActivityController extends Controller
 
     private function calculateNextIndex(int $projectId, int $expenditureId, ?int $parentId): string
     {
-        Log::info('calculateNextIndex Called: project=' . $projectId . ', exp=' . $expenditureId . ', parent_id=' . ($parentId ?? 'null'));
-
         if ($parentId === null) {
             // Top-level: max +1
             $query = ProjectActivityDefinition::where('project_id', $projectId)
@@ -424,6 +440,7 @@ class ProjectActivityController extends Controller
      */
     public function store(StoreProjectActivityRequest $request): Response
     {
+        // dd($request->all());
         try {
             // Note: Ensure service handles temp IDs, hierarchy, and re-indexing
             $this->activityService->storeActivities($request->validated());
@@ -436,16 +453,67 @@ class ProjectActivityController extends Controller
         }
     }
 
-    public function show(int $projectId, int $fiscalYearId): View
+    public function show(int $projectId, int $fiscalYearId, ?int $version = null): View|RedirectResponse
     {
         abort_if(Gate::denies('projectActivity_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $project = $this->repository->findProjectWithAccessCheck($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
-        [$capitalPlans, $recurrentPlans, $capitalSums, $recurrentSums] = $this->repository->getPlansWithSums($projectId, $fiscalYearId);
+        // Get all available versions (newest first)
+        $availableVersions = ProjectActivityDefinition::query()
+            ->where('project_id', $projectId)
+            ->distinct()
+            ->orderByDesc('version')
+            ->pluck('version')
+            ->unique()
+            ->values();
 
-        return view('admin.project-activities.show', compact('project', 'fiscalYear', 'capitalPlans', 'recurrentPlans', 'capitalSums', 'recurrentSums', 'projectId', 'fiscalYearId'));
+        if ($availableVersions->isEmpty()) {
+            abort(404, 'No activity definitions found for this project.');
+        }
+
+        $currentVersion = $availableVersions->first();
+
+        // ONLY redirect if no version was provided in URL
+        // If version is provided (even if old), we respect user's choice
+        if ($version === null) {
+            return redirect()->route('admin.projectActivity.show', [
+                $projectId,
+                $fiscalYearId,
+                $currentVersion
+            ]);
+        }
+
+        // Validate that the requested version actually exists
+        if (! $availableVersions->contains($version)) {
+            // Optional: either 404 or fallback to current
+            // abort(404, 'Version not found');
+            return redirect()->route('admin.projectActivity.show', [
+                $projectId,
+                $fiscalYearId,
+                $currentVersion
+            ]);
+        }
+
+        $selectedVersion = $version;
+
+        [$capitalPlans, $recurrentPlans, $capitalSums, $recurrentSums] =
+            $this->repository->getPlansWithSums($projectId, $fiscalYearId, $selectedVersion);
+
+        return view('admin.project-activities.show', compact(
+            'project',
+            'fiscalYear',
+            'capitalPlans',
+            'recurrentPlans',
+            'capitalSums',
+            'recurrentSums',
+            'projectId',
+            'fiscalYearId',
+            'availableVersions',
+            'selectedVersion',
+            'currentVersion'
+        ));
     }
 
     public function edit(int $projectId, int $fiscalYearId): View
@@ -455,27 +523,18 @@ class ProjectActivityController extends Controller
         $project = $this->repository->findProjectWithAccessCheck($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
-        // Check if there are any activity definitions for this project
-        $definitions = ProjectActivityDefinition::where('project_id', $projectId)->get();
+        $plan = ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->first();
 
-        if ($definitions->isNotEmpty()) {
-            // All definitions should have the same status — but let's be safe
-            $statuses = $definitions->pluck('status')->unique();
-
-            // If not in draft, block editing
-            if (!$statuses->contains('draft') || $statuses->count() > 1) {
-                abort(403, 'This project activity cannot be edited because it is not in draft status.');
-            }
-
-            // Extra layer: Only Project Users can edit draft
-            $user = Auth::user();
-            $isProjectUser = $user->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER);
-
-            if (!$isProjectUser) {
-                abort(403, 'Only project users can edit draft activities.');
-            }
+        if ($plan && $plan->status !== 'draft') {
+            abort(403, 'This project activity cannot be edited because it is no longer in draft status.');
         }
-        // If no definitions yet → allow creation/editing (it will start as draft)
+
+        $user = Auth::user();
+        if (!$user->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER)) {
+            abort(403, 'Only project users can edit draft activities.');
+        }
 
         $projects = Auth::user()->projects;
         $fiscalYears = FiscalYear::getFiscalYearOptions();
@@ -596,17 +655,40 @@ class ProjectActivityController extends Controller
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $request->validate([
-            'excel_file' => 'required|file|mimes:xlsx|max:2048',
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:10240',
         ]);
 
+        $force = $request->boolean('force', false);
+
         try {
-            $this->excelService->processUpload($request->file('excel_file'));
+            $this->excelService->processUpload($request->file('excel_file'), $force);
 
             return redirect()
                 ->route('admin.projectActivity.index')
-                ->with('success', 'Excel uploaded and activities created successfully!');
+                ->with('success', 'Excel uploaded and activities processed successfully!');
+        } catch (StructuralChangeRequiresConfirmationException $e) {
+            // This exception ONLY happens when:
+            // - Structure changed
+            // - AND there are existing definitions ($hasExistingData = true)
+            // → We want to show the confirmation modal
+
+            if ($force) {
+                // User confirmed but something still failed → real error
+                return back()
+                    ->withInput()
+                    ->withErrors(['excel_file' => 'Upload failed even after confirmation.']);
+            }
+
+            // Trigger modal: return with input + special flag
+            return back()
+                ->withInput()
+                ->with('requires_confirmation', true); // This flag tells JS to open modal
         } catch (\Exception $e) {
-            return back()->withErrors(['excel_file' => 'Upload failed: ' . $e->getMessage()]);
+            Log::error('Project Activity Excel Upload Failed: ' . $e->getMessage());
+
+            return back()
+                ->withInput()
+                ->withErrors(['excel_file' => 'Upload failed: ' . $e->getMessage()]);
         }
     }
 
@@ -679,54 +761,61 @@ class ProjectActivityController extends Controller
 
 
     // Actions
-    public function sendForReview(int $projectId): RedirectResponse
+    // === 1. Send for Review (Project User) ===
+    public function sendForReview(int $projectId, int $fiscalYearId): RedirectResponse
     {
         $user = Auth::user();
+
         if (!$user->roles->pluck('id')->contains(Role::PROJECT_USER)) {
-            abort(403, 'Only project users can send for review.');
+            abort(403, 'Only project users can send plans for review.');
         }
 
-        $definitions = ProjectActivityDefinition::where('project_id', $projectId)->get();
+        $plans = ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('status', 'draft')
+            ->get();
 
-        if ($definitions->isEmpty()) {
-            return back()->with('error', 'No activities found for this project.');
+        if ($plans->isEmpty()) {
+            return back()->with('error', 'No draft plans found for this fiscal year.');
         }
 
-        if ($definitions->first()->status !== 'draft') {
-            return back()->with('error', 'Only draft activities can be sent for review.');
-        }
-
-        ProjectActivityDefinition::where('project_id', $projectId)
+        ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
             ->update(['status' => 'under_review']);
 
-        return back()->with('success', 'Project activities sent for review successfully.');
+        return back()->with('success', 'Annual program sent for review successfully.');
     }
 
-    public function review(int $projectId): RedirectResponse
+    // === 2. Mark Reviewed (Directorate User) ===
+    public function review(int $projectId, int $fiscalYearId): RedirectResponse
     {
         $user = Auth::user();
+
         if (!$user->roles->pluck('id')->contains(Role::DIRECTORATE_USER)) {
-            abort(403, 'Only directorate users can review.');
+            abort(403, 'Only directorate users can mark as reviewed.');
         }
 
-        $definitions = ProjectActivityDefinition::where('project_id', $projectId)
+        $plans = ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
             ->where('status', 'under_review')
             ->get();
 
-        if ($definitions->isEmpty()) {
-            return back()->with('error', 'No activities under review for this project.');
+        if ($plans->isEmpty()) {
+            return back()->with('error', 'No plans under review for this fiscal year.');
         }
 
-        ProjectActivityDefinition::where('project_id', $projectId)
+        ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
             ->update([
                 'reviewed_by' => $user->id,
                 'reviewed_at' => now(),
             ]);
 
-        return back()->with('success', 'Project activities reviewed and forwarded for approval.');
+        return back()->with('success', 'Annual program reviewed and ready for approval.');
     }
 
-    public function approve(int $projectId): RedirectResponse
+    // === 3. Approve (Admin / Superadmin) ===
+    public function approve(int $projectId, int $fiscalYearId): RedirectResponse
     {
         $user = Auth::user();
         $isAdmin = $user->roles->pluck('id')->intersect([Role::ADMIN, Role::SUPERADMIN])->isNotEmpty();
@@ -735,25 +824,66 @@ class ProjectActivityController extends Controller
             abort(403, 'Only administrators can approve.');
         }
 
-        $definitions = ProjectActivityDefinition::where('project_id', $projectId)
+        $plans = ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
             ->where('status', 'under_review')
             ->get();
 
-        if ($definitions->isEmpty()) {
-            return back()->with('error', 'No activities under review.');
+        if ($plans->isEmpty()) {
+            return back()->with('error', 'No plans under review.');
         }
 
-        if ($definitions->pluck('reviewed_at')->contains(null)) {
+        if ($plans->pluck('reviewed_at')->contains(null)) {
             return back()->with('error', 'Cannot approve until reviewed by directorate.');
         }
 
-        ProjectActivityDefinition::where('project_id', $projectId)
+        ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
             ->update([
                 'status' => 'approved',
                 'approved_by' => $user->id,
                 'approved_at' => now(),
             ]);
 
-        return back()->with('success', 'Project activities approved successfully.');
+        return back()->with('success', 'Annual program approved successfully.');
+    }
+
+    public function reject(Request $request, int $projectId, int $fiscalYearId): RedirectResponse
+    {
+        $request->validate([
+            'rejection_reason' => 'required|string|max:2000',
+        ]);
+
+        $user = Auth::user();
+
+        $allowedRoles = [\App\Models\Role::DIRECTORATE_USER, \App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN];
+        if (!$user->roles->pluck('id')->intersect($allowedRoles)->count()) {
+            abort(403, 'You are not authorized to reject this program.');
+        }
+
+        $plans = ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('status', 'under_review')
+            ->get();
+
+        if ($plans->isEmpty()) {
+            return back()->with('error', 'No under-review plans found for this fiscal year.');
+        }
+
+        ProjectActivityPlan::forProject($projectId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->update([
+                'status' => 'draft',
+                'rejection_reason' => $request->rejection_reason,
+                'rejected_by' => $user->id,
+                'rejected_at' => now(),
+                // Reset forward trail
+                'reviewed_by' => null,
+                'reviewed_at' => null,
+                'approved_by' => null,
+                'approved_at' => null,
+            ]);
+
+        return back()->with('success', 'Annual program rejected and returned to draft with reason.');
     }
 }

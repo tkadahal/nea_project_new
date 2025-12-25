@@ -6,25 +6,55 @@
                 {{ $fiscalYear->title ?? $fiscalYear->id }}
             </h1>
 
-            <div class="flex items-center space-x-2">
-                <a href="{{ route('admin.projectActivity.downloadAcitivites', [$projectId, $fiscalYearId]) }}"
-                    class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
-                    <svg class="h-4 w-4 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                        </path>
-                    </svg>
-                    Download Excel with Weighted Progress
-                </a>
-                <a href="{{ route('admin.projectActivity.index') }}"
-                    class="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600">
-                    {{ trans('global.back_to_list') }}
-                </a>
+            <div class="flex items-center space-x-4">
+                <!-- Version Selector Dropdown -->
+                <div class="text-sm">
+                    <label for="version-select" class="font-medium text-gray-700 dark:text-gray-300 mr-2">
+                        {{ __('Version') }}:
+                    </label>
+                    <select id="version-select"
+                        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onchange="if(this.value) window.location = this.value">
+                        @foreach ($availableVersions as $ver)
+                            <option value="{{ route('admin.projectActivity.show', [$projectId, $fiscalYearId, $ver]) }}"
+                                {{ $selectedVersion == $ver ? 'selected' : '' }}>
+                                Version {{ $ver }}
+                                @if ($ver == $currentVersion)
+                                    ({{ __('Current') }})
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex items-center space-x-2">
+                    <a href="{{ route('admin.projectActivity.downloadActivities', [$projectId, $fiscalYearId]) }}"
+                        class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Download Excel
+                    </a>
+
+                    <a href="{{ route('admin.projectActivity.index') }}"
+                        class="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700">
+                        {{ trans('global.back_to_list') }}
+                    </a>
+                </div>
             </div>
         </div>
+
         <p class="text-gray-600 dark:text-gray-400">
             Detailed breakdown of Annual Program for Fiscal Year {{ $fiscalYear->title }}.
+            @if ($selectedVersion == $currentVersion)
+                <span class="text-green-600 dark:text-green-400 font-medium">• Viewing current version</span>
+            @else
+                <span class="text-orange-600 dark:text-orange-400 font-medium">
+                    • Viewing historical version {{ $selectedVersion }} (current is {{ $currentVersion }})
+                </span>
+            @endif
         </p>
     </div>
 

@@ -11,19 +11,40 @@
         </div>
 
         @can('projectActivity_access')
-            <a href="{{ route('admin.projectActivity.create') }}"
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                  dark:bg-blue-700 dark:hover:bg-blue-800 dark:focus:ring-offset-gray-900">
-                {{ trans('global.add') }} {{ trans('global.projectActivity.title_singular') }}
-            </a>
+            @if ($canCreate)
+                <a href="{{ route('admin.projectActivity.create') }}"
+                    class="inline-flex items-center px-5 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700
+                       shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                       dark:bg-blue-700 dark:hover:bg-blue-800">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    {{ trans('global.add') }} {{ trans('global.projectActivity.title_singular') }}
+                </a>
+            @else
+                <div class="flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>
+                        @if (!$currentFiscalYear)
+                            No active fiscal year at this time.
+                        @elseif($hasPlanForCurrentYear)
+                            Annual program for <strong>{{ $currentFiscalYear->title }}</strong> already exists.
+                        @else
+                            Creation temporarily unavailable.
+                        @endif
+                    </span>
+                </div>
+            @endif
         @endcan
     </div>
 
     @if (session('success'))
         <div
             class="mb-6 p-4 bg-green-100 text-green-800 border border-green-300 rounded-lg
-                    dark:bg-green-900 dark:text-green-200 dark:border-green-700">
+                    dark:bg-green-900/30 dark:text-green-200 dark:border-green-700">
             {{ session('success') }}
         </div>
     @endif
@@ -31,43 +52,52 @@
     <div
         class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-                <thead class="bg-gray-50 dark:bg-gray-700">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
                         <th
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            {{ trans('global.projectActivity.fields.fiscal_year_id') }}
+                            Fiscal Year
                         </th>
                         <th
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            {{ trans('global.projectActivity.fields.project_id') }}
+                            Project
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Version
                         </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            {{ trans('global.projectActivity.fields.total_planned_budget') }}
+                            Total Budget
                         </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            {{ trans('global.projectActivity.fields.total_capital_planned_budget') }}
+                            Capital
                         </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            {{ trans('global.projectActivity.fields.total_recurrent_planned_budget') }}
+                            Recurrent
                         </th>
                         <th
                             class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            {{ trans('global.action') }}
+                            Status & Actions
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-600">
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     @forelse ($activities as $activity)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition">
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                 {{ $activity->fiscalYear->title ?? 'N/A' }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            <td
+                                class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {{ $activity->project_title ?? 'N/A' }}
+                            </td>
+                            <td
+                                class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                                v{{ $activity->current_version ?? '1' }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-right">
                                 {{ number_format($activity->total_budget ?? 0, 2) }}
@@ -79,13 +109,24 @@
                                 {{ number_format($activity->recurrent_budget ?? 0, 2) }}
                             </td>
 
-                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                <div class="flex flex-wrap justify-center gap-2">
+                            <td class="px-6 py-4 text-center text-sm font-medium">
+                                <div class="flex flex-wrap items-center justify-center gap-2">
 
-                                    <!-- View Button -->
+                                    <!-- View Button (goes directly to current version) -->
                                     @can('projectActivity_show')
-                                        <a href="{{ route('admin.projectActivity.show', [$activity->project_id, $activity->fiscal_year_id]) }}"
-                                            class="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">
+                                        <a href="{{ route('admin.projectActivity.show', [
+                                            $activity->project_id,
+                                            $activity->fiscal_year_id,
+                                            $activity->current_version,
+                                        ]) }}"
+                                            class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
                                             View
                                         </a>
                                     @endcan
@@ -94,75 +135,85 @@
                                     @if ($activity->status === 'draft' && auth()->user()->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER))
                                         @can('projectActivity_edit')
                                             <a href="{{ route('admin.projectActivity.edit', [$activity->project_id, $activity->fiscal_year_id]) }}"
-                                                class="px-3 py-1 bg-indigo-500 text-white rounded text-xs hover:bg-indigo-600">
+                                                class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">
                                                 Edit
                                             </a>
                                         @endcan
 
                                         <form method="POST"
-                                            action="{{ route('admin.projectActivity.sendForReview', $activity->project_id) }}"
+                                            action="{{ route('admin.projectActivity.sendForReview', [$activity->project_id, $activity->fiscal_year_id]) }}"
                                             class="inline"
                                             onsubmit="return confirm('Send for review? Editing will be locked.')">
                                             @csrf
                                             <button type="submit"
-                                                class="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700">
+                                                class="px-3 py-1.5 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-700">
                                                 Send for Review
                                             </button>
                                         </form>
                                     @endif
 
-                                    <!-- Mark Reviewed (Directorate User - Under Review, not yet reviewed) -->
+                                    <!-- Mark Reviewed -->
                                     @if (
                                         $activity->status === 'under_review' &&
                                             is_null($activity->reviewed_at) &&
                                             auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER))
                                         <form method="POST"
-                                            action="{{ route('admin.projectActivity.review', $activity->project_id) }}"
+                                            action="{{ route('admin.projectActivity.review', [$activity->project_id, $activity->fiscal_year_id]) }}"
                                             class="inline" onsubmit="return confirm('Mark as reviewed?')">
                                             @csrf
                                             <button type="submit"
-                                                class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                                                class="px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700">
                                                 Mark Reviewed
                                             </button>
                                         </form>
                                     @endif
 
-                                    <!-- Approve (Admin/Superadmin - Under Review + Already Reviewed) -->
+                                    <!-- Approve -->
                                     @if (
                                         $activity->status === 'under_review' &&
                                             $activity->reviewed_at &&
                                             auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())
                                         <form method="POST"
-                                            action="{{ route('admin.projectActivity.approve', $activity->project_id) }}"
+                                            action="{{ route('admin.projectActivity.approve', [$activity->project_id, $activity->fiscal_year_id]) }}"
                                             class="inline"
                                             onsubmit="return confirm('Approve permanently? This cannot be undone.')">
                                             @csrf
                                             <button type="submit"
-                                                class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                                                class="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">
                                                 Approve
                                             </button>
                                         </form>
                                     @endif
 
-                                    <!-- Dynamic Status Badge -->
+                                    <!-- Reject Button -->
+                                    @if (
+                                        $activity->status === 'under_review' &&
+                                            (auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER) ||
+                                                ($activity->reviewed_at &&
+                                                    auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())))
+                                        <button type="button"
+                                            onclick="openRejectModal({{ $activity->project_id }}, {{ $activity->fiscal_year_id }})"
+                                            class="px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700">
+                                            Reject
+                                        </button>
+                                    @endif
+
+                                    <!-- Status Badge -->
                                     @php
                                         $badgeColors = [
                                             'draft' => 'gray',
                                             'under_review' => 'yellow',
                                             'approved' => 'green',
                                         ];
-
                                         $color = $badgeColors[$activity->status] ?? 'gray';
                                         $text = ucfirst(str_replace('_', ' ', $activity->status));
-
                                         if ($activity->status === 'under_review') {
                                             $color = $activity->reviewed_at ? 'purple' : 'yellow';
                                             $text = $activity->reviewed_at ? 'Reviewed' : 'Under Review';
                                         }
                                     @endphp
-
                                     <span
-                                        class="inline-block px-3 py-1 rounded-full text-xs font-medium
+                                        class="inline-block px-3 py-1.5 rounded-full text-xs font-medium
                                                  bg-{{ $color }}-100 text-{{ $color }}-800
                                                  dark:bg-{{ $color }}-900/50 dark:text-{{ $color }}-300
                                                  border border-{{ $color }}-300 dark:border-{{ $color }}-700">
@@ -170,11 +221,56 @@
                                     </span>
 
                                 </div>
+
+                                <!-- Rejection Modal -->
+                                @if (
+                                    $activity->status === 'under_review' &&
+                                        (auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER) ||
+                                            ($activity->reviewed_at &&
+                                                auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())))
+                                    <div id="reject-modal-{{ $activity->project_id }}-{{ $activity->fiscal_year_id }}"
+                                        class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+                                        <div
+                                            class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
+                                            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                                                Reject Annual Program
+                                            </h3>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                                                This will return the program to <strong>Draft</strong> status.
+                                            </p>
+
+                                            <form method="POST"
+                                                action="{{ route('admin.projectActivity.reject', [$activity->project_id, $activity->fiscal_year_id]) }}">
+                                                @csrf
+                                                <div class="mb-6">
+                                                    <label
+                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                        Reason for Rejection <span class="text-red-500">*</span>
+                                                    </label>
+                                                    <textarea name="rejection_reason" rows="4" required placeholder="Provide a clear reason..."
+                                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"></textarea>
+                                                </div>
+
+                                                <div class="flex justify-end gap-3">
+                                                    <button type="button"
+                                                        onclick="closeRejectModal({{ $activity->project_id }}, {{ $activity->fiscal_year_id }})"
+                                                        class="px-5 py-2 text-gray-700 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300">
+                                                        Cancel
+                                                    </button>
+                                                    <button type="submit"
+                                                        class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                                                        Confirm Reject
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                @endif
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                            <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                 {{ trans('global.noRecords') }}
                             </td>
                         </tr>
@@ -183,4 +279,27 @@
             </table>
         </div>
     </div>
+
+    <!-- Modal JavaScript -->
+    <script>
+        function openRejectModal(projectId, fiscalYearId) {
+            document.getElementById(`reject-modal-${projectId}-${fiscalYearId}`).classList.remove('hidden');
+        }
+
+        function closeRejectModal(projectId, fiscalYearId) {
+            document.getElementById(`reject-modal-${projectId}-${fiscalYearId}`).classList.add('hidden');
+            document.querySelector(`#reject-modal-${projectId}-${fiscalYearId} textarea`).value = '';
+        }
+
+        // Close on outside click
+        document.querySelectorAll('[id^="reject-modal-"]').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    const match = modal.id.match(/reject-modal-(\d+)-(\d+)/);
+                    if (match) closeRejectModal(match[1], match[2]);
+                }
+            });
+        });
+    </script>
+
 </x-layouts.app>

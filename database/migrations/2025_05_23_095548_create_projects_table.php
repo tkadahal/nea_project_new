@@ -12,6 +12,8 @@ return new class extends Migration
     {
         Schema::create('projects', function (Blueprint $table) {
             $table->id();
+            $table->integer('lmbis_id')->nullable();
+
             $table->foreignId('directorate_id')->index()->constrained();
             $table->foreignId('department_id')->nullable()->index()->constrained();
             $table->foreignId('budget_heading_id')->nullable()->index()->constrained();
@@ -35,6 +37,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['deleted_at']);
+            $table->unique(['budget_heading_id', 'lmbis_id']);
         });
     }
 };

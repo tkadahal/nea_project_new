@@ -29,6 +29,18 @@
                 </svg>
                 {{ trans('global.projectActivity.excel.upload') }}
             </a>
+
+            <!-- NEW: Create New Version Template Button -->
+            <button type="button" id="download-new-version-template-btn"
+                class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                title="Download template for creating a new version of the activity structure">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                </svg>
+                New Version Template
+            </button>
+
         </div>
     </div>
 
@@ -394,7 +406,6 @@
                 background-color: #f9fafb;
             }
 
-            /* Sticky header rows for vertical scrolling */
             #capital-activities thead th,
             #recurrent-activities thead th {
                 position: sticky;
@@ -409,12 +420,6 @@
             #capital-activities .header-row-2 th,
             #recurrent-activities .header-row-2 th {
                 top: 2rem;
-            }
-
-            /* Ensure sticky left/right headers have higher z-index when overlapping */
-            #capital-activities thead th.sticky,
-            #recurrent-activities thead th.sticky {
-                z-index: 60;
             }
 
             .left-sticky {
@@ -450,7 +455,6 @@
                     background-color: #374151;
                 }
 
-                /* Dark mode for sticky headers */
                 #capital-activities .header-row-1,
                 #recurrent-activities .header-row-1,
                 #capital-activities .header-row-2,
@@ -467,6 +471,144 @@
             $(document).ready(function() {
                 const projectIdInput = $('.js-single-select[data-name="project_id"] .js-hidden-input');
                 const fiscalYearInput = $('.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
+                const $budgetDisplay = $('#budget-display');
+                const $capitalTbody = $('#capital-tbody');
+                const $recurrentTbody = $('#recurrent-tbody');
+
+                // Load Budget Data
+                function loadBudgetData() {
+                    const projectId = projectIdInput.val();
+                    const fiscalYearId = fiscalYearInput.val();
+
+                    if (!projectId) {
+                        $budgetDisplay.html(
+                            '<span class="block text-sm text-gray-500 dark:text-gray-400">Please select a project to view budget details.</span>'
+                        );
+                        return;
+                    }
+
+                    $budgetDisplay.html(
+                        '<span class="block text-sm text-gray-500 dark:text-gray-400">Loading budget...</span>');
+
+                    $.ajax({
+                        url: '{{ route('admin.projectActivity.budgetData') }}',
+                        method: 'GET',
+                        data: {
+                            project_id: projectId,
+                            fiscal_year_id: fiscalYearId || null
+                        },
+                        success: function(data) {
+                            if (data.success && data.data) {
+                                const d = data.data;
+                                const fyNote = fiscalYearId ? '' :
+                                    ` (using default FY: ${d.fiscal_year || 'N/A'})`;
+
+                                $budgetDisplay.html(`
+                                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300 font-medium">Total Remaining Budget${fyNote}:</span><span class="font-bold">${Number(d.total).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Internal:</span><span class="font-bold">${Number(d.internal).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Government Share:</span><span class="font-bold">${Number(d.government_share).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Government Loan:</span><span class="font-bold">${Number(d.government_loan).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Foreign Loan:</span><span class="font-bold">${Number(d.foreign_loan).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Foreign Subsidy:</span><span class="font-bold">${Number(d.foreign_subsidy).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                    </div>
+                                    <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400">Cumulative (incl. prior years): ${Number(d.cumulative).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                    </div>
+                                </div>
+                            `);
+                            } else {
+                                $budgetDisplay.html(
+                                    `<span class="block text-sm text-red-500 dark:text-red-400">${data.message || 'No budget data available.'}</span>`
+                                );
+                            }
+                        },
+                        error: function() {
+                            $budgetDisplay.html(
+                                '<span class="block text-sm text-red-500 dark:text-red-400">Error loading budget data.</span>'
+                            );
+                        }
+                    });
+                }
+
+                // Load Activities (Capital + Recurrent)
+                function loadActivities() {
+                    const projectId = projectIdInput.val();
+                    if (!projectId) {
+                        $capitalTbody.html(
+                            '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet. Click "Add Row" to create one.</td></tr>'
+                        );
+                        $recurrentTbody.html(
+                            '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet. Click "Add Row" to create one.</td></tr>'
+                        );
+                        updateTotals();
+                        return;
+                    }
+
+                    // Load Capital
+                    $.get('{{ route('admin.projectActivity.getActivities') }}', {
+                        project_id: projectId,
+                        expenditure_id: 1
+                    }, function(res) {
+                        if (res.success) {
+                            $capitalTbody.html(res.html ||
+                                '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet.</td></tr>'
+                            );
+                            bindRowEvents($capitalTbody.find('.activity-row'));
+                            updateTotals();
+                        }
+                    });
+
+                    // Load Recurrent
+                    $.get('{{ route('admin.projectActivity.getActivities') }}', {
+                        project_id: projectId,
+                        expenditure_id: 2
+                    }, function(res) {
+                        if (res.success) {
+                            $recurrentTbody.html(res.html ||
+                                '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet.</td></tr>'
+                            );
+                            bindRowEvents($recurrentTbody.find('.activity-row'));
+                            updateTotals();
+                        }
+                    });
+                }
+
+                // Observe changes to hidden inputs (works even if no 'change' event fired)
+                function observeHiddenInput(input, callback) {
+                    input.on('change', callback); // fallback for native events
+
+                    const observer = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                                callback();
+                            }
+                        });
+                    });
+                    observer.observe(input[0], {
+                        attributes: true
+                    });
+                }
+
+                observeHiddenInput(projectIdInput, function() {
+                    loadBudgetData();
+                    loadActivities();
+                });
+
+                observeHiddenInput(fiscalYearInput, function() {
+                    loadBudgetData();
+                });
+
+                // Initial Load
+                if (projectIdInput.val()) {
+                    loadBudgetData();
+                    loadActivities();
+                } else {
+                    $budgetDisplay.html(
+                        '<span class="block text-sm text-gray-500 dark:text-gray-400">Please select a project to view budget details.</span>'
+                    );
+                }
 
                 // Remove "no data" rows helper
                 function removeNoDataRows() {
@@ -745,15 +887,6 @@
                     }
                 });
 
-                // Budget data loader (unchanged)
-                function loadBudgetData() {
-                    // ... your existing loadBudgetData code ...
-                }
-
-                // Listen for changes
-                projectIdInput.on('change', loadBudgetData);
-                fiscalYearInput.on('change', loadBudgetData);
-
                 // Download sync (unchanged)
                 window.syncDownloadValues = function() {
                     // ... existing ...
@@ -785,6 +918,24 @@
                     window.location.href = '{{ route('admin.projectActivity.template') }}?project_id=' +
                         projectId + '&fiscal_year_id=' + fiscalYearId;
                 });
+            });
+
+            $('#download-new-version-template-btn').on('click', function() {
+                const projectId = $('#project_id').val() || $(
+                    '.js-single-select[data-name="project_id"] .js-hidden-input').val();
+                const fiscalYearId = $('#fiscal_year_id').val() || $(
+                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input').val();
+
+                if (!projectId || !fiscalYearId) {
+                    alert('कृपया पहिले परियोजना र आर्थिक वर्ष छान्नुहोस्।');
+                    return;
+                }
+
+                const url = '{{ route('admin.projectActivity.template') }}?project_id=' + projectId +
+                    '&fiscal_year_id=' + fiscalYearId +
+                    '&new_version=1';
+
+                window.location.href = url;
             });
         </script>
     @endpush

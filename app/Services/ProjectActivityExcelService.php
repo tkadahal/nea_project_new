@@ -7,92 +7,128 @@ namespace App\Services;
 use Exception;
 use App\Models\Project;
 use App\Models\FiscalYear;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 use App\Models\ProjectActivityPlan;
 use App\Models\ProjectActivityDefinition;
+use App\Exports\Templates\ProjectActivityTemplateExport;
+use App\Exceptions\StructuralChangeRequiresConfirmationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProjectActivityExcelService
 {
-    public function __construct(
-        private readonly ProjectActivityProcessor $processor
-    ) {}
-
-    public function processUpload($file): void
+    public function processUpload($file, bool $force = false): void
     {
-        DB::transaction(function () use ($file) {
+        DB::transaction(function () use ($file, $force) {
             $spreadsheet = IOFactory::load($file->getRealPath());
 
             [$projectId, $fiscalYearId] = $this->extractMetadata($spreadsheet);
-
             $this->validateUserAccess($projectId);
 
-            $capitalData = $this->parseSheet($spreadsheet->getSheetByName('पूँजीगत खर्च'), 1);
-            $this->validateAndInsert($capitalData, $projectId, $fiscalYearId);
+            Log::info("Excel Upload: Project {$projectId}, FY {$fiscalYearId}, Force: " . ($force ? 'Yes' : 'No'));
 
+            $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
             $recurrentSheet = $spreadsheet->getSheetByName('चालू खर्च');
-            if ($recurrentSheet) {
-                $recurrentData = $this->parseSheet($recurrentSheet, 2);
-                $this->validateAndInsert($recurrentData, $projectId, $fiscalYearId);
+
+            if (!$capitalSheet) {
+                throw new Exception('Capital sheet "पूँजीगत खर्च" not found');
             }
+
+            $capitalData = $this->parseSheet($capitalSheet, 1);
+            $recurrentData = $recurrentSheet ? $this->parseSheet($recurrentSheet, 2) : [];
+
+            Log::info("Parsed data", [
+                'capital_rows' => count($capitalData),
+                'recurrent_rows' => count($recurrentData)
+            ]);
+
+            $this->checkPlanEditableOrStructuralChange(
+                $projectId,
+                $fiscalYearId,
+                count($capitalData),
+                count($recurrentData),
+                $force
+            );
+
+            // Get project-wide version
+            $currentProjectVersion = $this->getCurrentProjectVersion($projectId);
+            $newProjectVersion = $currentProjectVersion + 1;
+            $previousVersion = $force ? $currentProjectVersion : null;
+
+            // On structural change: close ALL current definitions (both types)
+            if ($force) {
+                $closed = ProjectActivityDefinition::where('project_id', $projectId)
+                    ->where('is_current', true)
+                    ->update(['is_current' => false]);
+
+                Log::info("Structural change confirmed: closed {$closed} definitions (version {$currentProjectVersion}) for project {$projectId}");
+            }
+
+            $capitalDefIds = $this->syncDefinitions($projectId, 1, $capitalData, $force, $newProjectVersion, $previousVersion);
+            $recurrentDefIds = $this->syncDefinitions($projectId, 2, $recurrentData, $force, $newProjectVersion, $previousVersion);
+
+            Log::info("Synced definitions (version {$newProjectVersion})", [
+                'capital_defs' => count($capitalDefIds),
+                'recurrent_defs' => count($recurrentDefIds)
+            ]);
+
+            $this->syncPlans($fiscalYearId, $capitalData, $capitalDefIds);
+            $this->syncPlans($fiscalYearId, $recurrentData, $recurrentDefIds);
+
+            Log::info("Excel upload completed successfully (version {$newProjectVersion})");
         });
     }
 
-    private function extractMetadata($spreadsheet): array
-    {
-        $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
+    private function checkPlanEditableOrStructuralChange(
+        int $projectId,
+        int $fiscalYearId,
+        int $capitalRowCount,
+        int $recurrentRowCount,
+        bool $force
+    ): void {
+        $counts = ProjectActivityTemplateExport::getCurrentDefinitionCounts(Project::find($projectId));
 
-        if (!$capitalSheet) {
-            throw new Exception('Capital sheet "पूँजीगत खर्च" not found.');
+        $currentCapitalCount = $counts['capital'];
+        $currentRecurrentCount = $counts['recurrent'];
+
+        $hasExistingData = ($currentCapitalCount + $currentRecurrentCount) > 0;
+        $structureMatches = ($currentCapitalCount === $capitalRowCount) && ($currentRecurrentCount === $recurrentRowCount);
+
+        if ($structureMatches && $hasExistingData) {
+            $existingPlan = ProjectActivityPlan::join(
+                'project_activity_definitions',
+                'project_activity_plans.activity_definition_version_id',
+                '=',
+                'project_activity_definitions.id'
+            )
+                ->where('project_activity_definitions.project_id', $projectId)
+                ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+                ->where('project_activity_definitions.is_current', true)
+                ->select('project_activity_plans.status')
+                ->first();
+
+            if ($existingPlan && $existingPlan->status !== 'draft') {
+                throw new Exception('This annual program is already in review or approved mode so it cannot be edited.');
+            }
+            return;
         }
 
-        $projectName = trim((string) $capitalSheet->getCell('A1')->getValue());
-        $fiscalYearName = trim((string) $capitalSheet->getCell('H1')->getValue());
-
-        if (empty($projectName)) {
-            throw new Exception('Project title missing in cell A1.');
+        if (!$force && $hasExistingData) {
+            throw new StructuralChangeRequiresConfirmationException();
         }
 
-        if (empty($fiscalYearName)) {
-            throw new Exception('Fiscal year missing in cell H1.');
-        }
-
-        $project = Project::where('title', $projectName)->first();
-        if (!$project) {
-            throw new Exception("Project '{$projectName}' not found.");
-        }
-
-        $fiscalYear = FiscalYear::where('title', $fiscalYearName)->first();
-        if (!$fiscalYear) {
-            throw new Exception("Fiscal year '{$fiscalYearName}' not found.");
-        }
-
-        return [$project->id, $fiscalYear->id];
-    }
-
-    private function validateUserAccess(int $projectId): void
-    {
-        $project = Project::findOrFail($projectId);
-
-        if (!$project->users->contains(Auth::id())) {
-            throw new Exception('You do not have access to this project.');
-        }
+        Log::info($hasExistingData ? "Structural change confirmed" : "First-time upload");
     }
 
     private function parseSheet($sheet, int $expenditureId, int $startRow = 5): array
     {
-        if (!$sheet) {
-            return [];
-        }
-
         $data = [];
-        $index = 0;
 
-        for ($rowNum = $startRow; $rowNum <= 100; $rowNum++) {
+        for ($rowNum = $startRow; $rowNum <= 200; $rowNum++) {
             $hash = trim((string) ($sheet->getCell('A' . $rowNum)->getCalculatedValue() ?? ''));
 
-            if (empty($hash) || $hash === 'कुल जम्मा') {
+            if (empty($hash) || in_array(strtolower($hash), ['कुल जम्मा', 'total'])) {
                 continue;
             }
 
@@ -102,213 +138,174 @@ class ProjectActivityExcelService
             }
 
             $parts = explode('.', $hash);
-            $level = count($parts) - 1;
-            $parentHash = $level > 0 ? implode('.', array_slice($parts, 0, -1)) : null;
+            $depth = count($parts) - 1;
+            $parentHash = $depth > 0 ? implode('.', array_slice($parts, 0, -1)) : null;
 
-            $data[] = [
-                'index' => $index++,
-                'hash' => $hash, // This is the sort_index! (e.g., "1", "1.1", "1.1.1")
-                'level' => $level, // This is the depth!
+            $data[$hash] = [
+                'hash' => $hash,
+                'depth' => $depth,
                 'parent_hash' => $parentHash,
-                'program' => trim((string) ($sheet->getCell('B' . $rowNum)->getCalculatedValue() ?? '')),
-                'total_budget' => (float) ($sheet->getCell('D' . $rowNum)->getCalculatedValue() ?? 0),
-                'total_quantity' => (float) ($sheet->getCell('C' . $rowNum)->getCalculatedValue() ?? 0),
-                'total_expense' => (float) ($sheet->getCell('F' . $rowNum)->getCalculatedValue() ?? 0),
-                'completed_quantity' => (float) ($sheet->getCell('E' . $rowNum)->getCalculatedValue() ?? 0),
-                'planned_budget' => (float) ($sheet->getCell('H' . $rowNum)->getCalculatedValue() ?? 0),
-                'planned_quantity' => (float) ($sheet->getCell('G' . $rowNum)->getCalculatedValue() ?? 0),
-                'q1' => (float) ($sheet->getCell('J' . $rowNum)->getCalculatedValue() ?? 0),
-                'q1_quantity' => (float) ($sheet->getCell('I' . $rowNum)->getCalculatedValue() ?? 0),
-                'q2' => (float) ($sheet->getCell('L' . $rowNum)->getCalculatedValue() ?? 0),
-                'q2_quantity' => (float) ($sheet->getCell('K' . $rowNum)->getCalculatedValue() ?? 0),
-                'q3' => (float) ($sheet->getCell('N' . $rowNum)->getCalculatedValue() ?? 0),
-                'q3_quantity' => (float) ($sheet->getCell('M' . $rowNum)->getCalculatedValue() ?? 0),
-                'q4' => (float) ($sheet->getCell('P' . $rowNum)->getCalculatedValue() ?? 0),
-                'q4_quantity' => (float) ($sheet->getCell('O' . $rowNum)->getCalculatedValue() ?? 0),
                 'expenditure_id' => $expenditureId,
+                'program' => trim((string) ($sheet->getCell('B' . $rowNum)->getCalculatedValue() ?? '')),
+                'total_quantity' => (float) ($sheet->getCell('C' . $rowNum)->getCalculatedValue() ?? 0),
+                'total_budget' => (float) ($sheet->getCell('D' . $rowNum)->getCalculatedValue() ?? 0),
+                'completed_quantity' => (float) ($sheet->getCell('E' . $rowNum)->getCalculatedValue() ?? 0),
+                'total_expense' => (float) ($sheet->getCell('F' . $rowNum)->getCalculatedValue() ?? 0),
+                'planned_quantity' => (float) ($sheet->getCell('G' . $rowNum)->getCalculatedValue() ?? 0),
+                'planned_budget' => (float) ($sheet->getCell('H' . $rowNum)->getCalculatedValue() ?? 0),
+                'q1_quantity' => (float) ($sheet->getCell('I' . $rowNum)->getCalculatedValue() ?? 0),
+                'q1_amount' => (float) ($sheet->getCell('J' . $rowNum)->getCalculatedValue() ?? 0),
+                'q2_quantity' => (float) ($sheet->getCell('K' . $rowNum)->getCalculatedValue() ?? 0),
+                'q2_amount' => (float) ($sheet->getCell('L' . $rowNum)->getCalculatedValue() ?? 0),
+                'q3_quantity' => (float) ($sheet->getCell('M' . $rowNum)->getCalculatedValue() ?? 0),
+                'q3_amount' => (float) ($sheet->getCell('N' . $rowNum)->getCalculatedValue() ?? 0),
+                'q4_quantity' => (float) ($sheet->getCell('O' . $rowNum)->getCalculatedValue() ?? 0),
+                'q4_amount' => (float) ($sheet->getCell('P' . $rowNum)->getCalculatedValue() ?? 0),
             ];
         }
 
-        usort($data, fn($a, $b) => strcmp($a['hash'], $b['hash']));
+        uksort($data, 'strnatcmp');
 
         return $data;
     }
 
-    private function validateAndInsert(array $data, int $projectId, int $fiscalYearId): void
+    private function syncDefinitions(int $projectId, int $expenditureId, array $data, bool $force, int $newVersion, int $previousVersion = null): array
+    {
+        if (empty($data)) {
+            return [];
+        }
+
+        $hashToId = [];
+
+        foreach ($data as $hash => $row) {
+            $parentId = $row['parent_hash'] && isset($hashToId[$row['parent_hash']]) ? $hashToId[$row['parent_hash']] : null;
+
+            $defData = [
+                'project_id' => $projectId,
+                'expenditure_id' => $expenditureId,
+                'parent_id' => $parentId,
+                'sort_index' => $hash,
+                'depth' => $row['depth'],
+                'program' => $row['program'],
+                'total_quantity' => $row['total_quantity'],
+                'total_budget' => $row['total_budget'],
+                'version' => $newVersion,
+                'previous_version_id' => $previousVersion, // Same for ALL rows
+                'is_current' => true,
+                'versioned_at' => now(),
+            ];
+
+            // Always create new on structural change or first time
+            // On minor edit: update if exists
+            if (!$force) {
+                $existing = ProjectActivityDefinition::where('project_id', $projectId)
+                    ->where('expenditure_id', $expenditureId)
+                    ->where('sort_index', $hash)
+                    ->where('is_current', true)
+                    ->first();
+
+                if ($existing) {
+                    $existing->update($defData);
+                    $realId = $existing->id;
+                } else {
+                    $newDef = ProjectActivityDefinition::create($defData);
+                    $realId = $newDef->id;
+                }
+            } else {
+                $newDef = ProjectActivityDefinition::create($defData);
+                $realId = $newDef->id;
+            }
+
+            $hashToId[$hash] = $realId;
+        }
+
+        return $hashToId;
+    }
+
+    private function syncPlans(int $fiscalYearId, array $data, array $hashToIdMap): void
     {
         if (empty($data)) {
             return;
         }
 
-        $this->validateExcelData($data);
-        $this->insertHierarchicalData($data, $projectId, $fiscalYearId);
-    }
-
-    private function validateExcelData(array $data): void
-    {
-        $errors = [];
-        $hashToChildren = [];
-
-        foreach ($data as $row) {
-            if ($row['parent_hash']) {
-                $hashToChildren[$row['parent_hash']][] = $row;
-            }
-        }
-
-        foreach ($data as $row) {
-            // Validate quarter sums for amounts
-            $quarterAmountSum = $row['q1'] + $row['q2'] + $row['q3'] + $row['q4'];
-            if (abs($row['planned_budget'] - $quarterAmountSum) > 0.01) {
-                $errors[] = "Row #{$row['hash']}: Quarter amounts don't match planned budget.";
+        foreach ($data as $hash => $row) {
+            $definitionId = $hashToIdMap[$hash] ?? null;
+            if (!$definitionId) {
+                Log::warning("Skipping plan - no definition for hash: {$hash}");
+                continue;
             }
 
-            // Validate quarter sums for quantities
-            $quarterQuantitySum = $row['q1_quantity'] + $row['q2_quantity'] + $row['q3_quantity'] + $row['q4_quantity'];
-            if (abs($row['planned_quantity'] - $quarterQuantitySum) > 0.01) {
-                $errors[] = "Row #{$row['hash']}: Quarter quantities don't match planned quantity.";
+            $qAmountSum = $row['q1_amount'] + $row['q2_amount'] + $row['q3_amount'] + $row['q4_amount'];
+            $qQuantitySum = $row['q1_quantity'] + $row['q2_quantity'] + $row['q3_quantity'] + $row['q4_quantity'];
+
+            if (abs($qAmountSum - $row['planned_budget']) > 0.01) {
+                throw new Exception("Row {$hash}: Quarterly amounts do not sum to planned budget");
             }
 
-            // Validate non-negative values
-            if ($row['total_budget'] < 0 || $row['planned_budget'] < 0 || $row['total_quantity'] < 0 || $row['planned_quantity'] < 0) {
-                $errors[] = "Row #{$row['hash']}: Budget and quantity values cannot be negative.";
+            if (abs($qQuantitySum - $row['planned_quantity']) > 0.01) {
+                throw new Exception("Row {$hash}: Quarterly quantities do not sum to planned quantity");
             }
 
-            // Validate program
-            if (empty(trim($row['program']))) {
-                $errors[] = "Row #{$row['hash']}: Program name is required.";
-            }
-
-            // ADDED: Validate depth (max 2 levels)
-            if ($row['level'] > 2) {
-                $errors[] = "Row #{$row['hash']}: Maximum depth is 2 levels (found level {$row['level']}).";
-            }
-        }
-
-        // Validate parent-child relationships
-        foreach ($hashToChildren as $parentHash => $children) {
-            $parentRow = current(array_filter($data, fn($r) => $r['hash'] === $parentHash));
-
-            if (!$parentRow) continue;
-
-            $childrenSumPlanned = array_reduce($children, fn($carry, $child) => $carry + $child['planned_budget'], 0);
-            if (abs($parentRow['planned_budget'] - $childrenSumPlanned) > 0.01) {
-                $errors[] = "Row #{$parentRow['hash']}: Children planned budget sum doesn't match parent.";
-            }
-
-            $childrenSumTotalBudget = array_reduce($children, fn($carry, $child) => $carry + $child['total_budget'], 0);
-            if (abs($parentRow['total_budget'] - $childrenSumTotalBudget) > 0.01) {
-                $errors[] = "Row #{$parentRow['hash']}: Children total budget sum doesn't match parent.";
-            }
-
-            $childrenSumTotalQuantity = array_reduce($children, fn($carry, $child) => $carry + $child['total_quantity'], 0);
-            if (abs($parentRow['total_quantity'] - $childrenSumTotalQuantity) > 0.01) {
-                $errors[] = "Row #{$parentRow['hash']}: Children total quantity sum doesn't match parent.";
-            }
-        }
-
-        if (!empty($errors)) {
-            throw new Exception(implode(' ', $errors));
-        }
-    }
-
-    private function insertHierarchicalData(array $data, int $projectId, int $fiscalYearId): void
-    {
-        $hashToId = [];
-        $expenditureId = $data[0]['expenditure_id'];
-
-        foreach ($data as $row) {
-            $parentDefId = $row['parent_hash'] ? ($hashToId[$row['parent_hash']]['definition_id'] ?? null) : null;
-
-            // FIXED: Pass sort_index (hash) and depth (level) to upsert
-            $definition = $this->upsertDefinition(
-                $projectId,
-                $row['program'],
-                $expenditureId,
-                $parentDefId,
-                $row['total_budget'],
-                $row['total_quantity'],
-                $row['hash'], // sort_index
-                $row['level'] // depth
-            );
-
-            $this->upsertPlan($definition->id, $fiscalYearId, $row);
-
-            $hashToId[$row['hash']] = ['definition_id' => $definition->id];
-        }
-    }
-
-    // FIXED: Added sort_index and depth parameters
-    private function upsertDefinition(
-        int $projectId,
-        string $program,
-        int $expenditureId,
-        ?int $parentDefId,
-        float $totalBudget,
-        float $totalQuantity,
-        string $sortIndex,
-        int $depth
-    ) {
-        // Find existing by project, program, and expenditure type
-        $existing = ProjectActivityDefinition::where('project_id', $projectId)
-            ->where('program', $program)
-            ->where('expenditure_id', $expenditureId)
-            // ->where('status', 'active')
-            ->first();
-
-        if ($existing) {
-            // Check for conflicts on parent_id
-            if ($existing->parent_id !== $parentDefId) {
-                throw new Exception("Conflicting parent for activity '{$program}'.");
-            }
-
-            // Update existing with new values including sort_index and depth
-            $existing->update([
-                'total_budget' => $totalBudget,
-                'total_quantity' => $totalQuantity,
-                'sort_index' => $sortIndex,
-                'depth' => $depth,
-            ]);
-
-            return $existing;
-        }
-
-        // Create new definition with all required fields
-        $definition = ProjectActivityDefinition::create([
-            'project_id' => $projectId,
-            'program' => $program,
-            'expenditure_id' => $expenditureId,
-            'parent_id' => $parentDefId,
-            'total_budget' => $totalBudget,
-            'total_quantity' => $totalQuantity,
-            'sort_index' => $sortIndex,
-            'depth' => $depth,
-            // 'status' => 'active',
-        ]);
-
-        return $definition;
-    }
-
-    private function upsertPlan(int $defId, int $fiscalYearId, array $row): void
-    {
-        ProjectActivityPlan::updateOrCreate(
-            [
-                'activity_definition_id' => $defId,
-                'fiscal_year_id' => $fiscalYearId
-            ],
-            [
-                'total_expense' => $row['total_expense'],
-                'completed_quantity' => $row['completed_quantity'],
-                'planned_budget' => $row['planned_budget'],
+            $planData = [
+                'activity_definition_version_id' => $definitionId,
+                'fiscal_year_id' => $fiscalYearId,
                 'planned_quantity' => $row['planned_quantity'],
-                'q1_amount' => $row['q1'],
+                'planned_budget' => $row['planned_budget'],
                 'q1_quantity' => $row['q1_quantity'],
-                'q2_amount' => $row['q2'],
+                'q1_amount' => $row['q1_amount'],
                 'q2_quantity' => $row['q2_quantity'],
-                'q3_amount' => $row['q3'],
+                'q2_amount' => $row['q2_amount'],
                 'q3_quantity' => $row['q3_quantity'],
-                'q4_amount' => $row['q4'],
+                'q3_amount' => $row['q3_amount'],
                 'q4_quantity' => $row['q4_quantity'],
-            ]
-        );
+                'q4_amount' => $row['q4_amount'],
+                'completed_quantity' => $row['completed_quantity'],
+                'total_expense' => $row['total_expense'],
+                'status' => 'draft',
+            ];
+
+            ProjectActivityPlan::updateOrCreate(
+                [
+                    'activity_definition_version_id' => $definitionId,
+                    'fiscal_year_id' => $fiscalYearId,
+                ],
+                $planData
+            );
+        }
+    }
+
+    private function getCurrentProjectVersion(int $projectId): int
+    {
+        $max = ProjectActivityDefinition::where('project_id', $projectId)->max('version');
+        return $max ?? 0;
+    }
+
+    private function extractMetadata($spreadsheet): array
+    {
+        $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
+
+        $projectName = trim((string) $capitalSheet->getCell('A1')->getValue());
+        $fiscalYearName = trim((string) $capitalSheet->getCell('H1')->getValue());
+
+        if (empty($projectName)) {
+            throw new Exception('Project title missing in cell A1');
+        }
+
+        if (empty($fiscalYearName)) {
+            throw new Exception('Fiscal year missing in cell H1');
+        }
+
+        $project = Project::where('title', $projectName)->firstOrFail();
+        $fiscalYear = FiscalYear::where('title', $fiscalYearName)->firstOrFail();
+
+        return [$project->id, $fiscalYear->id];
+    }
+
+    private function validateUserAccess(int $projectId): void
+    {
+        $project = Project::findOrFail($projectId);
+        if (!$project->users->contains(Auth::id())) {
+            throw new Exception('You do not have access to this project');
+        }
     }
 }

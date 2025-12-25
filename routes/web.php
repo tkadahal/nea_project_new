@@ -152,7 +152,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::post('upload', [ProjectActivityController::class, 'uploadExcel'])->name('upload');
 
             // Show / Edit / Update / Download
-            Route::get('show/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'show'])->name('show');
+            Route::get('show/{projectId}/{fiscalYearId}/{version?}', [ProjectActivityController::class, 'show'])->name('show');
             Route::get('edit/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'edit'])->name('edit');
             Route::put('{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'update'])->name('update');
             Route::get('{projectId}/{fiscalYearId}/download', [ProjectActivityController::class, 'downloadActivities'])
@@ -161,14 +161,17 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::delete('{id}', [ProjectActivityController::class, 'destroy'])->name('destroy');
 
             // === WORKFLOW ACTIONS ===
-            Route::post('{projectId}/send-for-review', [ProjectActivityController::class, 'sendForReview'])
+            Route::post('{projectId}/{fiscalYearId}/send-for-review', [ProjectActivityController::class, 'sendForReview'])
                 ->name('sendForReview');
 
-            Route::post('{projectId}/review', [ProjectActivityController::class, 'review'])
+            Route::post('{projectId}/{fiscalYearId}/review', [ProjectActivityController::class, 'review'])
                 ->name('review');
 
-            Route::post('{projectId}/approve', [ProjectActivityController::class, 'approve'])
+            Route::post('{projectId}/{fiscalYearId}/approve', [ProjectActivityController::class, 'approve'])
                 ->name('approve');
+
+            Route::post('{projectId}/{fiscalYearId}/reject', [ProjectActivityController::class, 'reject'])
+                ->name('reject');
         });
 
         // Contracts

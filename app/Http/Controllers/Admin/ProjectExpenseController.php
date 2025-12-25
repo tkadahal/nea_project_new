@@ -41,23 +41,26 @@ class ProjectExpenseController extends Controller
                 SUM(CASE WHEN pad.expenditure_id = 2 THEN pe.grand_total ELSE 0 END) as recurrent_grand_sum
             ')
             ->join('project_activity_plans as pap', 'pe.project_activity_plan_id', '=', 'pap.id')
-            ->join('project_activity_definitions as pad', 'pap.activity_definition_id', '=', 'pad.id')
+            ->join('project_activity_definitions as pad', function ($join) {
+                $join->on('pap.activity_definition_version_id', '=', 'pad.id')
+                    ->where('pad.is_current', true);
+            })
             ->join('projects as p', 'pad.project_id', '=', 'p.id')
             ->join('fiscal_years as fy', 'pap.fiscal_year_id', '=', 'fy.id')
             ->whereNull('pe.deleted_at')
             ->whereNull('pap.deleted_at')
             ->groupBy('p.id', 'p.title', 'fy.id', 'fy.title')
             ->orderBy('p.title')
-            ->orderBy('fy.title')
+            ->orderByDesc('fy.title')
             ->get()
             ->map(function ($row) {
                 return [
-                    'project_id' => $row->project_id,
-                    'project_title' => $row->project_title,
-                    'fiscal_year_id' => $row->fiscal_year_id,
+                    'project_id'        => $row->project_id,
+                    'project_title'     => $row->project_title,
+                    'fiscal_year_id'    => $row->fiscal_year_id,
                     'fiscal_year_title' => $row->fiscal_year_title,
-                    'total_expense' => $row->grand_total_sum,
-                    'capital_expense' => $row->capital_grand_sum,
+                    'total_expense'     => $row->grand_total_sum,
+                    'capital_expense'   => $row->capital_grand_sum,
                     'recurrent_expense' => $row->recurrent_grand_sum,
                 ];
             });
@@ -73,24 +76,15 @@ class ProjectExpenseController extends Controller
         $projects = $user->projects;
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
-
-        $selectedFiscalYearId = $request->integer('fiscal_year_id');
-
-        if ($selectedFiscalYearId === null) {
-            $default = collect($fiscalYears)->firstWhere('selected', true);
-            $selectedFiscalYearId = $default ? (int)$default['value'] : null;
-        }
-
-        $projectOptions = $projects->map(function (Project $project) use ($selectedProjectId) {
-            return [
-                'value' => $project->id,
-                'label' => $project->title,
-                'selected' => $project->id == $selectedProjectId,
-            ];
-        })->toArray();
-
+        $selectedProjectId = $request->input('project_id') ?? $projects->first()?->id;
         $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
+        $selectedFiscalYearId = $request->input('fiscal_year_id');
+
+        $projectOptions = $projects->map(fn(Project $project) => [
+            'value' => $project->id,
+            'label' => $project->title,
+            'selected' => $project->id === $selectedProjectId,
+        ])->toArray();
 
         $selectedQuarter = $request->input('selected_quarter');
 
@@ -120,7 +114,7 @@ class ProjectExpenseController extends Controller
 
     private function getNextUnfilledQuarter(int $projectId, int $fiscalYearId): string
     {
-        $plans = ProjectActivityPlan::whereHas('activityDefinition', fn($q) => $q->where('project_id', $projectId))
+        $plans = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId)->current())
             ->where('fiscal_year_id', $fiscalYearId)
             ->pluck('id');
 
@@ -146,7 +140,7 @@ class ProjectExpenseController extends Controller
 
     private function getQuarterCompletionStatus(int $projectId, int $fiscalYearId): array
     {
-        $plans = ProjectActivityPlan::whereHas('activityDefinition', fn($q) => $q->where('project_id', $projectId))
+        $plans = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId)->current())
             ->where('fiscal_year_id', $fiscalYearId)
             ->pluck('id');
 
@@ -201,8 +195,8 @@ class ProjectExpenseController extends Controller
             foreach ($allActivityData as $data) {
                 $plan = ProjectActivityPlan::findOrFail($data['activity_id']);
 
-                if ($plan->activityDefinition->project_id != $projectId || $plan->fiscal_year_id != $fiscalYearId) {
-                    throw new \InvalidArgumentException("Invalid activity plan.");
+                if ($plan->definitionVersion->project_id != $projectId || $plan->fiscal_year_id != $fiscalYearId || !$plan->definitionVersion->is_current) {
+                    throw new \InvalidArgumentException("Invalid or outdated activity plan.");
                 }
 
                 $expense = ProjectExpense::firstOrCreate(
@@ -255,15 +249,20 @@ class ProjectExpenseController extends Controller
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
         $definitions = ProjectActivityDefinition::forProject($projectId)
-            ->with(['children.children.children'])
+            ->current()
+            ->with([
+                'children' => fn($q) => $q->current()->orderBy('sort_index'),
+                'children.children' => fn($q) => $q->current()->orderBy('sort_index')
+            ])
+            ->orderBy('sort_index')
             ->get();
 
         $defIds = $definitions->flatMap(fn($d) => collect([$d])->merge($d->getDescendants()))->pluck('id')->unique();
 
-        $plans = ProjectActivityPlan::whereIn('activity_definition_id', $defIds)
+        $plans = ProjectActivityPlan::whereIn('activity_definition_version_id', $defIds)
             ->where('fiscal_year_id', $fiscalYearId)
             ->get()
-            ->keyBy('activity_definition_id');
+            ->keyBy('activity_definition_version_id');
 
         $planIds = $plans->pluck('id')->toArray();
 
@@ -364,9 +363,9 @@ class ProjectExpenseController extends Controller
         }
 
         $totalExpense = collect($planAmounts)->sum('total');
-        $capitalTotal = $plans->filter(fn($p) => $definitions->find($p->activity_definition_id)?->expenditure_id == 1)
+        $capitalTotal = $plans->filter(fn($p) => $p->definitionVersion->expenditure_id == 1)
             ->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
-        $recurrentTotal = $plans->filter(fn($p) => $definitions->find($p->activity_definition_id)?->expenditure_id == 2)
+        $recurrentTotal = $plans->filter(fn($p) => $p->definitionVersion->expenditure_id == 2)
             ->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
 
         return view('admin.projectExpenses.show', compact(
@@ -394,42 +393,60 @@ class ProjectExpenseController extends Controller
 
         try {
             $capitalDefinitions = ProjectActivityDefinition::forProject($project->id)
+                ->current()
                 ->whereNull('parent_id')
                 ->where('expenditure_id', 1)
                 ->orderBy('sort_index')
-                ->with('children.children.children')
+                ->with(['children' => function ($query) {
+                    $query->current()->orderBy('sort_index');
+                }, 'children.children' => function ($query) {
+                    $query->current()->orderBy('sort_index');
+                }])
                 ->get();
 
-            $capitalDefIds = $capitalDefinitions->flatMap(fn($def) => collect([$def])->merge($def->getDescendants()))->pluck('id')->unique();
+            $capitalDefIds = $capitalDefinitions->flatMap(function ($def) {
+                return collect([$def])->merge($def->getDescendants());
+            })->pluck('id')->unique();
 
-            $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_id', $capitalDefIds)
+            $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $capitalDefIds)
                 ->where('fiscal_year_id', $fiscalYear->id)
                 ->get()
-                ->keyBy('activity_definition_id');
+                ->keyBy('activity_definition_version_id');
 
-            $capitalDefToPlanMap = $capitalPlans->pluck('id', 'activity_definition_id')->toArray();
+            $capitalDefToPlanMap = $capitalPlans->pluck('id', 'activity_definition_version_id')->toArray();
 
             $recurrentDefinitions = ProjectActivityDefinition::forProject($project->id)
+                ->current()
                 ->whereNull('parent_id')
                 ->where('expenditure_id', 2)
                 ->orderBy('sort_index')
-                ->with('children.children.children')
+                ->with(['children' => function ($query) {
+                    $query->current()->orderBy('sort_index');
+                }, 'children.children' => function ($query) {
+                    $query->current()->orderBy('sort_index');
+                }])
                 ->get();
 
-            $recurrentDefIds = $recurrentDefinitions->flatMap(fn($def) => collect([$def])->merge($def->getDescendants()))->pluck('id')->unique();
+            $recurrentDefIds = $recurrentDefinitions->flatMap(function ($def) {
+                return collect([$def])->merge($def->getDescendants());
+            })->pluck('id')->unique();
 
-            $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_id', $recurrentDefIds)
+            $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $recurrentDefIds)
                 ->where('fiscal_year_id', $fiscalYear->id)
                 ->get()
-                ->keyBy('activity_definition_id');
+                ->keyBy('activity_definition_version_id');
 
-            $recurrentDefToPlanMap = $recurrentPlans->pluck('id', 'activity_definition_id')->toArray();
+            $recurrentDefToPlanMap = $recurrentPlans->pluck('id', 'activity_definition_version_id')->toArray();
 
             $capitalTree = $this->formatActivityTree($capitalDefinitions, $capitalPlans, $fiscalYearId, $capitalDefToPlanMap);
             $recurrentTree = $this->formatActivityTree($recurrentDefinitions, $recurrentPlans, $fiscalYearId, $recurrentDefToPlanMap);
 
-            $totalCapitalBudget = $capitalDefinitions->sum(fn($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget'));
-            $totalRecurrentBudget = $recurrentDefinitions->sum(fn($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget'));
+            $totalCapitalBudget = $capitalDefinitions->sum(function ($def) use ($fiscalYearId) {
+                return $def->subtreePlans($fiscalYearId)->sum('planned_budget');
+            });
+            $totalRecurrentBudget = $recurrentDefinitions->sum(function ($def) use ($fiscalYearId) {
+                return $def->subtreePlans($fiscalYearId)->sum('planned_budget');
+            });
             $totalBudget = $totalCapitalBudget + $totalRecurrentBudget;
 
             $budgetDetails = sprintf(
@@ -617,7 +634,7 @@ class ProjectExpenseController extends Controller
                 $planId = $row[9] ?? null;
                 if (!$planId) {
                     $plan = ProjectActivityPlan::where('fiscal_year_id', $fiscalYear)
-                        ->whereHas('activityDefinition', fn($q) => $q->where('project_id', $project)->whereRaw('LOWER(program) LIKE ?', ['%' . strtolower($title) . '%']))
+                        ->whereHas('definitionVersion', fn($q) => $q->where('project_id', $project)->whereRaw('LOWER(program) LIKE ?', ['%' . strtolower($title) . '%']))
                         ->first();
                     $planId = $plan?->id;
                 }
@@ -639,7 +656,7 @@ class ProjectExpenseController extends Controller
 
             foreach ($processed as $data) {
                 $plan = ProjectActivityPlan::findOrFail($data['activity_id']);
-                if ($plan->activityDefinition->project_id != $project || $plan->fiscal_year_id != $fiscalYear) {
+                if ($plan->definitionVersion->project_id != $project || $plan->fiscal_year_id != $fiscalYear || !$plan->definitionVersion->is_current) {
                     throw new \Exception('Activity mismatch.');
                 }
 
