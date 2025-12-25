@@ -282,24 +282,26 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
             $headerRows[9][11] .= $this->formatPercent($annual_expense_percent);
 
             // === Activity processing ===
-            $definitions = ProjectActivityDefinition::forProject($this->projectId)->get([
-                'id',
-                'parent_id',
-                'program',
-                'expenditure_id',
-                'total_budget',
-                'total_quantity',
-                'sort_index',
-            ]);
+            $definitions = ProjectActivityDefinition::forProject($this->projectId)
+                ->current()
+                ->get([
+                    'id',
+                    'parent_id',
+                    'program',
+                    'expenditure_id',
+                    'total_budget',
+                    'total_quantity',
+                    'sort_index',
+                ]);
 
             $defIds = $definitions->pluck('id');
 
-            $activities = ProjectActivityPlan::whereIn('activity_definition_id', $defIds)
+            $activities = ProjectActivityPlan::whereIn('activity_definition_version_id', $defIds)
                 ->where('fiscal_year_id', $this->fiscalYearId)
-                ->with('activityDefinition')
+                ->with('definitionVersion')
                 ->get([
                     'id',
-                    'activity_definition_id',
+                    'activity_definition_version_id',
                     'program_override',
                     'planned_quantity',
                     'planned_budget',
@@ -332,17 +334,17 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                     return $act;
                 });
 
-                $activityMap = $activities->keyBy(fn($plan) => $plan->activityDefinition->id);
-                $groupedActivities = $activities->groupBy(fn($plan) => $plan->activityDefinition->parent_id ?? 'null');
+                $activityMap = $activities->keyBy(fn($plan) => $plan->definitionVersion->id);
+                $groupedActivities = $activities->groupBy(fn($plan) => $plan->definitionVersion->parent_id ?? 'null');
 
-                $capital_roots = $activities->filter(fn($plan) => is_null($plan->activityDefinition->parent_id) && $plan->activityDefinition->expenditure_id == 1);
-                $recurrent_roots = $activities->filter(fn($plan) => is_null($plan->activityDefinition->parent_id) && $plan->activityDefinition->expenditure_id == 2);
+                $capital_roots = $activities->filter(fn($plan) => is_null($plan->definitionVersion->parent_id) && $plan->definitionVersion->expenditure_id == 1);
+                $recurrent_roots = $activities->filter(fn($plan) => is_null($plan->definitionVersion->parent_id) && $plan->definitionVersion->expenditure_id == 2);
 
                 $hasChildrenMap = $groupedActivities->keys()->filter(fn($key) => $key !== 'null')->values()->toArray();
 
                 $leafValues = [];
                 foreach ($activities as $act) {
-                    $defId = $act->activityDefinition->id;
+                    $defId = $act->definitionVersion->id;
                     $period_qty_planned = 0.0;
                     $period_amt_planned = 0.0;
                     for ($i = 1; $i <= $this->quarter; $i++) {
@@ -367,8 +369,8 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                         }
                     }
 
-                    $total_qty = (float) ($act->activityDefinition->total_quantity ?? 0);
-                    $total_budget = (float) ($act->activityDefinition->total_budget ?? 0);
+                    $total_qty = (float) ($act->definitionVersion->total_quantity ?? 0);
+                    $total_budget = (float) ($act->definitionVersion->total_budget ?? 0);
                     $annual_qty = (float) ($act->planned_quantity ?? 0);
                     $annual_amt = (float) ($act->planned_budget ?? 0);
                     $quarter_amt_planned = (float) ($act->{"q{$this->quarter}_amount"} ?? 0);
@@ -415,7 +417,7 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
 
                     $children = $groupedActivities[$defId] ?? collect();
                     foreach ($children as $child) {
-                        $childDefId = $child->activityDefinition->id;
+                        $childDefId = $child->definitionVersion->id;
                         $childSums = $computeSubtreeSums($childDefId);
                         foreach ($childSums as $key => $val) {
                             $sums[$key] += $val;
@@ -428,14 +430,14 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
 
                 $allRoots = $capital_roots->concat($recurrent_roots);
                 foreach ($allRoots as $root) {
-                    $computeSubtreeSums($root->activityDefinition->id);
+                    $computeSubtreeSums($root->definitionVersion->id);
                 }
 
-                $this->globalXCapital = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['total_budget']);
-                $this->globalXRecurrent = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['total_budget']);
+                $this->globalXCapital = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->definitionVersion->id]['total_budget']);
+                $this->globalXRecurrent = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->definitionVersion->id]['total_budget']);
                 $this->totalProjectCost = $this->globalXCapital + $this->globalXRecurrent;
-                $this->capitalPeriodTotal = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['period_amt_planned']);
-                $this->recurrentPeriodTotal = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->activityDefinition->id]['period_amt_planned']);
+                $this->capitalPeriodTotal = $capital_roots->isEmpty() ? 0.0 : $capital_roots->sum(fn($root) => $subtreeSums[$root->definitionVersion->id]['period_amt_planned']);
+                $this->recurrentPeriodTotal = $recurrent_roots->isEmpty() ? 0.0 : $recurrent_roots->sum(fn($root) => $subtreeSums[$root->definitionVersion->id]['period_amt_planned']);
 
                 // Cumulative spent for header ९
                 $cumulativeSpent = $total_period_spent;
@@ -455,7 +457,7 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                 // === Build data rows ===
                 $traverse = function ($acts, $level = 0) use (&$dataRows, &$traverse, $groupedActivities, $subtreeSums, $defaultSums) {
                     foreach ($acts as $act) {
-                        $def = $act->activityDefinition;
+                        $def = $act->definitionVersion;
                         $defId = $def->id;
                         $sortIndex = $def->sort_index ?? '';
 
@@ -547,7 +549,7 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                 if ($capital_roots->isNotEmpty()) {
                     $traverse($capital_roots);
                     foreach ($capital_roots as $root) {
-                        $sums = $subtreeSums[$root->activityDefinition->id];
+                        $sums = $subtreeSums[$root->definitionVersion->id];
                         foreach ($sums as $key => $val) {
                             $capitalSectionSums[$key] += $val;
                         }
@@ -564,7 +566,7 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                 if ($recurrent_roots->isNotEmpty()) {
                     $traverse($recurrent_roots);
                     foreach ($recurrent_roots as $root) {
-                        $sums = $subtreeSums[$root->activityDefinition->id];
+                        $sums = $subtreeSums[$root->definitionVersion->id];
                         foreach ($sums as $key => $val) {
                             $recurrentSectionSums[$key] += $val;
                         }

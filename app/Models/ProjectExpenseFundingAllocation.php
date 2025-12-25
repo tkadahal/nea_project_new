@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\DB;
 
 class ProjectExpenseFundingAllocation extends Model
 {
@@ -31,9 +30,6 @@ class ProjectExpenseFundingAllocation extends Model
         'government_loan' => 'decimal:2',
         'foreign_loan_budget' => 'decimal:2',
         'foreign_subsidy_budget' => 'decimal:2',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
     ];
 
     const FUNDING_SOURCES = [
@@ -54,7 +50,6 @@ class ProjectExpenseFundingAllocation extends Model
         return $this->belongsTo(FiscalYear::class);
     }
 
-    // Scope for project/quarter/fy
     public function scopeForProjectQuarterFiscalYear(Builder $query, int $projectId, int $quarter, int $fiscalYearId): void
     {
         $query->where('project_id', $projectId)
@@ -62,7 +57,6 @@ class ProjectExpenseFundingAllocation extends Model
             ->where('quarter', $quarter);
     }
 
-    // Scope for source (now checks column >0)
     public function scopeByFundingSource(Builder $query, string $source): void
     {
         $key = match ($source) {
@@ -71,11 +65,14 @@ class ProjectExpenseFundingAllocation extends Model
             'government_loan' => 'government_loan',
             'foreign_loan' => 'foreign_loan_budget',
             'foreign_subsidy' => 'foreign_subsidy_budget',
+            default => null,
         };
-        if ($key) $query->where($key, '>', 0);
+
+        if ($key) {
+            $query->where($key, '>', 0);
+        }
     }
 
-    // Direct access for source sum (no sum needed)
     public static function sumSpentForProjectQuarterBySource(int $projectId, int $quarter, int $fiscalYearId, string $source): float
     {
         $key = match ($source) {
@@ -98,23 +95,9 @@ class ProjectExpenseFundingAllocation extends Model
         return (float) ($value ?? 0.0);
     }
 
-    // Validate sum to quarter total (optional, no budget check)
-    public static function validateAllocationsForQuarter(int $projectId, int $fiscalYearId, int $quarter, array $allocations): bool
-    {
-        $sumAlloc = array_sum($allocations);
-        $quarterExpense = ProjectExpenseQuarter::whereHas('expense.plan.activityDefinition', function ($q) use ($projectId, $fiscalYearId) {
-            $q->where('project_id', $projectId);
-        })->whereHas('expense.plan', function ($q) use ($fiscalYearId) {
-            $q->where('fiscal_year_id', $fiscalYearId);
-        })->where('quarter', $quarter)->sum('amount');
-
-        return abs($sumAlloc - $quarterExpense) <= 0.01;
-    }
-
-    // Filled quarters: Any source >0
     public static function getFilledQuartersForProjectFiscalYear(int $projectId, int $fiscalYearId): array
     {
-        return (array) self::where('project_id', $projectId)
+        return self::where('project_id', $projectId)
             ->where('fiscal_year_id', $fiscalYearId)
             ->whereNull('deleted_at')
             ->where(function ($query) {
@@ -126,6 +109,8 @@ class ProjectExpenseFundingAllocation extends Model
             })
             ->pluck('quarter')
             ->unique()
+            ->sort()
+            ->values()
             ->toArray();
     }
 }
