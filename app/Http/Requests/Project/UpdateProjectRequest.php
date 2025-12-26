@@ -6,6 +6,7 @@ namespace App\Http\Requests\Project;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class UpdateProjectRequest extends FormRequest
@@ -23,6 +24,14 @@ class UpdateProjectRequest extends FormRequest
             'directorate_id' => ['required', 'exists:directorates,id'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'budget_heading_id' => ['nullable', 'exists:budget_headings,id'],
+            'lmbis_id' => [
+                'nullable',
+                'integer',
+                // Unique lmbis_id per budget_heading_id, ignoring current project
+                Rule::unique('projects', 'lmbis_id')
+                    ->where('budget_heading_id', $this->budget_heading_id)
+                    ->ignore($this->project),
+            ],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'location' => ['nullable', 'string'],
@@ -31,7 +40,8 @@ class UpdateProjectRequest extends FormRequest
             'status_id' => ['required', 'exists:statuses,id'],
             'priority_id' => ['required', 'exists:priorities,id'],
             'project_manager' => ['nullable', 'exists:users,id'],
-            'files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'files' => ['nullable', 'array'],
+            'files.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
         ];
     }
 }

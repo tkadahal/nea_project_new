@@ -767,23 +767,42 @@ class ProjectActivityController extends Controller
         $user = Auth::user();
 
         if (!$user->roles->pluck('id')->contains(Role::PROJECT_USER)) {
-            abort(403, 'Only project users can send plans for review.');
+            abort(403, 'Only project users can submit plans for review.');
         }
 
-        $plans = ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->where('status', 'draft')
+        $currentDefinitionIds = ProjectActivityDefinition::forProject($projectId)
+            ->current()
+            ->pluck('id');
+
+
+        if (!$currentDefinitionIds) {
+            return back()->with('error', 'No draft structure found. Please add activities first.');
+        }
+
+        // Step 2: Get all draft plans linked to this latest draft version
+        $draftPlans = ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->draft()
+            ->active()
             ->get();
 
-        if ($plans->isEmpty()) {
-            return back()->with('error', 'No draft plans found for this fiscal year.');
+        if ($draftPlans->isEmpty()) {
+            return back()->with('error', 'No draft plans found for the current editing version.');
         }
 
-        ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->update(['status' => 'under_review']);
+        // Step 3: Submit only these plans for review
+        try {
+            DB::transaction(function () use ($draftPlans) {
+                foreach ($draftPlans as $plan) {
+                    $plan->update(['status' => 'under_review']);
+                }
+            });
 
-        return back()->with('success', 'Annual program sent for review successfully.');
+            return back()->with('success', 'Annual program submitted for review successfully.');
+        } catch (\Throwable $e) {
+            Log::error('Submit for review failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to submit for review. Please try again.');
+        }
     }
 
     // === 2. Mark Reviewed (Directorate User) ===
@@ -795,17 +814,28 @@ class ProjectActivityController extends Controller
             abort(403, 'Only directorate users can mark as reviewed.');
         }
 
-        $plans = ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->where('status', 'under_review')
+        $currentDefinitionIds = ProjectActivityDefinition::forProject($projectId)
+            ->current()
+            ->pluck('id');
+
+        if ($currentDefinitionIds->isEmpty()) {
+            return back()->with('error', 'No current structure found.');
+        }
+
+        $plansUnderReview = ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->underReview()
+            ->active()
             ->get();
 
-        if ($plans->isEmpty()) {
+        if ($plansUnderReview->isEmpty()) {
             return back()->with('error', 'No plans under review for this fiscal year.');
         }
 
-        ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
+        // Update all matching plans
+        ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->underReview()
             ->update([
                 'reviewed_by' => $user->id,
                 'reviewed_at' => now(),
@@ -824,21 +854,33 @@ class ProjectActivityController extends Controller
             abort(403, 'Only administrators can approve.');
         }
 
-        $plans = ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->where('status', 'under_review')
+        $currentDefinitionIds = ProjectActivityDefinition::forProject($projectId)
+            ->current()
+            ->pluck('id');
+
+        if ($currentDefinitionIds->isEmpty()) {
+            return back()->with('error', 'No current structure found.');
+        }
+
+        $plansUnderReview = ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->underReview()
+            ->active()
             ->get();
 
-        if ($plans->isEmpty()) {
+        if ($plansUnderReview->isEmpty()) {
             return back()->with('error', 'No plans under review.');
         }
 
-        if ($plans->pluck('reviewed_at')->contains(null)) {
-            return back()->with('error', 'Cannot approve until reviewed by directorate.');
+        // Check if all have been reviewed
+        if ($plansUnderReview->pluck('reviewed_at')->contains(null)) {
+            return back()->with('error', 'Cannot approve until all plans are reviewed by directorate.');
         }
 
-        ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
+        // Approve all plans linked to current structure
+        ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->underReview()
             ->update([
                 'status' => 'approved',
                 'approved_by' => $user->id,
@@ -856,28 +898,37 @@ class ProjectActivityController extends Controller
 
         $user = Auth::user();
 
-        $allowedRoles = [\App\Models\Role::DIRECTORATE_USER, \App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN];
+        $allowedRoles = [Role::DIRECTORATE_USER, Role::ADMIN, Role::SUPERADMIN];
         if (!$user->roles->pluck('id')->intersect($allowedRoles)->count()) {
             abort(403, 'You are not authorized to reject this program.');
         }
 
-        $plans = ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->where('status', 'under_review')
-            ->get();
+        $currentDefinitionIds = ProjectActivityDefinition::forProject($projectId)
+            ->current()
+            ->pluck('id');
 
-        if ($plans->isEmpty()) {
-            return back()->with('error', 'No under-review plans found for this fiscal year.');
+        if ($currentDefinitionIds->isEmpty()) {
+            return back()->with('error', 'No current structure found.');
         }
 
-        ProjectActivityPlan::forProject($projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
+        $plansUnderReview = ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->underReview()
+            ->active()
+            ->get();
+
+        if ($plansUnderReview->isEmpty()) {
+            return back()->with('error', 'No plans under review found.');
+        }
+
+        ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->underReview()
             ->update([
                 'status' => 'draft',
                 'rejection_reason' => $request->rejection_reason,
                 'rejected_by' => $user->id,
                 'rejected_at' => now(),
-                // Reset forward trail
                 'reviewed_by' => null,
                 'reviewed_at' => null,
                 'approved_by' => null,
@@ -885,5 +936,28 @@ class ProjectActivityController extends Controller
             ]);
 
         return back()->with('success', 'Annual program rejected and returned to draft with reason.');
+    }
+
+    public function showLog(int $projectId, int $fiscalYearId): View
+    {
+        $project = Project::findOrFail($projectId);
+        $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
+
+        $logs = \Spatie\Activitylog\Models\Activity::query()
+            ->where('log_name', 'projectActivityPlan')
+            ->where('subject_type', \App\Models\ProjectActivityPlan::class) // Explicit full class
+            ->where('subject_id', '>', 0) // Ensures subject exists
+            ->whereHas('subject', function ($query) use ($projectId, $fiscalYearId) {
+                // Force Laravel to know we're querying ProjectActivityPlan
+                $query->where('fiscal_year_id', $fiscalYearId)
+                    ->whereHas('definitionVersion', function ($defQuery) use ($projectId) {
+                        $defQuery->where('project_id', $projectId);
+                    });
+            })
+            ->with('causer') // This loads the User who made the change
+            ->orderByDesc('created_at')
+            ->paginate(50);
+
+        return view('admin.projectActivities.log', compact('project', 'fiscalYear', 'logs'));
     }
 }

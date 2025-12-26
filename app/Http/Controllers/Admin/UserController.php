@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\User\StoreUserRequest;
-use App\Http\Requests\User\UpdateUserRequest;
-use App\Models\Directorate;
-use App\Models\Project;
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use App\Models\Project;
+use Illuminate\View\View;
+use App\Models\Directorate;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
+use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UpdateUserRequest;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
@@ -167,7 +168,7 @@ class UserController extends Controller
             if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
                 $projects = Project::where('directorate_id', $authUser->directorate_id)->pluck('title', 'id');
             } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
-                $projects = $authUser->projects()->pluck('title', 'id');
+                $projects = Auth::user()->projects()->pluck('title', 'id');
             }
         } else {
             $projects = Project::pluck('title', 'id');
@@ -246,5 +247,91 @@ class UserController extends Controller
                 'message' => 'Failed to fetch projects: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Load users belonging to a specific directorate
+     */
+    public function loadUsers($directorateId = null)
+    {
+        $query = User::query();
+
+        if ($directorateId && $directorateId != 0) {
+            $query->where('directorate_id', $directorateId);
+        }
+
+        $users = $query->select('id', 'name', 'employee_id', 'email')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($users);
+    }
+
+    /**
+     * Load projects belonging to a specific directorate
+     */
+    public function loadProjects($directorateId)
+    {
+        $projects = Project::where('directorate_id', $directorateId)
+            ->with('status') // if you have status relation
+            ->select('id', 'title', 'status_id')
+            ->orderBy('title')
+            ->get()
+            ->map(function ($project) {
+                return [
+                    'id' => $project->id,
+                    'title' => $project->title,
+                    'status' => $project->status?->title ?? null,
+                ];
+            });
+
+        return response()->json($projects);
+    }
+
+    /**
+     * Show the assignment page
+     */
+    public function assignUserToProject(): View | RedirectResponse
+    {
+        $currentUser = Auth::user();
+        $roleIds = $currentUser->roles->pluck('id')->toArray();
+
+        // Only SUPERADMIN can access this page
+        if (!in_array(Role::SUPERADMIN, $roleIds)) {
+            abort(403, 'Only superadmin can assign users across directorates.');
+        }
+
+        $directorates = Directorate::orderBy('title')->get(['id', 'title']);
+
+        return view('admin.users.assignment', compact('directorates'));
+    }
+
+    /**
+     * Handle the assignment form submission
+     */
+    public function storeAssignment(Request $request): RedirectResponse
+    {
+        $currentUser = Auth::user();
+        $roleIds = $currentUser->roles->pluck('id')->toArray();
+
+        if (!in_array(Role::SUPERADMIN, $roleIds)) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $validated = $request->validate([
+            'user_id'    => 'required|numeric|exists:users,id',
+            'project_id' => 'required|numeric|exists:projects,id',
+        ]);
+
+        $user = User::findOrFail($validated['user_id']);
+        $project = Project::findOrFail($validated['project_id']);
+
+        if ($user->projects()->where('project_id', $project->id)->exists()) {
+            return back()->with('warning', 'User is already assigned to this project.');
+        }
+
+        $user->projects()->attach($project->id);
+
+        return back()->with('message', "User '{$user->name}' assigned to '{$project->title}' successfully.");
     }
 }

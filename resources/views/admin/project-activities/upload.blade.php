@@ -60,42 +60,41 @@
         </form>
     </div>
 
-    <!-- Confirmation Modal -->
-    <dialog id="confirmModal"
-        class="backdrop:bg-black/50 max-w-lg w-full mx-auto rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-0
-               [margin-block:start_auto!important] [margin-block:end_auto!important]">
-        <div class="p-8 bg-white dark:bg-gray-800">
-            <div class="text-center">
+    <!-- Reusable Confirmation Modal (same as in index) -->
+    <div id="confirm-structural-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
+            <div class="text-center mb-6">
                 <div
-                    class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900 mb-4">
+                    class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900">
                     <svg class="h-6 w-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Confirm Structural Change</h3>
+                <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">
+                    Confirm Structural Change
+                </h3>
             </div>
 
-            <div class="mt-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+            <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed text-center mb-8">
                 The uploaded program structure differs from the current version. Proceeding will create a new version
-                and
-                reset the plan to draft.<br><br>
+                and reset the plan to draft.<br><br>
                 <strong>This action cannot be undone.</strong>
             </div>
 
-            <div class="mt-8 flex justify-end space-x-3">
-                <button type="button" id="cancelBtn"
-                    class="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition font-medium">
+            <div class="flex justify-end gap-3">
+                <button type="button" id="cancelConfirmBtn"
+                    class="px-5 py-2 text-gray-700 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300">
                     No, Cancel
                 </button>
-                <button type="button" id="confirmBtn"
-                    class="px-5 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition font-medium">
+                <button type="button" id="proceedConfirmBtn"
+                    class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
                     Yes, Create New Version
                 </button>
             </div>
         </div>
-    </dialog>
+    </div>
 
     <!-- General Errors -->
     @if ($errors->any() || session('error'))
@@ -115,33 +114,24 @@
 
     <script>
         const form = document.getElementById('uploadForm');
-        const modal = document.getElementById('confirmModal');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const confirmBtn = document.getElementById('confirmBtn');
+        const modal = document.getElementById('confirm-structural-modal');
+        const cancelBtn = document.getElementById('cancelConfirmBtn');
+        const confirmBtn = document.getElementById('proceedConfirmBtn');
         const forceInput = document.getElementById('forceInput');
 
         function openModal() {
-            modal.showModal();
+            modal.classList.remove('hidden');
         }
 
         function closeModal() {
-            modal.close();
+            modal.classList.add('hidden');
         }
 
         form.addEventListener('submit', function(e) {
-            const fileInput = document.getElementById('excel_file');
-
-            // Basic validation
-            if (!fileInput.files || fileInput.files.length === 0) {
-                return; // Let Laravel validation handle it
-            }
-
-            // If user already confirmed (force=1), allow submit
             if (forceInput.value === '1') {
-                return;
+                return; // Already confirmed
             }
 
-            // If backend says confirmation is required → show modal
             @if (session('requires_confirmation'))
                 e.preventDefault();
                 openModal();
@@ -151,62 +141,16 @@
         cancelBtn.onclick = closeModal;
 
         confirmBtn.onclick = () => {
-            forceInput.value = '1'; // Now submit with force=1
+            forceInput.value = '1';
             closeModal();
             form.submit();
         };
 
-        // Close on backdrop click
-        modal.addEventListener('click', (e) => {
+        // Close when clicking outside
+        modal.addEventListener('click', function(e) {
             if (e.target === modal) {
                 closeModal();
             }
         });
     </script>
-
-    <style>
-        /* Force perfect vertical centering for <dialog> */
-        dialog {
-            margin: auto;
-            /* This often works */
-            /* Fallback for stubborn browsers (Chrome) */
-            margin-block: auto !important;
-            max-height: calc(100vh - 2rem);
-            /* Prevent overflow on small screens */
-        }
-
-        /* Smooth open/close animation */
-        @keyframes modalOpen {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        dialog[open] {
-            display: flex;
-            animation: modalOpen 300ms ease-out;
-        }
-
-        /* Optional: fade in backdrop */
-        dialog::backdrop {
-            background: rgba(0, 0, 0, 0.5);
-            animation: fadeIn 300ms ease-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                background: transparent;
-            }
-
-            to {
-                background: rgba(0, 0, 0, 0.5);
-            }
-        }
-    </style>
 </x-layouts.app>

@@ -21,8 +21,8 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             $table->string('contractor')->nullable();
-            $table->decimal('contract_amount', 15, 2)->nullable();
-            $table->decimal('contract_variation_amount', 15, 2)->nullable();
+            $table->decimal('contract_amount', 18, 2)->nullable();
+            $table->decimal('contract_variation_amount', 18, 2)->nullable();
             $table->string('contract_agreement_date')->nullable();
             $table->string('agreement_effective_date')->nullable();
             $table->string('agreement_completion_date')->nullable();

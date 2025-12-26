@@ -30,23 +30,29 @@ class ProjectExpenseController extends Controller
     {
         abort_if(Gate::denies('expense_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $aggregated = DB::table('project_expenses as pe')
+        $aggregated = DB::table('projects as p')
             ->selectRaw('
-                p.id as project_id,
-                p.title as project_title,
-                fy.id as fiscal_year_id,
-                fy.title as fiscal_year_title,
-                COALESCE(SUM(pe.grand_total), 0) as grand_total_sum,
-                SUM(CASE WHEN pad.expenditure_id = 1 THEN pe.grand_total ELSE 0 END) as capital_grand_sum,
-                SUM(CASE WHEN pad.expenditure_id = 2 THEN pe.grand_total ELSE 0 END) as recurrent_grand_sum
-            ')
-            ->join('project_activity_plans as pap', 'pe.project_activity_plan_id', '=', 'pap.id')
+        p.id as project_id,
+        p.title as project_title,
+        fy.id as fiscal_year_id,
+        fy.title as fiscal_year_title,
+        COALESCE(SUM(q.amount), 0) as total_expense,
+        COALESCE(SUM(CASE WHEN pad.expenditure_id = 1 THEN q.amount ELSE 0 END), 0) as capital_expense,
+        COALESCE(SUM(CASE WHEN pad.expenditure_id = 2 THEN q.amount ELSE 0 END), 0) as recurrent_expense
+    ')
             ->join('project_activity_definitions as pad', function ($join) {
-                $join->on('pap.activity_definition_version_id', '=', 'pad.id')
+                $join->on('pad.project_id', '=', 'p.id')
                     ->where('pad.is_current', true);
             })
-            ->join('projects as p', 'pad.project_id', '=', 'p.id')
+            ->join('project_activity_plans as pap', function ($join) {
+                $join->on('pap.activity_definition_version_id', '=', 'pad.id');
+            })
             ->join('fiscal_years as fy', 'pap.fiscal_year_id', '=', 'fy.id')
+            ->leftJoin('project_expenses as pe', 'pe.project_activity_plan_id', '=', 'pap.id')
+            ->leftJoin('project_expense_quarters as q', function ($join) {
+                $join->on('q.project_expense_id', '=', 'pe.id')
+                    ->where('q.status', 'finalized'); // Only count finalized quarters
+            })
             ->whereNull('pe.deleted_at')
             ->whereNull('pap.deleted_at')
             ->groupBy('p.id', 'p.title', 'fy.id', 'fy.title')
@@ -59,9 +65,9 @@ class ProjectExpenseController extends Controller
                     'project_title'     => $row->project_title,
                     'fiscal_year_id'    => $row->fiscal_year_id,
                     'fiscal_year_title' => $row->fiscal_year_title,
-                    'total_expense'     => $row->grand_total_sum,
-                    'capital_expense'   => $row->capital_grand_sum,
-                    'recurrent_expense' => $row->recurrent_grand_sum,
+                    'total_expense'     => (float) $row->total_expense,
+                    'capital_expense'   => (float) $row->capital_expense,
+                    'recurrent_expense' => (float) $row->recurrent_expense,
                 ];
             });
 

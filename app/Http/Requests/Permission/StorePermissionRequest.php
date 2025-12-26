@@ -6,6 +6,7 @@ namespace App\Http\Requests\Permission;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class StorePermissionRequest extends FormRequest
@@ -23,7 +24,8 @@ class StorePermissionRequest extends FormRequest
             'title' => [
                 'required',
                 'string',
-                'max: 250',
+                'max:250',
+                'unique:permissions,title',
             ],
         ];
     }

@@ -57,6 +57,10 @@
                     <tr>
                         <th
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                             Fiscal Year
                         </th>
                         <th
@@ -88,6 +92,48 @@
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     @forelse ($activities as $activity)
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <a href="{{ route('admin.projectActivity.log', [$activity->project_id, $activity->fiscal_year_id]) }}"
+                                    class="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition hover:opacity-90 hover:shadow-md
+              border border-transparent hover:border-current">
+
+                                    @php
+                                        $statusConfig = [
+                                            'draft' => [
+                                                'bg' => 'bg-gray-100 dark:bg-gray-700',
+                                                'text' => 'text-gray-800 dark:text-gray-200',
+                                                'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+                                                'label' => 'Draft',
+                                            ],
+                                            'under_review' => [
+                                                'bg' => 'bg-yellow-100 dark:bg-yellow-900/30',
+                                                'text' => 'text-yellow-800 dark:text-yellow-300',
+                                                'icon' => 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                                                'label' => $activity->reviewed_at ? 'Reviewed' : 'Under Review',
+                                            ],
+                                            'approved' => [
+                                                'bg' => 'bg-green-100 dark:bg-green-900/30',
+                                                'text' => 'text-green-800 dark:text-green-300',
+                                                'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+                                                'label' => 'Approved',
+                                            ],
+                                        ];
+
+                                        $cfg = $statusConfig[$activity->status] ?? $statusConfig['draft'];
+                                    @endphp
+
+                                    <span
+                                        class="{{ $cfg['bg'] }} {{ $cfg['text'] }} inline-flex items-center px-3 py-1.5 rounded-full">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="{{ $cfg['icon'] }}" />
+                                        </svg>
+                                        {{ $cfg['label'] }}
+                                    </span>
+                                </a>
+                            </td>
+
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                 {{ $activity->fiscalYear->title ?? 'N/A' }}
                             </td>
@@ -188,7 +234,10 @@
                                     <!-- Reject Button -->
                                     @if (
                                         $activity->status === 'under_review' &&
-                                            (auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER) ||
+                                            // Case 1: Not yet reviewed → only Directorate User can reject
+                                            ((is_null($activity->reviewed_at) &&
+                                                auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER)) ||
+                                                // Case 2: Already reviewed → only Admin/Superadmin can reject
                                                 ($activity->reviewed_at &&
                                                     auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())))
                                         <button type="button"
@@ -198,74 +247,51 @@
                                         </button>
                                     @endif
 
-                                    <!-- Status Badge -->
-                                    @php
-                                        $badgeColors = [
-                                            'draft' => 'gray',
-                                            'under_review' => 'yellow',
-                                            'approved' => 'green',
-                                        ];
-                                        $color = $badgeColors[$activity->status] ?? 'gray';
-                                        $text = ucfirst(str_replace('_', ' ', $activity->status));
-                                        if ($activity->status === 'under_review') {
-                                            $color = $activity->reviewed_at ? 'purple' : 'yellow';
-                                            $text = $activity->reviewed_at ? 'Reviewed' : 'Under Review';
-                                        }
-                                    @endphp
-                                    <span
-                                        class="inline-block px-3 py-1.5 rounded-full text-xs font-medium
-                                                 bg-{{ $color }}-100 text-{{ $color }}-800
-                                                 dark:bg-{{ $color }}-900/50 dark:text-{{ $color }}-300
-                                                 border border-{{ $color }}-300 dark:border-{{ $color }}-700">
-                                        {{ $text }}
-                                    </span>
+                                    <!-- Rejection Modal -->
+                                    @if (
+                                        $activity->status === 'under_review' &&
+                                            ((is_null($activity->reviewed_at) &&
+                                                auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER)) ||
+                                                ($activity->reviewed_at &&
+                                                    auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())))
+                                        <div id="reject-modal-{{ $activity->project_id }}-{{ $activity->fiscal_year_id }}"
+                                            class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+                                            <div
+                                                class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
+                                                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                                                    Reject Annual Program
+                                                </h3>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                                                    This will return the program to <strong>Draft</strong> status.
+                                                </p>
 
-                                </div>
+                                                <form method="POST"
+                                                    action="{{ route('admin.projectActivity.reject', [$activity->project_id, $activity->fiscal_year_id]) }}">
+                                                    @csrf
+                                                    <div class="mb-6">
+                                                        <label
+                                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                            Reason for Rejection <span class="text-red-500">*</span>
+                                                        </label>
+                                                        <textarea name="rejection_reason" rows="4" required placeholder="Provide a clear reason..."
+                                                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"></textarea>
+                                                    </div>
 
-                                <!-- Rejection Modal -->
-                                @if (
-                                    $activity->status === 'under_review' &&
-                                        (auth()->user()->roles->pluck('id')->contains(\App\Models\Role::DIRECTORATE_USER) ||
-                                            ($activity->reviewed_at &&
-                                                auth()->user()->roles->pluck('id')->intersect([\App\Models\Role::ADMIN, \App\Models\Role::SUPERADMIN])->isNotEmpty())))
-                                    <div id="reject-modal-{{ $activity->project_id }}-{{ $activity->fiscal_year_id }}"
-                                        class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
-                                        <div
-                                            class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
-                                            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                                                Reject Annual Program
-                                            </h3>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                                                This will return the program to <strong>Draft</strong> status.
-                                            </p>
-
-                                            <form method="POST"
-                                                action="{{ route('admin.projectActivity.reject', [$activity->project_id, $activity->fiscal_year_id]) }}">
-                                                @csrf
-                                                <div class="mb-6">
-                                                    <label
-                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                        Reason for Rejection <span class="text-red-500">*</span>
-                                                    </label>
-                                                    <textarea name="rejection_reason" rows="4" required placeholder="Provide a clear reason..."
-                                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"></textarea>
-                                                </div>
-
-                                                <div class="flex justify-end gap-3">
-                                                    <button type="button"
-                                                        onclick="closeRejectModal({{ $activity->project_id }}, {{ $activity->fiscal_year_id }})"
-                                                        class="px-5 py-2 text-gray-700 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300">
-                                                        Cancel
-                                                    </button>
-                                                    <button type="submit"
-                                                        class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                                                        Confirm Reject
-                                                    </button>
-                                                </div>
-                                            </form>
+                                                    <div class="flex justify-end gap-3">
+                                                        <button type="button"
+                                                            onclick="closeRejectModal({{ $activity->project_id }}, {{ $activity->fiscal_year_id }})"
+                                                            class="px-5 py-2 text-gray-700 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300">
+                                                            Cancel
+                                                        </button>
+                                                        <button type="submit"
+                                                            class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                                                            Confirm Reject
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
                                         </div>
-                                    </div>
-                                @endif
+                                    @endif
                             </td>
                         </tr>
                     @empty

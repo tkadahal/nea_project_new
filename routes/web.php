@@ -103,7 +103,22 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         // Users
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {
             Route::get('projects/{directorate_id}', 'getProjects')->name('projects');
+
+            // Load users by directorate (for left panel)
+            Route::get('load-users/{directorate_id}', 'loadUsers')->name('loadUsers');
+
+            // Load projects by directorate (for right panel)
+            Route::get('load-projects/{directorate_id}', 'loadProjects')->name('loadProjects');
+
+            // Show assignment page
+            Route::get('assign-user-to-project', 'assignUserToProject')
+                ->name('assignUserToProject');
+
+            // Handle the actual assignment (POST)
+            Route::post('assign-user-to-project', 'storeAssignment')
+                ->name('assignUserToProject.store');
         });
+
         Route::resource('user', UserController::class);
 
         // Master Data
@@ -161,6 +176,9 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::delete('{id}', [ProjectActivityController::class, 'destroy'])->name('destroy');
 
             // === WORKFLOW ACTIONS ===
+            Route::get('/project-activities/{projectId}/{fiscalYearId}/log', [ProjectActivityController::class, 'showLog'])
+                ->name('log');
+
             Route::post('{projectId}/{fiscalYearId}/send-for-review', [ProjectActivityController::class, 'sendForReview'])
                 ->name('sendForReview');
 

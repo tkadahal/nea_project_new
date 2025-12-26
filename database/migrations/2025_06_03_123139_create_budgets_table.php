@@ -15,12 +15,12 @@ return new class extends Migration
             $table->foreignId('project_id')->index()->constrained();
             $table->foreignId('fiscal_year_id')->index()->constrained();
 
-            $table->decimal('total_budget', 15, 2)->nullable();
-            $table->decimal('internal_budget', 15, 2)->nullable();
-            $table->decimal('government_share', 15, 2)->nullable();
-            $table->decimal('government_loan', 15, 2)->nullable();
-            $table->decimal('foreign_loan_budget', 15, 2)->nullable();
-            $table->decimal('foreign_subsidy_budget', 15, 2)->nullable();
+            $table->decimal('total_budget', 18, 2)->nullable();
+            $table->decimal('internal_budget', 18, 2)->nullable();
+            $table->decimal('government_share', 18, 2)->nullable();
+            $table->decimal('government_loan', 18, 2)->nullable();
+            $table->decimal('foreign_loan_budget', 18, 2)->nullable();
+            $table->decimal('foreign_subsidy_budget', 18, 2)->nullable();
 
             $table->text('foreign_loan_source')->nullable();
             $table->text('foreign_subsidy_source')->nullable();
