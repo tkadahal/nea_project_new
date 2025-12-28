@@ -395,9 +395,6 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                     $sheet->getProtection()->setInsertColumns(false);
                     $sheet->getProtection()->setDeleteColumns(false);
                 }
-                // Else: fully editable (no protection) when:
-                // - No real data OR
-                // - Plan exists but status is 'draft'
             },
         ];
     }

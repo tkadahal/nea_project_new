@@ -29,7 +29,7 @@
                         required />
                 </div>
 
-                <div class="w-full md:w-1/3 relative z-50">
+                <div class="w-full md:w-1/3 relative z-40">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Quarter <span class="text-red-500">*</span>
                     </label>
@@ -37,38 +37,64 @@
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
                         required>
                         <option value="">{{ trans('global.pleaseSelect') }}</option>
-                        <option value="q1" {{ ($selectedQuarter ?? '') === 'q1' ? 'selected' : '' }}>Q1</option>
-                        <option value="q2" {{ ($selectedQuarter ?? '') === 'q2' ? 'selected' : '' }}>Q2</option>
-                        <option value="q3" {{ ($selectedQuarter ?? '') === 'q3' ? 'selected' : '' }}>Q3</option>
-                        <option value="q4" {{ ($selectedQuarter ?? '') === 'q4' ? 'selected' : '' }}>Q4</option>
+                        <option value="q1" {{ ($selectedQuarter ?? '') === 'q1' ? 'selected' : '' }}>Q1 (First
+                            Quarter)</option>
+                        <option value="q2" {{ ($selectedQuarter ?? '') === 'q2' ? 'selected' : '' }}>Q2 (Second
+                            Quarter)</option>
+                        <option value="q3" {{ ($selectedQuarter ?? '') === 'q3' ? 'selected' : '' }}>Q3 (Third
+                            Quarter)</option>
+                        <option value="q4" {{ ($selectedQuarter ?? '') === 'q4' ? 'selected' : '' }}>Q4 (Fourth
+                            Quarter)</option>
                     </select>
                     @error('selected_quarter')
                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
-                    @if (isset($quarterStatus))
-                        <div class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex gap-2">
-                            <span class="inline-flex items-center gap-1">
-                                <span
-                                    class="w-2 h-2 rounded-full {{ $quarterStatus['q1'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
-                                Q1
-                            </span>
-                            <span class="inline-flex items-center gap-1">
-                                <span
-                                    class="w-2 h-2 rounded-full {{ $quarterStatus['q2'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
-                                Q2
-                            </span>
-                            <span class="inline-flex items-center gap-1">
-                                <span
-                                    class="w-2 h-2 rounded-full {{ $quarterStatus['q3'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
-                                Q3
-                            </span>
-                            <span class="inline-flex items-center gap-1">
-                                <span
-                                    class="w-2 h-2 rounded-full {{ $quarterStatus['q4'] ? 'bg-green-500' : 'bg-gray-300' }}"></span>
-                                Q4
-                            </span>
+
+                    <!-- Enhanced Quarter Status Display -->
+                    <div id="quarter-status-display"
+                        class="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Quarter Status:</p>
+                        <div class="flex gap-3">
+                            <div class="flex items-center gap-1.5 quarter-status-item" data-quarter="q1">
+                                <div
+                                    class="status-indicator w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 transition-colors">
+                                </div>
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Q1</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 quarter-status-item" data-quarter="q2">
+                                <div
+                                    class="status-indicator w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 transition-colors">
+                                </div>
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Q2</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 quarter-status-item" data-quarter="q3">
+                                <div
+                                    class="status-indicator w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 transition-colors">
+                                </div>
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Q3</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 quarter-status-item" data-quarter="q4">
+                                <div
+                                    class="status-indicator w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 transition-colors">
+                                </div>
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Q4</span>
+                            </div>
                         </div>
-                    @endif
+                        <div class="mt-2 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center gap-1">
+                                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span>Completed</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span>Selected</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <div class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+                                <span>Pending</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -331,6 +357,34 @@
                 padding: 1px 2px;
             }
 
+            /* Quarter Status Animations */
+            .status-indicator {
+                transition: all 0.3s ease;
+            }
+
+            .quarter-status-item.completed .status-indicator {
+                background-color: #10b981 !important;
+                box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+            }
+
+            .quarter-status-item.selected .status-indicator {
+                background-color: #3b82f6 !important;
+                box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+
+                0%,
+                100% {
+                    opacity: 1;
+                }
+
+                50% {
+                    opacity: 0.7;
+                }
+            }
+
             @media (max-width: 768px) {
                 table {
                     font-size: 0.875rem;
@@ -348,21 +402,27 @@
             }
 
             waitForJQuery(function($) {
+                // ==================== GLOBAL VARIABLES ====================
                 const tippyInstances = new WeakMap();
                 let parentMap = {};
                 let parentToChildren = {};
                 let activityElements = {};
-                let selectedQuarter = '';
+                let selectedQuarter = '{{ $selectedQuarter ?? '' }}';
                 let lastProjectValue = '';
                 let lastFiscalValue = '';
+                let quarterStatusData = {!! json_encode($quarterStatus ?? ['q1' => false, 'q2' => false, 'q3' => false, 'q4' => false]) !!};
 
+                // Get hidden input elements for project and fiscal year
                 const projectHidden = document.querySelector(
                     '.js-single-select[data-name="project_id"] .js-hidden-input');
                 const fiscalHidden = document.querySelector(
                     '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
 
+                // Initialize last values
                 if (projectHidden) lastProjectValue = projectHidden.value || '';
                 if (fiscalHidden) lastFiscalValue = fiscalHidden.value || '';
+
+                // ==================== UTILITY FUNCTIONS ====================
 
                 function parseNumeric(val) {
                     return parseFloat((val || '0').replace(/,/g, '')) || 0;
@@ -402,19 +462,84 @@
                     }
                 }
 
-                // ==================== INPUT FORMATTING: BOTH QTY & AMT ACCEPT DECIMALS ====================
+                function showError(msg) {
+                    $('#error-text').text(msg);
+                    $('#error-message').removeClass('hidden');
+                }
 
-                // Unified handler for both qty and amt fields (both allow decimals now)
+                // ==================== QUARTER STATUS UI ====================
+
+                function updateQuarterStatusUI(statusData) {
+                    quarterStatusData = statusData || quarterStatusData;
+
+                    // Update each quarter status
+                    $('.quarter-status-item').each(function() {
+                        const quarter = $(this).data('quarter');
+                        const $indicator = $(this).find('.status-indicator');
+
+                        // Remove all status classes
+                        $(this).removeClass('completed selected');
+
+                        // Add appropriate status class
+                        if (quarterStatusData[quarter]) {
+                            $(this).addClass('completed');
+                        }
+
+                        if (selectedQuarter === quarter) {
+                            $(this).addClass('selected');
+                        }
+                    });
+                }
+
+                // ==================== AUTO QUARTER SELECTION ====================
+
+                function fetchNextUnfilledQuarter(projectId, fiscalYearId) {
+                    if (!projectId || !fiscalYearId) return;
+
+                    $.ajax({
+                        url: `/admin/projectExpense/next-quarter/${projectId}/${fiscalYearId}`,
+                        method: 'GET',
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.success && response.quarter) {
+                                selectedQuarter = response.quarter;
+                                $('#quarter_selector').val(response.quarter);
+                                $('#capital-quarter-label, #recurrent-quarter-label').text(
+                                    `Quarter ${response.quarter.replace('q', '').toUpperCase()}`
+                                );
+
+                                // Update quarter status UI
+                                if (response.quarterStatus) {
+                                    updateQuarterStatusUI(response.quarterStatus);
+                                }
+
+                                checkSelections();
+                                loadProjectActivities(projectId, fiscalYearId, response.quarter);
+                            }
+                        },
+                        error: function() {
+                            console.error('Failed to fetch next unfilled quarter');
+                            // Fallback to Q1
+                            selectedQuarter = 'q1';
+                            $('#quarter_selector').val('q1');
+                            $('#capital-quarter-label, #recurrent-quarter-label').text('Quarter 1');
+                            updateQuarterStatusUI();
+                            checkSelections();
+                            loadProjectActivities(projectId, fiscalYearId, 'q1');
+                        }
+                    });
+                }
+
+                // ==================== INPUT FORMATTING ====================
+
                 $(document).on('input', '.expense-input:not([disabled])', function() {
-                    let value = this.value.replace(/[^0-9.]/g, ''); // Allow only digits and dot
+                    let value = this.value.replace(/[^0-9.]/g, '');
 
-                    // Prevent multiple decimal points
                     const parts = value.split('.');
                     if (parts.length > 2) {
                         value = parts[0] + '.' + parts.slice(1).join('');
                     }
 
-                    // Limit to 2 decimal places
                     if (value.includes('.')) {
                         const [integer, decimal] = value.split('.');
                         if (decimal && decimal.length > 2) {
@@ -422,13 +547,10 @@
                         }
                     }
 
-                    // Add thousand separators
                     const formatted = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
                     this.value = formatted;
                 });
 
-                // Paste handling (clean invalid chars)
                 $(document).on('paste', '.expense-input:not([disabled])', function(e) {
                     e.preventDefault();
                     const text = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
@@ -436,7 +558,7 @@
                     $(this).trigger('input');
                 });
 
-                // ==================== VALIDATION & TOTALS ====================
+                // ==================== VALIDATION ====================
 
                 function validateParent(pId, type) {
                     const children = parentToChildren[pId];
@@ -484,6 +606,8 @@
                     }
                 }
 
+                // ==================== TOTALS CALCULATION ====================
+
                 function updateTotals(section) {
                     let totalAmt = 0;
                     $(`#${section}-tbody tr[data-index][data-depth="0"]`).each(function() {
@@ -521,7 +645,7 @@
                     return parseNumeric(val);
                 }
 
-                // ==================== LOAD & POPULATE ACTIVITIES ====================
+                // ==================== LOAD ACTIVITIES ====================
 
                 function loadProjectActivities(projectId, fiscalYearId, quarter) {
                     if (!projectId || !fiscalYearId || !quarter) {
@@ -530,7 +654,7 @@
                         );
                         $('#budget-display').html(
                             '<span class="block text-sm text-blue-700 dark:text-blue-300">Select a project, fiscal year, and quarter to view budget details and load activities.</span>'
-                            );
+                        );
                         updateTotals('capital');
                         updateTotals('recurrent');
                         return;
@@ -539,6 +663,9 @@
                     selectedQuarter = quarter;
                     $('#capital-quarter-label, #recurrent-quarter-label').text(
                         `Quarter ${quarter.replace('q', '').toUpperCase()}`);
+
+                    // Update quarter status UI when quarter changes
+                    updateQuarterStatusUI();
 
                     $('#loading-indicator').removeClass('hidden');
                     $('#submit-button').prop('disabled', true);
@@ -553,7 +680,7 @@
 
                             if (response.success === false || response.error) {
                                 showError(response.error || response.message ||
-                                'Failed to load activities');
+                                    'Failed to load activities');
                                 return;
                             }
 
@@ -584,7 +711,7 @@
                     if (!activities || activities.length === 0) {
                         tbody.html(
                             `<tr id="${section}-empty"><td colspan="8" class="text-center py-8 text-gray-500 dark:text-gray-400">No ${section} activities found</td></tr>`
-                            );
+                        );
                         updateTotals(section);
                         return;
                     }
@@ -612,28 +739,28 @@
                         const disabled = hasChildren;
 
                         const row = `
-                    <tr class="projectExpense-row ${bgClass}" data-depth="${depth}" data-index="${activity.id}">
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm">${displayNumber}</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: ${depth * 20}px;">
-                            <input type="hidden" name="${section}[${activity.id}][activity_id]" value="${activity.id}">
-                            <input type="hidden" name="${section}[${activity.id}][parent_id]" value="${activity.parent_id || ''}">
-                            <span class="${fontClass}">${activity.title || activity.program || 'Untitled'}</span>
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(plannedQty, 2)}</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(plannedBudget, 2)}</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(qPlannedQty, 2)}</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(qPlannedAmt, 2)}</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
-                            <input type="text" name="${section}[${activity.id}][${selectedQuarter}_qty]" value="${qtyVal}" placeholder="0.00"
-                                class="expense-input tooltip-error w-full ${disabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
-                                data-type="qty" ${disabled ? 'disabled readonly' : ''}>
-                        </td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
-                            <input type="text" name="${section}[${activity.id}][${selectedQuarter}_amt]" value="${amtVal}" placeholder="0.00"
-                                class="expense-input tooltip-error w-full ${disabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
-                                data-type="amt" ${disabled ? 'disabled readonly' : ''}>
-                        </td>
-                    </tr>`;
+                <tr class="projectExpense-row ${bgClass}" data-depth="${depth}" data-index="${activity.id}">
+                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm">${displayNumber}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1" style="padding-left: ${depth * 20}px;">
+                        <input type="hidden" name="${section}[${activity.id}][activity_id]" value="${activity.id}">
+                        <input type="hidden" name="${section}[${activity.id}][parent_id]" value="${activity.parent_id || ''}">
+                        <span class="${fontClass}">${activity.title || activity.program || 'Untitled'}</span>
+                    </td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(plannedQty, 2)}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(plannedBudget, 2)}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(qPlannedQty, 2)}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">${hasChildren ? '0.00' : formatNumber(qPlannedAmt, 2)}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
+                        <input type="text" name="${section}[${activity.id}][${selectedQuarter}_qty]" value="${qtyVal}" placeholder="0.00"
+                            class="expense-input tooltip-error w-full ${disabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
+                            data-type="qty" ${disabled ? 'disabled readonly' : ''}>
+                    </td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right">
+                        <input type="text" name="${section}[${activity.id}][${selectedQuarter}_amt]" value="${amtVal}" placeholder="0.00"
+                            class="expense-input tooltip-error w-full ${disabled ? 'bg-gray-200 dark:bg-gray-600 cursor-not-allowed' : ''}"
+                            data-type="amt" ${disabled ? 'disabled readonly' : ''}>
+                    </td>
+                </tr>`;
 
                         const $row = $(row);
                         tbody.append($row);
@@ -645,20 +772,20 @@
                                 activity.id));
 
                             const totalRow = `
-                        <tr class="projectExpense-total-row bg-blue-50 dark:bg-blue-900/30 border-t-2 border-blue-300 dark:border-blue-600" data-parent-id="${activity.id}">
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 font-bold text-blue-700 dark:text-blue-300" style="padding-left: ${(depth + 1) * 20}px;">Total of ${displayNumber}</td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
-                                <span class="total-display" data-parent-id="${activity.id}" data-type="qty">0.00</span>
-                            </td>
-                            <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
-                                <span class="total-display" data-parent-id="${activity.id}" data-type="amt">0.00</span>
-                            </td>
-                        </tr>`;
+                    <tr class="projectExpense-total-row bg-blue-50 dark:bg-blue-900/30 border-t-2 border-blue-300 dark:border-blue-600" data-parent-id="${activity.id}">
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 font-bold text-blue-700 dark:text-blue-300" style="padding-left: ${(depth + 1) * 20}px;">Total of ${displayNumber}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm text-gray-600 dark:text-gray-400">0.00</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
+                            <span class="total-display" data-parent-id="${activity.id}" data-type="qty">0.00</span>
+                        </td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-1 py-1 text-right font-bold text-blue-700 dark:text-blue-300">
+                            <span class="total-display" data-parent-id="${activity.id}" data-type="amt">0.00</span>
+                        </td>
+                    </tr>`;
                             tbody.append(totalRow);
                         }
                     }
@@ -673,23 +800,12 @@
                     });
                 }
 
-                // ==================== REST OF EVENT HANDLERS (UNCHANGED) ====================
-
-                function showError(msg) {
-                    $('#error-text').text(msg);
-                    $('#error-message').removeClass('hidden');
-                }
-
-                function resetQuarterAndReload() {
-                    $('#quarter_selector').val('');
-                    selectedQuarter = '';
-                    $('#capital-quarter-label, #recurrent-quarter-label').text('Select Quarter');
-                    loadProjectActivities(lastProjectValue, lastFiscalValue, '');
-                }
+                // ==================== EVENT HANDLERS ====================
 
                 $('#quarter_selector').on('change', function() {
                     const q = $(this).val();
                     selectedQuarter = q;
+                    updateQuarterStatusUI();
                     checkSelections();
                     if (lastProjectValue && lastFiscalValue && q) {
                         loadProjectActivities(lastProjectValue, lastFiscalValue, q);
@@ -718,6 +834,7 @@
                         `/admin/projectExpense/${lastProjectValue}/${lastFiscalValue}/upload?quarter=${selectedQuarter}`;
                 });
 
+                // Watch for project changes
                 if (projectHidden) {
                     new MutationObserver(muts => {
                         muts.forEach(mut => {
@@ -725,7 +842,16 @@
                                 const newVal = projectHidden.value;
                                 if (newVal !== lastProjectValue) {
                                     lastProjectValue = newVal;
-                                    resetQuarterAndReload();
+                                    if (lastProjectValue && lastFiscalValue) {
+                                        fetchNextUnfilledQuarter(lastProjectValue, lastFiscalValue);
+                                    } else {
+                                        $('#quarter_selector').val('');
+                                        selectedQuarter = '';
+                                        $('#capital-quarter-label, #recurrent-quarter-label').text(
+                                            'Select Quarter');
+                                        updateQuarterStatusUI();
+                                        loadProjectActivities(lastProjectValue, lastFiscalValue, '');
+                                    }
                                     checkSelections();
                                 }
                             }
@@ -735,6 +861,7 @@
                     });
                 }
 
+                // Watch for fiscal year changes
                 if (fiscalHidden) {
                     new MutationObserver(muts => {
                         muts.forEach(mut => {
@@ -742,7 +869,16 @@
                                 const newVal = fiscalHidden.value;
                                 if (newVal !== lastFiscalValue) {
                                     lastFiscalValue = newVal;
-                                    resetQuarterAndReload();
+                                    if (lastProjectValue && lastFiscalValue) {
+                                        fetchNextUnfilledQuarter(lastProjectValue, lastFiscalValue);
+                                    } else {
+                                        $('#quarter_selector').val('');
+                                        selectedQuarter = '';
+                                        $('#capital-quarter-label, #recurrent-quarter-label').text(
+                                            'Select Quarter');
+                                        updateQuarterStatusUI();
+                                        loadProjectActivities(lastProjectValue, lastFiscalValue, '');
+                                    }
                                     checkSelections();
                                 }
                             }
@@ -752,6 +888,7 @@
                     });
                 }
 
+                // Input change handler
                 $(document).on('input', '.expense-input:not([disabled])', function() {
                     const $input = $(this);
                     const type = $input.data('type');
@@ -770,6 +907,7 @@
                     tippyInstances.forEach((inst, el) => inst.hide());
                 });
 
+                // Form submission
                 $('#projectExpense-form').on('submit', function(e) {
                     e.preventDefault();
 
@@ -810,8 +948,20 @@
                     this.submit();
                 });
 
-                if (lastProjectValue && lastFiscalValue && $('#quarter_selector').val()) {
-                    loadProjectActivities(lastProjectValue, lastFiscalValue, $('#quarter_selector').val());
+                // ==================== INITIALIZATION ====================
+
+                // Initialize quarter status UI on load
+                updateQuarterStatusUI();
+
+                // Initialize on page load
+                if (lastProjectValue && lastFiscalValue) {
+                    if (selectedQuarter) {
+                        // If quarter is already pre-selected (from server), load activities
+                        loadProjectActivities(lastProjectValue, lastFiscalValue, selectedQuarter);
+                    } else {
+                        // Otherwise, fetch and auto-select the next unfilled quarter
+                        fetchNextUnfilledQuarter(lastProjectValue, lastFiscalValue);
+                    }
                 }
 
                 initializeTooltips($('.tooltip-error'));

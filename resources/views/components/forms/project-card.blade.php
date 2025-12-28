@@ -20,15 +20,15 @@
 <div
     {{ $attributes->merge(['class' => 'bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md p-6 mb-4 border border-gray-300 dark:border-gray-600']) }}>
     <div class="flex justify-between items-start">
-        <div>
-            <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">
+        <div class="flex-1 min-w-0"> <!-- Added wrapper for proper truncation -->
+            <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 truncate">
                 {{ $title }}
             </h3>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">
+            <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm truncate" title="{{ $description }}">
                 {{ $description }}
             </p>
         </div>
-        <div class="relative">
+        <div class="relative ml-4"> <!-- Added margin for spacing -->
             <button type="button"
                 class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 focus:outline-none dropdown-toggle"
                 data-dropdown="{{ $dropdownId }}" aria-label="Open actions menu" aria-haspopup="true"
@@ -80,10 +80,10 @@
 
     <!-- Display Directorate directly -->
     @if ($directorate)
-        <div class="mt-2">
+        <div class="mt-4"> <!-- Increased margin to separate from header -->
             <span
                 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ trans('global.project.fields.directorate_id') }}:</span>
-            <span class="text-gray-600 dark:text-gray-400">
+            <span class="text-gray-600 dark:text-gray-400 ml-2">
                 @if (isset($directorate['id']) && isset($arrayColumnColor['directorate'][$directorate['id']]))
                     <x-forms.badge :title="$directorate['title']" :color="$arrayColumnColor['directorate'][$directorate['id']] ?? 'gray'" />
                 @else
@@ -94,7 +94,7 @@
     @endif
 
     <!-- Buttons and Accordion -->
-    <div class="mt-4">
+    <div class="mt-6"> <!-- Increased top margin for consistent spacing -->
         <div class="flex justify-end items-center gap-2">
 
             @can('project_show')
@@ -153,13 +153,14 @@
         </div>
 
 
-        <div id="{{ $accordionId }}" class="hidden mt-2 grid grid-cols-1 gap-2">
+        <div id="{{ $accordionId }}" class="hidden mt-4 grid grid-cols-1 gap-2">
+            <!-- Added mt-4 for spacing when open -->
             @foreach ($fields as $field)
                 @if ($field['label'] !== trans('global.project.fields.title'))
                     <div>
                         <span
                             class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $field['label'] }}:</span>
-                        <span class="text-gray-600 dark:text-gray-400">
+                        <span class="text-gray-600 dark:text-gray-400 ml-2">
                             @if (isset($field['color']) && $field['color'])
                                 <x-forms.badge :title="$field['value']" :color="str_replace('#', '', $field['color'])" />
                             @elseif(isset($arrayColumnColor[$field['key']]) && !is_array($arrayColumnColor[$field['key']]))

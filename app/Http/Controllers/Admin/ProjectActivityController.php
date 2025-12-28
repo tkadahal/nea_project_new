@@ -43,44 +43,56 @@ class ProjectActivityController extends Controller
         abort_if(Gate::denies('projectActivity_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $activities = $this->repository->getActivitiesForUser(Auth::user());
-
         $currentFiscalYear = FiscalYear::currentFiscalYear();
-        $hasPlanForCurrentYear = false;
-
-        if ($currentFiscalYear) {
-            $hasPlanForCurrentYear = $activities->contains(function ($activity) use ($currentFiscalYear) {
-                return $activity->fiscal_year_id === $currentFiscalYear->id;
-            });
-        }
-
-        $canCreate = $currentFiscalYear && ! $hasPlanForCurrentYear;
 
         return view('admin.projectActivities.index', [
             'headers' => $this->getTableHeaders(),
             'data' => $this->formatActivitiesForTable($activities),
             'activities' => $activities,
             'currentFiscalYear' => $currentFiscalYear,
-            'canCreate' => $canCreate,
-            'hasPlanForCurrentYear' => $hasPlanForCurrentYear,
+            'canCreate' => (bool) $currentFiscalYear, // Only check if fiscal year exists
             'routePrefix' => 'admin.projectActivity',
             'actions' => ['view', 'edit', 'delete'],
             'deleteConfirmationMessage' => 'Are you sure you want to delete this project activity?',
         ]);
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View | RedirectResponse
     {
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $user = Auth::user();
-        $projects = $user->projects;
+        $currentFiscalYear = FiscalYear::currentFiscalYear();
+
+        if (!$currentFiscalYear) {
+            abort(404, 'No active fiscal year available.');
+        }
+
+        // Get projects that DON'T have a plan for current fiscal year
+        $projectsWithPlans = ProjectActivityPlan::where('fiscal_year_id', $currentFiscalYear->id)
+            ->whereHas('definitionVersion', function ($q) use ($user) {
+                $q->whereIn('project_id', $user->projects->pluck('id'));
+            })
+            ->get()
+            ->pluck('definitionVersion.project_id')
+            ->unique();
+
+        // Only show projects without plans
+        $availableProjects = $user->projects->whereNotIn('id', $projectsWithPlans);
+
+        if ($availableProjects->isEmpty()) {
+            return redirect()
+                ->route('admin.projectActivity.index')
+                ->with('error', 'All your projects already have plans for the current fiscal year.');
+        }
+
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        $selectedProjectId = $request->input('project_id') ?? $projects->first()?->id;
-        $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
-        $selectedFiscalYearId = $request->input('fiscal_year_id') ?? array_key_last($fiscalYears);
+        $selectedProjectId = $request->input('project_id') ?? $availableProjects->first()?->id;
+        $selectedProject = $availableProjects->find($selectedProjectId) ?? $availableProjects->first();
+        $selectedFiscalYearId = $currentFiscalYear->id; // Lock to current fiscal year
 
-        $projectOptions = $projects->map(fn(Project $project) => [
+        $projectOptions = $availableProjects->map(fn(Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
             'selected' => $project->id === $selectedProjectId,
@@ -103,14 +115,15 @@ class ProjectActivityController extends Controller
         }
 
         return view('admin.projectActivities.create', compact(
-            'projects',
+            'availableProjects',
             'projectOptions',
             'fiscalYears',
             'selectedProject',
             'selectedProjectId',
             'selectedFiscalYearId',
             'capitalActivities',
-            'recurrentActivities'
+            'recurrentActivities',
+            'currentFiscalYear'
         ));
     }
 
@@ -943,18 +956,20 @@ class ProjectActivityController extends Controller
         $project = Project::findOrFail($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
+        // First, get all ProjectActivityPlan IDs that match our criteria
+        $planIds = \App\Models\ProjectActivityPlan::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereHas('definitionVersion', function ($query) use ($projectId) {
+                $query->where('project_id', $projectId);
+            })
+            ->pluck('id');
+
+        // Then filter activity logs by those IDs
         $logs = \Spatie\Activitylog\Models\Activity::query()
             ->where('log_name', 'projectActivityPlan')
-            ->where('subject_type', \App\Models\ProjectActivityPlan::class) // Explicit full class
-            ->where('subject_id', '>', 0) // Ensures subject exists
-            ->whereHas('subject', function ($query) use ($projectId, $fiscalYearId) {
-                // Force Laravel to know we're querying ProjectActivityPlan
-                $query->where('fiscal_year_id', $fiscalYearId)
-                    ->whereHas('definitionVersion', function ($defQuery) use ($projectId) {
-                        $defQuery->where('project_id', $projectId);
-                    });
-            })
-            ->with('causer') // This loads the User who made the change
+            ->where('subject_type', \App\Models\ProjectActivityPlan::class)
+            ->whereIn('subject_id', $planIds)
+            ->with(['causer', 'subject']) // Load both the user and the plan
             ->orderByDesc('created_at')
             ->paginate(50);
 

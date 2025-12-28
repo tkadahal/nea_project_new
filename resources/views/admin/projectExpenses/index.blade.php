@@ -27,22 +27,32 @@
                     <tr>
                         <th
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            Project</th>
+                            Project
+                        </th>
                         <th
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            Fiscal Year</th>
+                            Fiscal Year
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Filled Quarters
+                        </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            Total Expense</th>
+                            Total Expense
+                        </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            Capital Expense</th>
+                            Capital Expense
+                        </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            Recurrent Expense</th>
+                            Recurrent Expense
+                        </th>
                         <th
                             class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                            Actions</th>
+                            Actions
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -50,25 +60,32 @@
                         <tr>
                             <td
                                 class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {{ $row['project_title'] }}</td>
+                                {{ $row->project_title }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                {{ $row['fiscal_year_title'] }}</td>
+                                {{ $row->fiscal_year_title }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                @if ($row->filled_quarters)
+                                    @foreach (explode(', ', $row->filled_quarters) as $q)
+                                        <span class="inline-block mr-2">Q{{ $q }}</span>
+                                    @endforeach
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                                {{ number_format($row['total_expense'], 2) }}</td>
+                                {{ number_format($row->total_expense, 2) }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                                {{ number_format($row['capital_expense'], 2) }}</td>
+                                {{ number_format($row->capital_expense, 2) }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                                {{ number_format($row['recurrent_expense'], 2) }}</td>
+                                {{ number_format($row->recurrent_expense, 2) }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                @can('expense_edit')
-                                    {{-- <a href="{{ route('admin.projectExpense.edit', [$row['project_id'], $row['fiscal_year_id']]) }}"
-                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">
-                                        Edit
-                                    </a> --}}
-                                @endcan
-
                                 @can('expense_show')
-                                    <a href="{{ route('admin.projectExpense.show', [$row['project_id'], $row['fiscal_year_id']]) }}"
+                                    <a href="{{ route('admin.projectExpense.show', [$row->project_id, $row->fiscal_year_id]) }}"
                                         class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
                                         View
                                     </a>
@@ -77,8 +94,9 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No
-                                expenses found.</td>
+                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No expenses found.
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

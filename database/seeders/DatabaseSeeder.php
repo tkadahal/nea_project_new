@@ -14,15 +14,21 @@ class DatabaseSeeder extends Seeder
             PermissionsTableSeeder::class,
             RolesTableSeeder::class,
             PermissionRoleTableSeeder::class,
+            DirectoratesTableSeeder::class,
             UsersTableSeeder::class,
             RoleUserTableSeeder::class,
-            DirectoratesTableSeeder::class,
             DepartmentsTableSeeder::class,
             DepartmentDirectorateTableSeeder::class,
             StatusesTableSeeder::class,
+            BudgetHeadingsTableSeeder::class,
             PrioritiesTableSeeder::class,
             ProjectsTableSeeder::class,
             FiscalYearTableSeeder::class,
+            BudgetsTableSeeder::class,
+            ContractsTableSeeder::class,
+            TasksTableSeeder::class,
+            ProjectUserTableSeeder::class,
+            TaskUserTableSeeder::class
         ]);
     }
 }

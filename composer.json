@@ -17,6 +17,7 @@
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^3.6",
         "maatwebsite/excel": "^3.1",
+        "orangehill/iseed": "^3.1",
         "outhebox/blade-flags": "^1.5",
         "owenvoke/blade-fontawesome": "^2.9",
         "spatie/laravel-activitylog": "^4.10",

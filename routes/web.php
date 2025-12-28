@@ -2,41 +2,55 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\AuthGates;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Controllers
+|--------------------------------------------------------------------------
+*/
 use App\Http\Controllers\Admin\{
-    FileController,
-    RoleController,
-    TaskController,
+    DashboardController,
+    AnalyticalDashboardController,
+
     UserController,
-    EventController,
-    BudgetController,
+    RoleController,
+    PermissionController,
+
+    DirectorateController,
+    DepartmentController,
     StatusController,
-    ReportController,
-    CommentController,
-    ExpenseController,
+    PriorityController,
+    FiscalYearController,
+    BudgetHeadingController,
+
     ProjectController,
     ContractController,
-    PriorityController,
-    DashboardController,
-    DepartmentController,
-    FiscalYearController,
-    PermissionController,
-    DirectorateController,
-    NotificationController,
-    BudgetHeadingController,
-    ProjectExpenseController,
     ProjectActivityController,
+    ProjectExpenseController,
     ContractExtensionController,
-    AnalyticalDashboardController,
+
+    BudgetController,
     BudgetQuaterAllocationController,
-    ProjectExpenseFundingAllocationController
+    ProjectExpenseFundingAllocationController,
+
+    TaskController,
+    CommentController,
+    EventController,
+
+    ExpenseController,
+    FileController,
+    ReportController,
+    NotificationController
 };
+
 use App\Http\Controllers\Settings\{
     ProfileController,
     PasswordController,
     AppearanceController
 };
-use App\Http\Middleware\AuthGates;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -54,30 +68,38 @@ Route::permanentRedirect('/', '/login')->name('home');
 
 Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
-    // Dashboard
-    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    */
+    Route::get('dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
 
     /*
     |--------------------------------------------------------------------------
-    | Settings Routes
+    | Settings
     |--------------------------------------------------------------------------
     */
     Route::prefix('settings')->name('settings.')->group(function () {
-        // Profile
-        Route::controller(ProfileController::class)->prefix('profile')->name('profile.')->group(function () {
-            Route::get('/', 'edit')->name('edit');
-            Route::put('/', 'update')->name('update');
-            Route::delete('/', 'destroy')->name('destroy');
-        });
 
-        // Password
-        Route::controller(PasswordController::class)->prefix('password')->name('password.')->group(function () {
-            Route::get('/', 'edit')->name('edit');
-            Route::put('/', 'update')->name('update');
-        });
+        Route::prefix('profile')->name('profile.')
+            ->controller(ProfileController::class)
+            ->group(function () {
+                Route::get('/', 'edit')->name('edit');
+                Route::put('/', 'update')->name('update');
+                Route::delete('/', 'destroy')->name('destroy');
+            });
 
-        // Appearance
-        Route::get('appearance', [AppearanceController::class, 'edit'])->name('appearance.edit');
+        Route::prefix('password')->name('password.')
+            ->controller(PasswordController::class)
+            ->group(function () {
+                Route::get('/', 'edit')->name('edit');
+                Route::put('/', 'update')->name('update');
+            });
+
+        Route::get('appearance', [AppearanceController::class, 'edit'])
+            ->name('appearance.edit');
     });
 
     /*
@@ -267,13 +289,18 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('expense', ExpenseController::class);
 
         // Project Expenses
-        // Project Expenses
         Route::controller(ProjectExpenseController::class)->prefix('projectExpense')->name('projectExpense.')->group(function () {
             Route::get('downloadExcel/{projectId}/{fiscalYearId}', 'downloadTemplate')->name('template.download');
             Route::get('{project}/{fiscalYear}/upload', 'uploadView')->name('upload.view');
             Route::post('{project}/{fiscalYear}/upload', 'upload')->name('upload');
             Route::get('download/excel/{projectId}/{fiscalYearId}', 'downloadExcel')->name('excel.download');
             Route::get('show/{projectId}/{fiscalYearId}', 'show')->name('show');
+
+            Route::get(
+                'next-quarter/{project}/{fiscalYear}',
+                [ProjectExpenseController::class, 'nextQuarterAjax']
+            )
+                ->name('nextQuarter');
 
             Route::get('{projectId}/{fiscalYearId}', 'getForProject')->name('getForProject');
         });

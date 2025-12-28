@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Models\Project;
+use Illuminate\View\View;
 use App\Models\FiscalYear;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
@@ -26,57 +27,47 @@ use App\Http\Requests\ProjectExpense\StoreProjectExpenseRequest;
 
 class ProjectExpenseController extends Controller
 {
-    public function index(Request $request)
+    /* ============================================================
+     | INDEX – Correct totals from ALL historical plans
+     ============================================================ */
+    public function index(): View
     {
-        abort_if(Gate::denies('expense_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('expense_access'), Response::HTTP_FORBIDDEN);
 
         $aggregated = DB::table('projects as p')
-            ->selectRaw('
-        p.id as project_id,
-        p.title as project_title,
-        fy.id as fiscal_year_id,
-        fy.title as fiscal_year_title,
-        COALESCE(SUM(q.amount), 0) as total_expense,
-        COALESCE(SUM(CASE WHEN pad.expenditure_id = 1 THEN q.amount ELSE 0 END), 0) as capital_expense,
-        COALESCE(SUM(CASE WHEN pad.expenditure_id = 2 THEN q.amount ELSE 0 END), 0) as recurrent_expense
-    ')
-            ->join('project_activity_definitions as pad', function ($join) {
-                $join->on('pad.project_id', '=', 'p.id')
-                    ->where('pad.is_current', true);
-            })
-            ->join('project_activity_plans as pap', function ($join) {
-                $join->on('pap.activity_definition_version_id', '=', 'pad.id');
-            })
-            ->join('fiscal_years as fy', 'pap.fiscal_year_id', '=', 'fy.id')
+            ->join('project_activity_definitions as pad', 'pad.project_id', '=', 'p.id')
+            ->join('project_activity_plans as pap', 'pap.activity_definition_version_id', '=', 'pad.id')
+            ->join('fiscal_years as fy', 'fy.id', '=', 'pap.fiscal_year_id')
             ->leftJoin('project_expenses as pe', 'pe.project_activity_plan_id', '=', 'pap.id')
             ->leftJoin('project_expense_quarters as q', function ($join) {
                 $join->on('q.project_expense_id', '=', 'pe.id')
-                    ->where('q.status', 'finalized'); // Only count finalized quarters
+                    ->where('q.status', 'finalized');
             })
+            ->selectRaw('
+            p.id AS project_id,
+            p.title AS project_title,
+            fy.id AS fiscal_year_id,
+            fy.title AS fiscal_year_title,
+            COALESCE(SUM(q.amount), 0) AS total_expense,
+            COALESCE(SUM(CASE WHEN pad.expenditure_id = 1 THEN q.amount ELSE 0 END), 0) AS capital_expense,
+            COALESCE(SUM(CASE WHEN pad.expenditure_id = 2 THEN q.amount ELSE 0 END), 0) AS recurrent_expense,
+            STRING_AGG(DISTINCT q.quarter::text, \', \' ORDER BY q.quarter::text) AS filled_quarters
+        ')
             ->whereNull('pe.deleted_at')
-            ->whereNull('pap.deleted_at')
             ->groupBy('p.id', 'p.title', 'fy.id', 'fy.title')
             ->orderBy('p.title')
             ->orderByDesc('fy.title')
-            ->get()
-            ->map(function ($row) {
-                return [
-                    'project_id'        => $row->project_id,
-                    'project_title'     => $row->project_title,
-                    'fiscal_year_id'    => $row->fiscal_year_id,
-                    'fiscal_year_title' => $row->fiscal_year_title,
-                    'total_expense'     => (float) $row->total_expense,
-                    'capital_expense'   => (float) $row->capital_expense,
-                    'recurrent_expense' => (float) $row->recurrent_expense,
-                ];
-            });
+            ->get();
 
         return view('admin.projectExpenses.index', compact('aggregated'));
     }
 
+    /* ============================================================
+     | CREATE – Full original UX with project dropdown + auto quarter
+     ============================================================ */
     public function create(Request $request)
     {
-        abort_if(Gate::denies('expense_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('expense_create'), Response::HTTP_FORBIDDEN);
 
         $user = Auth::user();
         $projects = $user->projects;
@@ -118,54 +109,91 @@ class ProjectExpenseController extends Controller
         ));
     }
 
-    private function getNextUnfilledQuarter(int $projectId, int $fiscalYearId): string
+    /* ============================================================
+     | QUARTER LOGIC – Uses ALL historical plans (correct progress)
+     ============================================================ */
+    public function getNextUnfilledQuarter(int $projectId, int $fiscalYearId): string
     {
-        $plans = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId)->current())
+        $planIds = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
             ->where('fiscal_year_id', $fiscalYearId)
             ->pluck('id');
 
-        if ($plans->isEmpty()) return 'q1';
-
-        $expenses = ProjectExpense::whereIn('project_activity_plan_id', $plans)
-            ->with(['quarters' => fn($q) => $q->finalized()])
-            ->get();
-
-        $filled = [];
-        for ($q = 1; $q <= 4; $q++) {
-            if ($expenses->some(fn($e) => $e->quarters->where('quarter', $q)->where('amount', '>', 0)->isNotEmpty())) {
-                $filled[] = $q;
-            }
+        if ($planIds->isEmpty()) {
+            return 'q1';
         }
 
-        for ($q = 1; $q <= 4; $q++) {
-            if (!in_array($q, $filled)) return "q{$q}";
+        $completed = [];
+
+        ProjectExpense::whereIn('project_activity_plan_id', $planIds)
+            ->with(['quarters' => fn($q) => $q->finalized()])
+            ->get()
+            ->each(function ($expense) use (&$completed) {
+                foreach ($expense->quarters as $quarter) {
+                    if ($quarter->quantity > 0 || $quarter->amount > 0) {
+                        $completed[$quarter->quarter] = true;
+                    }
+                }
+            });
+
+        for ($i = 1; $i <= 4; $i++) {
+            if (!isset($completed[$i])) {
+                return "q{$i}";
+            }
         }
 
         return 'q4';
     }
 
-    private function getQuarterCompletionStatus(int $projectId, int $fiscalYearId): array
+    public function getQuarterCompletionStatus(int $projectId, int $fiscalYearId): array
     {
-        $plans = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId)->current())
+        $status = ['q1' => false, 'q2' => false, 'q3' => false, 'q4' => false];
+
+        $planIds = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
             ->where('fiscal_year_id', $fiscalYearId)
             ->pluck('id');
 
-        if ($plans->isEmpty()) {
-            return ['q1' => false, 'q2' => false, 'q3' => false, 'q4' => false];
+        if ($planIds->isEmpty()) {
+            return $status;
         }
 
-        $expenses = ProjectExpense::whereIn('project_activity_plan_id', $plans)
+        ProjectExpense::whereIn('project_activity_plan_id', $planIds)
             ->with(['quarters' => fn($q) => $q->finalized()])
-            ->get();
-
-        $status = [];
-        for ($q = 1; $q <= 4; $q++) {
-            $status["q{$q}"] = $expenses->some(fn($e) => $e->quarters->where('quarter', $q)->where('amount', '>', 0)->isNotEmpty());
-        }
+            ->get()
+            ->each(function ($expense) use (&$status) {
+                foreach ($expense->quarters as $quarter) {
+                    if ($quarter->amount > 0 || $quarter->quantity > 0) {
+                        $status["q{$quarter->quarter}"] = true;
+                    }
+                }
+            });
 
         return $status;
     }
 
+    public function nextQuarterAjax(int $project, int $fiscalYear)
+    {
+        abort_if(Gate::denies('expense_create'), Response::HTTP_FORBIDDEN);
+
+        try {
+            $nextQuarter = $this->getNextUnfilledQuarter($project, $fiscalYear);
+            $status = $this->getQuarterCompletionStatus($project, $fiscalYear);
+
+            return response()->json([
+                'success' => true,
+                'quarter' => $nextQuarter,
+                'quarterStatus' => $status,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /* ============================================================
+     | STORE – Only current version allowed
+     ============================================================ */
     public function store(StoreProjectExpenseRequest $request)
     {
         DB::beginTransaction();
@@ -201,7 +229,11 @@ class ProjectExpenseController extends Controller
             foreach ($allActivityData as $data) {
                 $plan = ProjectActivityPlan::findOrFail($data['activity_id']);
 
-                if ($plan->definitionVersion->project_id != $projectId || $plan->fiscal_year_id != $fiscalYearId || !$plan->definitionVersion->is_current) {
+                if (
+                    $plan->definitionVersion->project_id != $projectId ||
+                    $plan->fiscal_year_id != $fiscalYearId ||
+                    !$plan->definitionVersion->is_current
+                ) {
                     throw new \InvalidArgumentException("Invalid or outdated activity plan.");
                 }
 
@@ -247,13 +279,17 @@ class ProjectExpenseController extends Controller
         }
     }
 
+    /* ============================================================
+     | SHOW – Current structure + ALL historical expenses
+     ============================================================ */
     public function show(int $projectId, int $fiscalYearId)
     {
-        abort_if(Gate::denies('expense_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('expense_show'), Response::HTTP_FORBIDDEN);
 
         $project = Project::findOrFail($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
+        // Current structure for display
         $definitions = ProjectActivityDefinition::forProject($projectId)
             ->current()
             ->with([
@@ -263,56 +299,42 @@ class ProjectExpenseController extends Controller
             ->orderBy('sort_index')
             ->get();
 
-        $defIds = $definitions->flatMap(fn($d) => collect([$d])->merge($d->getDescendants()))->pluck('id')->unique();
+        // All historical plan IDs
+        $allPlanIds = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->pluck('id');
 
-        $plans = ProjectActivityPlan::whereIn('activity_definition_version_id', $defIds)
+        // All expenses
+        $expenses = ProjectExpense::with(['quarters' => fn($q) => $q->finalized()])
+            ->whereIn('project_activity_plan_id', $allPlanIds)
+            ->get()
+            ->keyBy('project_activity_plan_id');
+
+        // Current plans for mapping
+        $currentDefIds = $definitions->flatMap(fn($d) => collect([$d])->merge($d->getDescendants()))->pluck('id')->unique();
+        $currentPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $currentDefIds)
             ->where('fiscal_year_id', $fiscalYearId)
             ->get()
             ->keyBy('activity_definition_version_id');
 
-        $planIds = $plans->pluck('id')->toArray();
-
-        $expenses = ProjectExpense::with(['quarters' => fn($q) => $q->finalized()])
-            ->whereIn('project_activity_plan_id', $planIds)
-            ->get()
-            ->keyBy('project_activity_plan_id');
-
+        // Build amounts
         $planAmounts = [];
-        foreach ($expenses as $expense) {
-            $planId = $expense->project_activity_plan_id;
-            $planAmounts[$planId] = ['total' => $expense->grand_total ?? 0];
+        foreach ($currentPlans as $plan) {
+            $planId = $plan->id;
+            $expense = $expenses->get($planId);
 
-            foreach ($expense->quarters as $q) {
-                $planAmounts[$planId]["q{$q->quarter}_qty"] = $q->quantity;
-                $planAmounts[$planId]["q{$q->quarter}_amt"] = $q->amount;
-            }
+            $planAmounts[$planId] = ['total' => $expense?->grand_total ?? 0];
 
             for ($i = 1; $i <= 4; $i++) {
-                $planAmounts[$planId]["q{$i}_qty"] ??= 0;
-                $planAmounts[$planId]["q{$i}_amt"] ??= 0;
-            }
-        }
-
-        foreach ($plans as $plan) {
-            $planId = $plan->id;
-            if (!isset($planAmounts[$planId])) {
-                $planAmounts[$planId] = [
-                    'total' => 0,
-                    'q1_qty' => 0,
-                    'q1_amt' => 0,
-                    'q2_qty' => 0,
-                    'q2_amt' => 0,
-                    'q3_qty' => 0,
-                    'q3_amt' => 0,
-                    'q4_qty' => 0,
-                    'q4_amt' => 0,
-                ];
+                $qRecord = $expense?->quarters->where('quarter', $i)->first();
+                $planAmounts[$planId]["q{$i}_qty"] = $qRecord?->quantity ?? 0;
+                $planAmounts[$planId]["q{$i}_amt"] = $qRecord?->amount ?? 0;
             }
         }
 
         $activityAmounts = [];
         foreach ($definitions as $def) {
-            $plan = $plans->get($def->id);
+            $plan = $currentPlans->get($def->id);
             $activityAmounts[$def->id] = $planAmounts[$plan?->id ?? 0] ?? [
                 'total' => 0,
                 'q1_qty' => 0,
@@ -330,11 +352,12 @@ class ProjectExpenseController extends Controller
         $recurrentActivities = $definitions->where('expenditure_id', 2)->whereNull('parent_id')->values();
         $groupedActivities = $definitions->groupBy(fn($d) => $d->parent_id ?? 'null');
 
+        // Subtree calculations (same as original)
         $subtreeAmountTotals = [];
-        $computeSubtreeAmounts = function ($defId) use (&$subtreeAmountTotals, $planAmounts, $groupedActivities, $plans, &$computeSubtreeAmounts) {
+        $computeSubtreeAmounts = function ($defId) use (&$subtreeAmountTotals, $planAmounts, $groupedActivities, $currentPlans, &$computeSubtreeAmounts) {
             if (isset($subtreeAmountTotals[$defId])) return $subtreeAmountTotals[$defId];
             $totals = ['q1' => 0, 'q2' => 0, 'q3' => 0, 'q4' => 0];
-            $plan = $plans->get($defId);
+            $plan = $currentPlans->get($defId);
             $own = $planAmounts[$plan?->id ?? 0] ?? $totals;
             foreach (['q1', 'q2', 'q3', 'q4'] as $q) $totals[$q] = $own["{$q}_amt"] ?? 0;
             if (isset($groupedActivities[$defId])) {
@@ -347,10 +370,10 @@ class ProjectExpenseController extends Controller
         };
 
         $subtreeQuantityTotals = [];
-        $computeSubtreeQuantities = function ($defId) use (&$subtreeQuantityTotals, $planAmounts, $groupedActivities, $plans, &$computeSubtreeQuantities) {
+        $computeSubtreeQuantities = function ($defId) use (&$subtreeQuantityTotals, $planAmounts, $groupedActivities, $currentPlans, &$computeSubtreeQuantities) {
             if (isset($subtreeQuantityTotals[$defId])) return $subtreeQuantityTotals[$defId];
             $totals = ['q1' => 0, 'q2' => 0, 'q3' => 0, 'q4' => 0];
-            $plan = $plans->get($defId);
+            $plan = $currentPlans->get($defId);
             $own = $planAmounts[$plan?->id ?? 0] ?? $totals;
             foreach (['q1', 'q2', 'q3', 'q4'] as $q) $totals[$q] = $own["{$q}_qty"] ?? 0;
             if (isset($groupedActivities[$defId])) {
@@ -369,9 +392,9 @@ class ProjectExpenseController extends Controller
         }
 
         $totalExpense = collect($planAmounts)->sum('total');
-        $capitalTotal = $plans->filter(fn($p) => $p->definitionVersion->expenditure_id == 1)
+        $capitalTotal = $currentPlans->filter(fn($p) => $p->definitionVersion->expenditure_id == 1)
             ->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
-        $recurrentTotal = $plans->filter(fn($p) => $p->definitionVersion->expenditure_id == 2)
+        $recurrentTotal = $currentPlans->filter(fn($p) => $p->definitionVersion->expenditure_id == 2)
             ->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
 
         return view('admin.projectExpenses.show', compact(
@@ -389,6 +412,9 @@ class ProjectExpenseController extends Controller
         ));
     }
 
+    /* ============================================================
+     | getForProject – Current structure + historical expenses
+     ============================================================ */
     public function getForProject($projectId, $fiscalYearId)
     {
         $projectId = (int) $projectId;
@@ -403,56 +429,41 @@ class ProjectExpenseController extends Controller
                 ->whereNull('parent_id')
                 ->where('expenditure_id', 1)
                 ->orderBy('sort_index')
-                ->with(['children' => function ($query) {
-                    $query->current()->orderBy('sort_index');
-                }, 'children.children' => function ($query) {
-                    $query->current()->orderBy('sort_index');
-                }])
+                ->with(['children' => fn($q) => $q->current()->orderBy('sort_index'), 'children.children' => fn($q) => $q->current()->orderBy('sort_index')])
                 ->get();
-
-            $capitalDefIds = $capitalDefinitions->flatMap(function ($def) {
-                return collect([$def])->merge($def->getDescendants());
-            })->pluck('id')->unique();
-
-            $capitalPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $capitalDefIds)
-                ->where('fiscal_year_id', $fiscalYear->id)
-                ->get()
-                ->keyBy('activity_definition_version_id');
-
-            $capitalDefToPlanMap = $capitalPlans->pluck('id', 'activity_definition_version_id')->toArray();
 
             $recurrentDefinitions = ProjectActivityDefinition::forProject($project->id)
                 ->current()
                 ->whereNull('parent_id')
                 ->where('expenditure_id', 2)
                 ->orderBy('sort_index')
-                ->with(['children' => function ($query) {
-                    $query->current()->orderBy('sort_index');
-                }, 'children.children' => function ($query) {
-                    $query->current()->orderBy('sort_index');
-                }])
+                ->with(['children' => fn($q) => $q->current()->orderBy('sort_index'), 'children.children' => fn($q) => $q->current()->orderBy('sort_index')])
                 ->get();
 
-            $recurrentDefIds = $recurrentDefinitions->flatMap(function ($def) {
-                return collect([$def])->merge($def->getDescendants());
-            })->pluck('id')->unique();
+            // All historical plan IDs
+            $allPlanIds = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
+                ->where('fiscal_year_id', $fiscalYearId)
+                ->pluck('id');
 
-            $recurrentPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $recurrentDefIds)
-                ->where('fiscal_year_id', $fiscalYear->id)
+            $expenses = ProjectExpense::with(['quarters' => fn($q) => $q->finalized()])
+                ->whereIn('project_activity_plan_id', $allPlanIds)
+                ->get()
+                ->keyBy('project_activity_plan_id');
+
+            // Current plans
+            $capitalDefIds = $capitalDefinitions->flatMap(fn($d) => collect([$d])->merge($d->getDescendants()))->pluck('id');
+            $recurrentDefIds = $recurrentDefinitions->flatMap(fn($d) => collect([$d])->merge($d->getDescendants()))->pluck('id');
+
+            $currentPlans = ProjectActivityPlan::whereIn('activity_definition_version_id', $capitalDefIds->merge($recurrentDefIds))
+                ->where('fiscal_year_id', $fiscalYearId)
                 ->get()
                 ->keyBy('activity_definition_version_id');
 
-            $recurrentDefToPlanMap = $recurrentPlans->pluck('id', 'activity_definition_version_id')->toArray();
+            $capitalTree = $this->formatActivityTree($capitalDefinitions, $currentPlans, $expenses, $fiscalYearId);
+            $recurrentTree = $this->formatActivityTree($recurrentDefinitions, $currentPlans, $expenses, $fiscalYearId);
 
-            $capitalTree = $this->formatActivityTree($capitalDefinitions, $capitalPlans, $fiscalYearId, $capitalDefToPlanMap);
-            $recurrentTree = $this->formatActivityTree($recurrentDefinitions, $recurrentPlans, $fiscalYearId, $recurrentDefToPlanMap);
-
-            $totalCapitalBudget = $capitalDefinitions->sum(function ($def) use ($fiscalYearId) {
-                return $def->subtreePlans($fiscalYearId)->sum('planned_budget');
-            });
-            $totalRecurrentBudget = $recurrentDefinitions->sum(function ($def) use ($fiscalYearId) {
-                return $def->subtreePlans($fiscalYearId)->sum('planned_budget');
-            });
+            $totalCapitalBudget = $capitalDefinitions->sum(fn($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget'));
+            $totalRecurrentBudget = $recurrentDefinitions->sum(fn($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget'));
             $totalBudget = $totalCapitalBudget + $totalRecurrentBudget;
 
             $budgetDetails = sprintf(
@@ -476,32 +487,29 @@ class ProjectExpenseController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error loading activities: ' . $e->getMessage(),
-                'capital' => [],
-                'recurrent' => [],
-                'budgetDetails' => 'Error loading budget details',
             ], 500);
         }
     }
 
-    private function formatActivityTree(Collection $roots, Collection $plans, int $fiscalYearId, array $defToPlanMap)
+    private function formatActivityTree(Collection $roots, Collection $currentPlans, Collection $expenses, int $fiscalYearId)
     {
-        return $roots->map(function ($definition) use ($plans, $fiscalYearId, $defToPlanMap) {
-            $planId = $defToPlanMap[$definition->id] ?? null;
-            if (!$planId) return null;
+        return $roots->map(function ($definition) use ($currentPlans, $expenses, $fiscalYearId) {
+            $plan = $currentPlans->get($definition->id);
+            if (!$plan) return null;
 
-            $plan = $plans->get($definition->id);
-            $parentPlanId = $definition->parent_id ? ($defToPlanMap[$definition->parent_id] ?? null) : null;
+            $planId = $plan->id;
+            $expense = $expenses->get($planId);
 
             return [
                 'id' => $planId,
-                'title' => $plan?->program_override ?? $definition->program,
-                'parent_id' => $parentPlanId,
+                'title' => $plan->program_override ?? $definition->program,
+                'parent_id' => $definition->parent_id ? ($currentPlans->firstWhere('activity_definition_version_id', $definition->parent_id)?->id) : null,
                 'sort_index' => $definition->sort_index,
-                'children' => $this->formatChildren($definition->children, $plans, $fiscalYearId, $defToPlanMap),
+                'children' => $this->formatChildren($definition->children, $currentPlans, $expenses, $fiscalYearId),
                 'planned_quantity' => (float) ($plan->planned_quantity ?? 0),
                 'planned_budget' => (float) ($plan->planned_budget ?? 0),
                 'total_budget' => (float) ($plan->planned_budget ?? 0),
-                'total_expense' => (float) ($plan->total_expense ?? 0),
+                'total_expense' => $expense?->grand_total ?? 0,
                 'q1_quantity' => (float) ($plan->q1_quantity ?? 0),
                 'q1_amount' => (float) ($plan->q1_amount ?? 0),
                 'q2_quantity' => (float) ($plan->q2_quantity ?? 0),
@@ -519,27 +527,25 @@ class ProjectExpenseController extends Controller
         })->filter()->values()->toArray();
     }
 
-    private function formatChildren(Collection $children, Collection $plans, int $fiscalYearId, array $defToPlanMap)
+    private function formatChildren(Collection $children, Collection $currentPlans, Collection $expenses, int $fiscalYearId)
     {
-        if ($children->isEmpty()) return [];
+        return $children->map(function ($child) use ($currentPlans, $expenses, $fiscalYearId) {
+            $plan = $currentPlans->get($child->id);
+            if (!$plan) return null;
 
-        return $children->map(function ($child) use ($plans, $fiscalYearId, $defToPlanMap) {
-            $planId = $defToPlanMap[$child->id] ?? null;
-            if (!$planId) return null;
-
-            $plan = $plans->get($child->id);
-            $parentPlanId = $child->parent_id ? ($defToPlanMap[$child->parent_id] ?? null) : null;
+            $planId = $plan->id;
+            $expense = $expenses->get($planId);
 
             return [
                 'id' => $planId,
-                'title' => $plan?->program_override ?? $child->program,
-                'parent_id' => $parentPlanId,
+                'title' => $plan->program_override ?? $child->program,
+                'parent_id' => $child->parent_id ? ($currentPlans->firstWhere('activity_definition_version_id', $child->parent_id)?->id) : null,
                 'sort_index' => $child->sort_index,
-                'children' => $this->formatChildren($child->children, $plans, $fiscalYearId, $defToPlanMap),
+                'children' => $this->formatChildren($child->children, $currentPlans, $expenses, $fiscalYearId),
                 'planned_quantity' => (float) ($plan->planned_quantity ?? 0),
                 'planned_budget' => (float) ($plan->planned_budget ?? 0),
                 'total_budget' => (float) ($plan->planned_budget ?? 0),
-                'total_expense' => (float) ($plan->total_expense ?? 0),
+                'total_expense' => $expense?->grand_total ?? 0,
                 'q1_quantity' => (float) ($plan->q1_quantity ?? 0),
                 'q1_amount' => (float) ($plan->q1_amount ?? 0),
                 'q2_quantity' => (float) ($plan->q2_quantity ?? 0),

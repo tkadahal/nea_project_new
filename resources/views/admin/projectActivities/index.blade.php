@@ -95,7 +95,7 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <a href="{{ route('admin.projectActivity.log', [$activity->project_id, $activity->fiscal_year_id]) }}"
                                     class="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition hover:opacity-90 hover:shadow-md
-              border border-transparent hover:border-current">
+                                        border border-transparent hover:border-current">
 
                                     @php
                                         $statusConfig = [
