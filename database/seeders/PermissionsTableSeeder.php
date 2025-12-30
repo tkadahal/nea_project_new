@@ -541,6 +541,36 @@ class PermissionsTableSeeder extends Seeder
                 'deleted_at' => null,
             ],
             [
+                'title' => 'budgetHeading_access',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
+            [
+                'title' => 'budgetHeading_create',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
+            [
+                'title' => 'budgetHeading_edit',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
+            [
+                'title' => 'budgetHeading_show',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
+            [
+                'title' => 'budgetHeading_delete',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
+            [
                 'title' => 'budgetQuaterAllocation_create',
                 'created_at' => '2022-01-24 18:00:13',
                 'updated_at' => '2022-01-24 18:00:13',

@@ -32,9 +32,19 @@ class ProjectController extends Controller
         abort_if(Gate::denies('project_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $user = Auth::user();
-        $projectQuery = Project::with(['directorate', 'priority', 'projectManager', 'status', 'budgets', 'comments'])
+        $projectQuery = Project::with(
+            [
+                'directorate',
+                'priority',
+                'projectManager',
+                'status',
+                'budgets',
+                'comments',
+                'budgetHeading'
+            ]
+        )
             ->withCount('comments')
-            ->latest();
+            ->orderBy('id', 'desc');
 
         try {
             $roleIds = $user->roles->pluck('id')->toArray();
@@ -62,6 +72,7 @@ class ProjectController extends Controller
         $priorityColors = config('colors.priority');
         $progressColor = config('colors.progress');
         $budgetColor = config('colors.budget');
+        $budgetHeadingColors = config('colors.budget_heading');
 
         $tableData = $projects->map(function ($project) use ($directorateColors, $priorityColors, $progressColor, $budgetColor) {
             $directorateTitle = $project->directorate?->title ?? 'N/A';
@@ -87,9 +98,15 @@ class ProjectController extends Controller
             ];
         })->all();
 
-        $cardData = $projects->map(function ($project) use ($priorityColors) {
+        $cardData = $projects->map(function ($project) use ($priorityColors, $budgetHeadingColors) {
             $directorateTitle = $project->directorate?->title ?? 'N/A';
             $directorateId = $project->directorate?->id ?? null;
+
+            $budgetHeadingTitle = $project->budgetHeading?->title ?? 'N/A';
+            $budgetHeadingId = $project->budgetHeading?->id ?? null;
+            $budgetHeadingColor = $budgetHeadingId && isset($budgetHeadingColors[$budgetHeadingId])
+                ? $budgetHeadingColors[$budgetHeadingId]
+                : '#6B7280';
 
             $priorityValue = $project->priority?->title ?? 'N/A';
             $priorityColor = isset($priorityColors[$priorityValue]) ? $priorityColors[$priorityValue] : '#6B7280';
@@ -108,6 +125,11 @@ class ProjectController extends Controller
                 'title' => $project->title,
                 'description' => $project->description ?? trans('global.noRecords'),
                 'directorate' => ['title' => $directorateTitle, 'id' => $directorateId],
+                'budget_heading' => [
+                    'title' => $budgetHeadingTitle,
+                    'id'    => $budgetHeadingId,
+                ],
+                'budget_heading_color' => $budgetHeadingColor,
                 'fields' => $fields,
                 'comment_count' => $project->comments_count ?? 0,
             ];
@@ -135,6 +157,7 @@ class ProjectController extends Controller
                 'budget' => 'blue',
                 'directorate' => $directorateColors,
                 'priority' => $priorityColors,
+                'budget_heading' => $budgetHeadingColors,
             ],
             'tableHeaders' => $tableHeaders,
             'directorates' => $directorates,

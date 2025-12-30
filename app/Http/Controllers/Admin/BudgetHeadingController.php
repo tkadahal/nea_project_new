@@ -21,11 +21,12 @@ class BudgetHeadingController extends Controller
 
         $budgetHeadings = BudgetHeading::latest()->get();
 
-        $headers = [trans('global.budgetHeading.fields.id'), trans('global.budgetHeading.fields.title')];
+        $headers = [trans('global.budgetHeading.fields.id'), trans('global.budgetHeading.fields.title'),  trans('global.budgetHeading.fields.description')];
         $data = $budgetHeadings->map(function ($budgetHeading) {
             return [
                 'id' => $budgetHeading->id,
                 'title' => $budgetHeading->title,
+                'description' => $budgetHeading->description,
             ];
         })->all();
 

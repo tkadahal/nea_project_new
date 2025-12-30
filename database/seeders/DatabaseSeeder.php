@@ -24,11 +24,11 @@ class DatabaseSeeder extends Seeder
             PrioritiesTableSeeder::class,
             ProjectsTableSeeder::class,
             FiscalYearTableSeeder::class,
-            BudgetsTableSeeder::class,
-            ContractsTableSeeder::class,
-            TasksTableSeeder::class,
-            ProjectUserTableSeeder::class,
-            TaskUserTableSeeder::class
+            // BudgetsTableSeeder::class,
+            // ContractsTableSeeder::class,
+            // TasksTableSeeder::class,
+            // ProjectUserTableSeeder::class,
+            // TaskUserTableSeeder::class
         ]);
     }
 }

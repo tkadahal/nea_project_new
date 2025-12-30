@@ -552,8 +552,8 @@
                             <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                                 <div class="flex flex-wrap gap-2">
                                     ${users.length ? users.map(user => `
-                                                        <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-gray-200 text-black dark:bg-gray-700 dark:text-white text-xs">${user.initials || 'N/A'}</span>
-                                                    `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-xs">No Users</span>'}
+                                                                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-gray-200 text-black dark:bg-gray-700 dark:text-white text-xs">${user.initials || 'N/A'}</span>
+                                                            `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-xs">No Users</span>'}
                                 </div>
                             </td>
                         </tr>

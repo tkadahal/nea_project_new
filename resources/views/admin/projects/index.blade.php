@@ -63,7 +63,7 @@
         <div id="cardContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach ($data as $index => $item)
                 <div class="card-item" data-search="{{ collect($item)->flatten()->implode(' ') }}"
-                    data-directorate="{{ $item['directorate']['id'] }}" data-project-id="{{ $item['id'] }}">
+                    data-directorate="{{ $item['directorate']['id'] ?? '' }}" data-project-id="{{ $item['id'] }}">
                     <x-forms.project-card :title="$item['title']" :description="$item['description']" :directorate="$item['directorate']" :fields="$item['fields']"
                         :routePrefix="$routePrefix" :actions="$actions" :deleteConfirmationMessage="$deleteConfirmationMessage" :arrayColumnColor="$arrayColumnColor" :uniqueId="$index"
                         :id="$item['id']" :comment_count="$item['comment_count']" />

@@ -311,7 +311,7 @@
                                 </a>
                             @endcan
 
-                            @can('expense_access')
+                            @can('projectExpense_access')
                                 <a href="{{ route('admin.projectExpense.index') }}"
                                     class="block px-3 py-2 text-sm rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground {{ request()->routeIs('admin.expense*') ? 'bg-sidebar-accent text-sidebar-accent-foreground' : '' }}">
                                     <div class="flex items-center">

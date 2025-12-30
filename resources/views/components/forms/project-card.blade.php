@@ -80,7 +80,7 @@
 
     <!-- Display Directorate directly -->
     @if ($directorate)
-        <div class="mt-4"> <!-- Increased margin to separate from header -->
+        <div class="mt-4">
             <span
                 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ trans('global.project.fields.directorate_id') }}:</span>
             <span class="text-gray-600 dark:text-gray-400 ml-2">
@@ -93,8 +93,33 @@
         </div>
     @endif
 
+    @if ($budget_heading ?? null)
+        <div class="mt-4">
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ trans('global.project.fields.budget_heading_id') ?? 'Budget Heading' }}:
+            </span>
+            <span class="text-gray-600 dark:text-gray-400 ml-2">
+                @php
+                    $bhId = $budget_heading['id'] ?? null;
+                    $bhColor =
+                        $bhId && isset($arrayColumnColor['budget_heading'][$bhId])
+                            ? $arrayColumnColor['budget_heading'][$bhId]
+                            : null;
+
+                    $cleanColor = $bhColor ? ltrim($bhColor, '#') : '6B7280';
+                @endphp
+
+                @if ($bhId && $bhColor)
+                    <x-forms.badge :title="$budget_heading['title']" :color="$cleanColor" />
+                @else
+                    {{ $budget_heading['title'] }}
+                @endif
+            </span>
+        </div>
+    @endif
+
     <!-- Buttons and Accordion -->
-    <div class="mt-6"> <!-- Increased top margin for consistent spacing -->
+    <div class="mt-6">
         <div class="flex justify-end items-center gap-2">
 
             @can('project_show')

@@ -9,7 +9,7 @@
             </p>
         </div>
 
-        @can('expense_create')
+        @can('projectExpense_create')
             <div class="flex flex-wrap gap-3">
                 <a href="{{ route('admin.projectExpense.create') }}"
                     class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm"
@@ -65,13 +65,17 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {{ $row->fiscal_year_title }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
                                 @if ($row->filled_quarters)
                                     @foreach (explode(', ', $row->filled_quarters) as $q)
-                                        <span class="inline-block mr-2">Q{{ $q }}</span>
+                                        <span
+                                            class="inline-flex items-center px-3 py-1 mr-2 mb-1 text-xs font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full shadow-sm">
+                                            Q{{ $q }}
+                                        </span>
                                     @endforeach
                                 @else
-                                    <span class="text-gray-400">-</span>
+                                    <span class="text-gray-400 dark:text-gray-500 text-sm italic">No quarters
+                                        filled</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
@@ -84,7 +88,7 @@
                                 {{ number_format($row->recurrent_expense, 2) }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                @can('expense_show')
+                                @can('projectExpense_show')
                                     <a href="{{ route('admin.projectExpense.show', [$row->project_id, $row->fiscal_year_id]) }}"
                                         class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
                                         View
@@ -95,7 +99,7 @@
                     @empty
                         <tr>
                             <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                                No expenses found.
+                                {{ trans('global.noRecords') }}
                             </td>
                         </tr>
                     @endforelse

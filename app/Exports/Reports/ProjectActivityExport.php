@@ -39,7 +39,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $this->fiscalYearId = $fiscalYearId;
         $this->project = $project;
         $this->fiscalYear = $fiscalYear;
-        $this->project->load('projectManager');
+        $this->project->load(['projectManager', 'budgetHeading', 'department']);
 
         // NEW: Load budget data for this project and fiscal year
         $this->budget = Budget::where('project_id', $projectId)
@@ -49,9 +49,19 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
     private function toNepaliDigits($num): string
     {
+        if ($num === '' || $num === null) {
+            return '';
+        }
+        $str = (string) $num;
         $arabic = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
         $devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
-        return str_replace($arabic, $devanagari, (string) $num);
+        $result = '';
+        for ($i = 0; $i < strlen($str); $i++) {
+            $char = $str[$i];
+            $index = array_search($char, $arabic);
+            $result .= $index !== false ? $devanagari[$index] : $char;
+        }
+        return $result;
     }
 
     private function formatBudgetAmount($amount): string
@@ -70,8 +80,9 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $data[] = ['.................. मन्त्रालय/निकाय'];
         $data[] = ['वार्षिक कार्यक्रम'];
 
-        // ========== BUDGET SECTION (UPDATED) ==========
         $fyTitle = $this->fiscalYear->title ?? '';
+        $budgetHeadingTitle = $this->project->budgetHeading?->title ?? 'N/A';
+        $departmentTitle = $this->project->department?->title ?? 'N/A';
 
         // Calculate budget components
         $totalBudget = $this->budget ? $this->budget->total_budget : 0;
@@ -99,7 +110,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Row 5
         $row5 = array_fill(0, 25, '');
-        $row5[0] = '२. बजेट उपशीर्षक नं.:';
+        $row5[0] = '२. बजेट उपशीर्षक नं.: ' . $budgetHeadingTitle;
         $row5[7] = '(क) आन्तरिक: ' . $this->formatBudgetAmount($internalTotal);
         $row5[15] = '(क) आन्तरिक:';
         $data[] = $row5;
@@ -113,7 +124,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Row 7
         $row7 = array_fill(0, 25, '');
-        $row7[0] = '४. विभाग/कार्यालय:';
+        $row7[0] = '४. विभाग/कार्यालय: ' . $departmentTitle;
         $row7[7] = '(२) संस्था/निकाय (NEA): ' . $this->formatBudgetAmount($neaTotal);
         $row7[15] = '(२) संस्था/निकाय:';
         $data[] = $row7;
@@ -273,7 +284,14 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
             ->orderBy('sort_index')
-            ->with('children.children')
+            ->with([
+                'children' => function ($query) {
+                    $query->orderBy('sort_index')
+                        ->with(['children' => function ($q) {
+                            $q->orderBy('sort_index');
+                        }]);
+                }
+            ])
             ->get();
 
         $capitalDefIds = $capitalDefinitions->flatMap(function ($def) {
@@ -307,7 +325,14 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
             ->orderBy('sort_index')
-            ->with('children.children')
+            ->with([
+                'children' => function ($query) {
+                    $query->orderBy('sort_index')
+                        ->with(['children' => function ($q) {
+                            $q->orderBy('sort_index');
+                        }]);
+                }
+            ])
             ->get();
 
         $recurrentDefIds = $recurrentDefinitions->flatMap(function ($def) {
@@ -467,7 +492,10 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $program = $plan->effective_program ?? $definition->program ?? '';
 
         if ($hasChildren) {
-            return array_fill(0, 25, '') + [0 => $number, 1 => $program];
+            $row = array_fill(0, 25, '');
+            $row[0] = $number;   // क्र.सं. (sort_index in Nepali digits)
+            $row[1] = $program;  // कार्यक्रम/क्रियाकलाप
+            return $row;
         }
 
         $displayTotalQuantity = (float) ($definition->total_quantity ?? 0);
@@ -517,27 +545,27 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $number,
             $program,
             '',
-            number_format($displayTotalQuantity, 2),
-            number_format($displayTotalBudget / 1000, 0),
-            $weightBudget,
-            number_format($displayCompletedQuantity, 2),
-            number_format($displayTotalExpense / 1000, 0),
-            $weightExpense,
-            number_format($displayPlannedQuantity, 2),
-            $weightPlanned,
-            number_format($displayPlannedBudget / 1000, 0),
-            number_format($displayQ1Quantity, 2),
-            $weightQ1,
-            number_format($displayQ1 / 1000, 0),
-            number_format($displayQ2Quantity, 2),
-            $weightQ2,
-            number_format($displayQ2 / 1000, 0),
-            number_format($displayQ3Quantity, 2),
-            $weightQ3,
-            number_format($displayQ3 / 1000, 0),
-            number_format($displayQ4Quantity, 2),
-            $weightQ4,
-            number_format($displayQ4 / 1000, 0),
+            $this->toNepaliDigits(number_format($displayTotalQuantity, 2)),
+            $this->toNepaliDigits(number_format($displayTotalBudget / 1000, 0)),
+            $this->toNepaliDigits($weightBudget),
+            $this->toNepaliDigits(number_format($displayCompletedQuantity, 2)),
+            $this->toNepaliDigits(number_format($displayTotalExpense / 1000, 0)),
+            $this->toNepaliDigits($weightExpense),
+            $this->toNepaliDigits(number_format($displayPlannedQuantity, 2)),
+            $this->toNepaliDigits($weightPlanned),
+            $this->toNepaliDigits(number_format($displayPlannedBudget / 1000, 0)),
+            $this->toNepaliDigits(number_format($displayQ1Quantity, 2)),
+            $this->toNepaliDigits($weightQ1),
+            $this->toNepaliDigits(number_format($displayQ1 / 1000, 0)),
+            $this->toNepaliDigits(number_format($displayQ2Quantity, 2)),
+            $this->toNepaliDigits($weightQ2),
+            $this->toNepaliDigits(number_format($displayQ2 / 1000, 0)),
+            $this->toNepaliDigits(number_format($displayQ3Quantity, 2)),
+            $this->toNepaliDigits($weightQ3),
+            $this->toNepaliDigits(number_format($displayQ3 / 1000, 0)),
+            $this->toNepaliDigits(number_format($displayQ4Quantity, 2)),
+            $this->toNepaliDigits($weightQ4),
+            $this->toNepaliDigits(number_format($displayQ4 / 1000, 0)),
             ''
         ];
     }
@@ -557,26 +585,26 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $label,
             '',
             '',
-            number_format($totals['total_budget'] / 1000, 0),
-            number_format($budgetWeight, 2),
+            $this->toNepaliDigits(number_format($totals['total_budget'] / 1000, 0)),
+            $this->toNepaliDigits(number_format($budgetWeight, 2)),
             '',
-            number_format($totals['total_expense'] / 1000, 0),
-            number_format($expenseWeight, 2),
+            $this->toNepaliDigits(number_format($totals['total_expense'] / 1000, 0)),
+            $this->toNepaliDigits(number_format($expenseWeight, 2)),
             '',
-            number_format($plannedWeight, 2),
-            number_format($totals['planned_budget'] / 1000, 0),
+            $this->toNepaliDigits(number_format($plannedWeight, 2)),
+            $this->toNepaliDigits(number_format($totals['planned_budget'] / 1000, 0)),
             '',
-            number_format($q1Weight, 2),
-            number_format($totals['q1'] / 1000, 0),
+            $this->toNepaliDigits(number_format($q1Weight, 2)),
+            $this->toNepaliDigits(number_format($totals['q1'] / 1000, 0)),
             '',
-            number_format($q2Weight, 2),
-            number_format($totals['q2'] / 1000, 0),
+            $this->toNepaliDigits(number_format($q2Weight, 2)),
+            $this->toNepaliDigits(number_format($totals['q2'] / 1000, 0)),
             '',
-            number_format($q3Weight, 2),
-            number_format($totals['q3'] / 1000, 0),
+            $this->toNepaliDigits(number_format($q3Weight, 2)),
+            $this->toNepaliDigits(number_format($totals['q3'] / 1000, 0)),
             '',
-            number_format($q4Weight, 2),
-            number_format($totals['q4'] / 1000, 0),
+            $this->toNepaliDigits(number_format($q4Weight, 2)),
+            $this->toNepaliDigits(number_format($totals['q4'] / 1000, 0)),
             ''
         ];
     }

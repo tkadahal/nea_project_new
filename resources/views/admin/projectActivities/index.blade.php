@@ -92,7 +92,7 @@
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     @forelse ($activities as $activity)
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition">
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="whitespace-nowrap">
                                 <a href="{{ route('admin.projectActivity.log', [$activity->project_id, $activity->fiscal_year_id]) }}"
                                     class="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition hover:opacity-90 hover:shadow-md
                                         border border-transparent hover:border-current">

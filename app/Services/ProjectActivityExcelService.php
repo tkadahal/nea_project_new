@@ -190,13 +190,11 @@ class ProjectActivityExcelService
                 'total_quantity' => $row['total_quantity'],
                 'total_budget' => $row['total_budget'],
                 'version' => $newVersion,
-                'previous_version_id' => $previousVersion, // Same for ALL rows
+                'previous_version_id' => $previousVersion,
                 'is_current' => true,
                 'versioned_at' => now(),
             ];
 
-            // Always create new on structural change or first time
-            // On minor edit: update if exists
             if (!$force) {
                 $existing = ProjectActivityDefinition::where('project_id', $projectId)
                     ->where('expenditure_id', $expenditureId)

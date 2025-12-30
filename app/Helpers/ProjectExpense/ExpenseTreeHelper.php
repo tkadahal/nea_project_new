@@ -37,11 +37,9 @@ class ProjectExpenseService
         $projects = $user->projects;
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        $currentFiscalYear = FiscalYear::currentFiscalYear();
-
         $selectedProjectId = $projectId ?? $projects->first()?->id;
         $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
-        $selectedFiscalYearId = $currentFiscalYear->id;
+        $selectedFiscalYearId = $fiscalYearId;
 
         $projectOptions = $projects->map(fn(Project $project) => [
             'value' => $project->id,
@@ -51,8 +49,8 @@ class ProjectExpenseService
 
         if (!$selectedQuarter && $selectedProjectId && $selectedFiscalYearId) {
             $selectedQuarter = $this->quarterService->getNextUnfilledQuarter(
-                (int) $selectedProjectId,
-                (int) $selectedFiscalYearId
+                $selectedProjectId,
+                $selectedFiscalYearId
             );
         }
 
@@ -61,8 +59,8 @@ class ProjectExpenseService
         $quarterStatus = null;
         if ($selectedProjectId && $selectedFiscalYearId) {
             $quarterStatus = $this->quarterService->getQuarterCompletionStatus(
-                (int) $selectedProjectId,
-                (int) $selectedFiscalYearId
+                $selectedProjectId,
+                $selectedFiscalYearId
             );
         }
 
@@ -82,8 +80,8 @@ class ProjectExpenseService
     public function storeExpenses(array $validated): ExpenseStoreResultDTO
     {
         return DB::transaction(function () use ($validated) {
-            $projectId = (int) $validated['project_id'];
-            $fiscalYearId = (int) $validated['fiscal_year_id'];
+            $projectId = $validated['project_id'];
+            $fiscalYearId = $validated['fiscal_year_id'];
             $selectedQuarter = $validated['selected_quarter'];
             $quarterNumber = $this->quarterService->extractQuarterNumber($selectedQuarter);
 
@@ -401,17 +399,5 @@ class ProjectExpenseService
         )->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
 
         return [$totalExpense, $capitalTotal, $recurrentTotal];
-    }
-
-    public function areActivitiesApproved(int $projectId, int $fiscalYearId): bool
-    {
-        $plan = ProjectActivityPlan::whereHas('definitionVersion', function ($q) use ($projectId) {
-            $q->where('project_id', $projectId)
-                ->where('is_current', true);
-        })
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->first();
-
-        return $plan && $plan->status === 'approved';
     }
 }

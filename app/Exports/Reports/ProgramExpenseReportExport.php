@@ -61,6 +61,9 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
 
     private function convertToNepaliDigits(string $input): string
     {
+        if ($input === '' || $input === null) {
+            return '';
+        }
         $map = [
             '0' => '०',
             '1' => '१',
@@ -78,18 +81,21 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
 
     private function formatQuantity(float $number, int $decimals = 2): string
     {
-        return number_format($number, $decimals);
+        $formatted = number_format($number, $decimals);
+        return $this->convertToNepaliDigits($formatted);
     }
 
     private function formatAmount(float $number, int $decimals = 2): string
     {
         $formatted = number_format($number, $decimals);
-        return rtrim(rtrim($formatted, '0'), '.');
+        $clean = rtrim(rtrim($formatted, '0'), '.'); // removes trailing .00
+        return $this->convertToNepaliDigits($clean);
     }
 
     private function formatPercent(float $number): string
     {
-        return number_format($number, 2);
+        $formatted = number_format($number, 2);
+        return $this->convertToNepaliDigits($formatted);
     }
 
     public function collection()
@@ -455,18 +461,13 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                 $headerRows[13][11] .= $this->formatPercent($time_percent);
 
                 // === Build data rows ===
-                $traverse = function ($acts, $level = 0) use (&$dataRows, &$traverse, $groupedActivities, $subtreeSums, $defaultSums) {
+                $traverse = function ($acts, $level = 0) use (&$dataRows, &$traverse, $groupedActivities, $subtreeSums) {
                     foreach ($acts as $act) {
                         $def = $act->definitionVersion;
                         $defId = $def->id;
                         $sortIndex = $def->sort_index ?? '';
-
-                        $indent = str_repeat('  ', $level);
+                        $indent = str_repeat('    ', $level);
                         $effectiveProgram = $act->program_override ?? $def->program ?? '';
-
-                        $row = array_fill(0, 23, '');
-                        $row[0] = $this->convertToNepaliDigits($sortIndex);
-                        $row[1] = $indent . $effectiveProgram;
 
                         $children = $groupedActivities[$defId] ?? collect();
                         $hasChildren = $children->isNotEmpty();
@@ -476,44 +477,19 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                         $globalX = ($def->expenditure_id == 1) ? $this->globalXCapital : $this->globalXRecurrent;
                         $periodTotal = ($def->expenditure_id == 1) ? $this->capitalPeriodTotal : $this->recurrentPeriodTotal;
 
-                        if (!$hasChildren) {
-                            // Leaf row
-                            $row[3] = $this->formatQuantity($subtree['total_qty'], 2);
-                            $row[4] = $this->formatPercent($globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0);
-                            $row[5] = $this->formatAmount($subtree['total_budget'] / 1000, 2);
-
-                            $row[6] = $this->formatQuantity($subtree['annual_qty'], 2);
-                            $row[7] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_annual_qty'] / $globalX * 100) : 0);
-                            $row[8] = $this->formatAmount($subtree['annual_amt'] / 1000, 2);
-
-                            $row[9] = $this->formatQuantity($subtree['period_qty_planned'], 2);
-                            $row[10] = $this->formatPercent($periodTotal > 0 ? ($subtree['period_amt_planned'] / $periodTotal * 100) : 0);
-                            $row[11] = $this->formatAmount($subtree['period_amt_planned'] / 1000, 2);
-
-                            $row[12] = $this->formatQuantity($subtree['quarter_qty_actual'], 2);
-                            $row[13] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_quarter_physical'] / $globalX * 100) : 0);
-                            $row[14] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['quarter_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
-
-                            $row[15] = $this->formatAmount($subtree['quarter_amt_actual'] / 1000, 2);
-                            $row[16] = $this->formatPercent($subtree['quarter_amt_planned'] > 0 ? ($subtree['quarter_amt_actual'] / $subtree['quarter_amt_planned'] * 100) : 0);
-
-                            $row[17] = $this->formatQuantity($subtree['period_qty_actual'], 2);
-                            $row[18] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_period_physical'] / $globalX * 100) : 0);
-                            $row[19] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['period_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
-
-                            $row[20] = $this->formatAmount($subtree['period_amt_actual'] / 1000, 2);
-                            $row[21] = $this->formatPercent($subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0);
-                        }
-                        // Parent row: only serial and name (values remain empty or zero)
-
-                        $dataRows[] = $row;
-
                         if ($hasChildren) {
+                            // === ONLY ONE PARENT ROW ===
+                            $parentRow = array_fill(0, 23, '');
+                            $parentRow[0] = $this->convertToNepaliDigits($sortIndex);
+                            $parentRow[1] = $indent . $effectiveProgram;
+                            $dataRows[] = $parentRow;
+
+                            // Recurse into children
                             $traverse($children, $level + 1);
 
-                            // Subtotal row for this parent
+                            // === SUBTOTAL ROW ===
                             $totalRow = array_fill(0, 23, '');
-                            $totalRow[1] = $indent . 'Total of ' . $sortIndex;
+                            $totalRow[1] = $indent . 'जम्मा ' . $sortIndex;
 
                             $totalRow[3] = $this->formatQuantity($subtree['total_qty'], 2);
                             $totalRow[4] = $this->formatPercent($globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0);
@@ -536,6 +512,33 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                             $totalRow[21] = $this->formatPercent($subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0);
 
                             $dataRows[] = $totalRow;
+                        } else {
+                            // === LEAF ROW ===
+                            $row = array_fill(0, 23, '');
+                            $row[0] = $this->convertToNepaliDigits($sortIndex);
+                            $row[1] = $indent . $effectiveProgram;
+
+                            $row[3] = $this->formatQuantity($subtree['total_qty'], 2);
+                            $row[4] = $this->formatPercent($globalX > 0 ? ($subtree['total_budget'] / $globalX * 100) : 0);
+                            $row[5] = $this->formatAmount($subtree['total_budget'] / 1000, 2);
+                            $row[6] = $this->formatQuantity($subtree['annual_qty'], 2);
+                            $row[7] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_annual_qty'] / $globalX * 100) : 0);
+                            $row[8] = $this->formatAmount($subtree['annual_amt'] / 1000, 2);
+                            $row[9] = $this->formatQuantity($subtree['period_qty_planned'], 2);
+                            $row[10] = $this->formatPercent($periodTotal > 0 ? ($subtree['period_amt_planned'] / $periodTotal * 100) : 0);
+                            $row[11] = $this->formatAmount($subtree['period_amt_planned'] / 1000, 2);
+                            $row[12] = $this->formatQuantity($subtree['quarter_qty_actual'], 2);
+                            $row[13] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_quarter_physical'] / $globalX * 100) : 0);
+                            $row[14] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['quarter_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
+                            $row[15] = $this->formatAmount($subtree['quarter_amt_actual'] / 1000, 2);
+                            $row[16] = $this->formatPercent($subtree['quarter_amt_planned'] > 0 ? ($subtree['quarter_amt_actual'] / $subtree['quarter_amt_planned'] * 100) : 0);
+                            $row[17] = $this->formatQuantity($subtree['period_qty_actual'], 2);
+                            $row[18] = $this->formatPercent($globalX > 0 ? ($subtree['weighted_period_physical'] / $globalX * 100) : 0);
+                            $row[19] = $this->formatPercent($subtree['annual_qty'] > 0 ? ($subtree['period_qty_actual'] / $subtree['annual_qty'] * 100) : 0);
+                            $row[20] = $this->formatAmount($subtree['period_amt_actual'] / 1000, 2);
+                            $row[21] = $this->formatPercent($subtree['period_amt_planned'] > 0 ? ($subtree['period_amt_actual'] / $subtree['period_amt_planned'] * 100) : 0);
+
+                            $dataRows[] = $row;
                         }
                     }
                 };
@@ -821,6 +824,30 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                             ->setFillType(Fill::FILL_SOLID)
                             ->getStartColor()->setRGB('FFFF00');
                         $sheet->getStyle($range)->getFont()->setBold(true);
+                    }
+                }
+
+                // === MERGE C TO V FOR PARENT ROWS (ONLY SERIAL + NAME) ===
+                $highestRow = $sheet->getHighestRow();
+                $signatureStartRow = $highestRow - 3; // Last 4 rows: blank + progress + 2 signature rows
+
+                for ($row = 20; $row < $signatureStartRow; $row++) {
+                    $valA = $sheet->getCell("A{$row}")->getValue(); // sort_index in Nepali digits
+                    $valB = $sheet->getCell("B{$row}")->getValue(); // program name (indented)
+                    $valD = $sheet->getCell("D{$row}")->getValue(); // quantity column - empty for parents
+
+                    // Conditions to identify true parent rows
+                    if (
+                        !empty($valA) &&
+                        !empty($valB) &&
+                        empty($valD) &&
+                        !str_contains($valB, 'जम्मा') &&      // exclude subtotal rows
+                        !str_contains($valA, 'पुँजीगत') &&    // exclude section headers
+                        !str_contains($valA, 'चालु')
+                    ) {
+                        $sheet->mergeCells("C{$row}:V{$row}");
+                        // Optional: better left alignment for program name
+                        $sheet->getStyle("B{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
                     }
                 }
 

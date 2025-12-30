@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace App\Repositories\ProjectExpense;
 
-use App\DTO\ProjectExpense\ActivityExpenseDTO;
-use App\Models\Project;
 use App\Models\ProjectExpense;
 use App\Models\ProjectActivityPlan;
-use App\Models\ProjectActivityDefinition;
-use App\Models\FiscalYear;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 
 class ProjectExpenseRepository
 {
@@ -35,7 +30,7 @@ class ProjectExpenseRepository
                 COALESCE(SUM(q.amount), 0) AS total_expense,
                 COALESCE(SUM(CASE WHEN pad.expenditure_id = 1 THEN q.amount ELSE 0 END), 0) AS capital_expense,
                 COALESCE(SUM(CASE WHEN pad.expenditure_id = 2 THEN q.amount ELSE 0 END), 0) AS recurrent_expense,
-                STRING_AGG(DISTINCT q.quarter::text, \', \' ORDER BY q.quarter) AS filled_quarters
+                STRING_AGG(DISTINCT q.quarter::text, \', \' ORDER BY q.quarter::text) AS filled_quarters
             ')
             ->whereNull('pe.deleted_at')
             ->groupBy('p.id', 'p.title', 'fy.id', 'fy.title')
@@ -44,115 +39,59 @@ class ProjectExpenseRepository
             ->get();
     }
 
-    public function getNextUnfilledQuarter(int $projectId, int $fiscalYearId): string
-    {
-        $planIds = $this->getAllPlanIds($projectId, $fiscalYearId);
-
-        if ($planIds->isEmpty()) {
-            return 'q1';
-        }
-
-        $completed = ProjectExpense::whereIn('project_activity_plan_id', $planIds)
-            ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
-            ->get()
-            ->pluck('quarters')
-            ->flatten()
-            ->filter(fn($q) => $q->quantity > 0 || $q->amount > 0)
-            ->pluck('quarter')
-            ->unique()
-            ->toArray();
-
-        for ($i = 1; $i <= 4; $i++) {
-            if (!in_array($i, $completed)) {
-                return "q{$i}";
-            }
-        }
-
-        return 'q4';
-    }
-
-    public function getQuarterCompletionStatus(int $projectId, int $fiscalYearId): array
-    {
-        $status = ['q1' => false, 'q2' => false, 'q3' => false, 'q4' => false];
-
-        $planIds = $this->getAllPlanIds($projectId, $fiscalYearId);
-        if ($planIds->isEmpty()) return $status;
-
-        $filledQuarters = ProjectExpense::whereIn('project_activity_plan_id', $planIds)
-            ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
-            ->get()
-            ->pluck('quarters')
-            ->flatten()
-            ->filter(fn($q) => $q->quantity > 0 || $q->amount > 0)
-            ->pluck('quarter')
-            ->unique();
-
-        foreach ($filledQuarters as $q) {
-            $status["q{$q}"] = true;
-        }
-
-        return $status;
-    }
-
-    private function getAllPlanIds(int $projectId, int $fiscalYearId): Collection
+    public function getAllHistoricalPlanIds(int $projectId, int $fiscalYearId): Collection
     {
         return ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
             ->where('fiscal_year_id', $fiscalYearId)
             ->pluck('id');
     }
 
-    public function saveExpenseBatch(array $activities, int $projectId, int $fiscalYearId, int $quarter): void
+    public function getExpensesByPlanIds(Collection $planIds): Collection
     {
-        $expenseMap = [];
-        $userId = Auth::id();
-
-        foreach ($activities as $dto) {
-            /** @var ActivityExpenseDTO $dto */
-            $plan = ProjectActivityPlan::findOrFail($dto->activityId);
-
-            if (
-                $plan->definitionVersion->project_id !== $projectId ||
-                $plan->fiscal_year_id !== $fiscalYearId ||
-                !$plan->definitionVersion->is_current
-            ) {
-                throw new \InvalidArgumentException("Invalid or outdated activity plan ID: {$dto->activityId}");
-            }
-
-            $expense = ProjectExpense::firstOrCreate(
-                ['project_activity_plan_id' => $dto->activityId],
-                [
-                    'user_id' => $userId,
-                    'description' => $dto->description,
-                    'effective_date' => now(),
-                ]
-            );
-
-            if ($dto->quantity > 0 || $dto->amount > 0) {
-                $expense->quarters()->updateOrCreate(
-                    ['quarter' => $quarter],
-                    [
-                        'quantity' => $dto->quantity,
-                        'amount' => $dto->amount,
-                        'status' => 'draft',
-                    ]
-                );
-            } else {
-                $expense->quarters()->where('quarter', $quarter)->delete();
-            }
-
-            $expenseMap[$dto->activityId] = $expense->id;
-        }
-
-        // Second pass: assign parent_id
-        foreach ($activities as $dto) {
-            if ($dto->parentActivityId && isset($expenseMap[$dto->parentActivityId])) {
-                ProjectExpense::where('id', $expenseMap[$dto->activityId])
-                    ->update(['parent_id' => $expenseMap[$dto->parentActivityId]]);
-            }
-        }
+        return ProjectExpense::with(['quarters' => fn($q) => $q->finalized()])
+            ->whereIn('project_activity_plan_id', $planIds)
+            ->get()
+            ->keyBy('project_activity_plan_id');
     }
 
-    // Optional: Add these later when you want to fully move show() and getForProject()
-    // public function getShowViewData(int $projectId, int $fiscalYearId): array { ... }
-    // public function buildExpenseTreeForAjax(int $projectId, int $fiscalYearId): array { ... }
+    public function createOrUpdateExpense(
+        int $planId,
+        int $userId,
+        ?string $description = null
+    ): ProjectExpense {
+        return ProjectExpense::firstOrCreate(
+            ['project_activity_plan_id' => $planId],
+            [
+                'user_id' => $userId,
+                'description' => $description,
+                'effective_date' => now()
+            ]
+        );
+    }
+
+    public function updateOrCreateQuarter(
+        ProjectExpense $expense,
+        int $quarterNumber,
+        float $quantity,
+        float $amount
+    ): void {
+        $expense->quarters()->updateOrCreate(
+            ['quarter' => $quarterNumber],
+            [
+                'quantity' => $quantity,
+                'amount' => $amount,
+                'status' => 'draft'
+            ]
+        );
+    }
+
+    public function deleteQuarter(ProjectExpense $expense, int $quarterNumber): void
+    {
+        $expense->quarters()->where('quarter', $quarterNumber)->delete();
+    }
+
+    public function updateParentId(int $expenseId, int $parentId): void
+    {
+        ProjectExpense::where('id', $expenseId)->update(['parent_id' => $parentId]);
+    }
 }
