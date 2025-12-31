@@ -187,6 +187,11 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::get('template', [ProjectActivityController::class, 'downloadTemplate'])->name('template');
             Route::get('upload-form', [ProjectActivityController::class, 'showUploadForm'])->name('uploadForm');
             Route::post('upload', [ProjectActivityController::class, 'uploadExcel'])->name('upload');
+            Route::post('upload/confirm', [ProjectActivityController::class, 'confirmExcelUpload'])
+                ->name('upload.confirm');
+
+            Route::post('upload/cancel', [ProjectActivityController::class, 'cancelExcelUpload'])
+                ->name('upload.cancel');
 
             // Show / Edit / Update / Download
             Route::get('show/{projectId}/{fiscalYearId}/{version?}', [ProjectActivityController::class, 'show'])->name('show');
@@ -263,6 +268,8 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::get('upload', 'uploadIndex')->name('upload.index');
             Route::post('upload', 'upload')->name('upload');
             Route::get('{budget}/remaining', 'remaining')->name('remaining');
+            Route::get('filter-projects', [BudgetController::class, 'filterProjects'])
+                ->name('filter-projects');
         });
         Route::prefix('budgets')->name('budget.')->group(function () {
             Route::get('duplicates', [BudgetController::class, 'listDuplicates'])->name('duplicates');
@@ -271,7 +278,27 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('budget', BudgetController::class);
 
         // Budget Quarter Allocations
-        Route::post('budget-quater-allocations/load-budgets', [BudgetQuaterAllocationController::class, 'loadBudgets'])->name('budgetQuaterAllocations.loadBudgets');
+        Route::controller(BudgetQuaterAllocationController::class)
+            ->prefix('budget-quater-allocation')
+            ->name('budgetQuaterAllocation.')
+            ->group(function () {
+                Route::get('download-template', 'downloadTemplate')
+                    ->name('download-template');
+
+                Route::get('upload', 'uploadIndex')
+                    ->name('upload.index');
+
+                Route::post('upload', 'upload')
+                    ->name('upload');
+            });
+
+        // Separate route for AJAX load budgets
+        Route::post(
+            'budget-quater-allocations/load-budgets',
+            [BudgetQuaterAllocationController::class, 'loadBudgets']
+        )->name('budgetQuaterAllocations.loadBudgets');
+
+        // Resource routes
         Route::resource('budgetQuaterAllocation', BudgetQuaterAllocationController::class);
 
         // Project Expense Funding Allocations

@@ -31,7 +31,6 @@
         <form id="uploadForm" action="{{ route('admin.projectActivity.upload') }}" method="POST"
             enctype="multipart/form-data">
             @csrf
-            <input type="hidden" name="force" value="0" id="forceInput">
 
             <div class="mb-6">
                 <label for="excel_file" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -39,9 +38,9 @@
                 </label>
                 <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.xls" required
                     class="mt-1 block w-full text-sm text-gray-500
-                             file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
-                             file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
-                             hover:file:bg-blue-100 file:transition">
+                              file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
+                              file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
+                              hover:file:bg-blue-100">
                 @error('excel_file')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -53,51 +52,67 @@
                 </x-buttons.primary>
                 <a href="{{ route('admin.projectActivity.index') }}"
                     class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md
-                         text-gray-700 bg-white hover:bg-gray-50 transition">
+                           text-gray-700 bg-white hover:bg-gray-50 transition">
                     {{ trans('global.back_to_list') }}
                 </a>
             </div>
         </form>
     </div>
 
-    <!-- Reusable Confirmation Modal (same as in index) -->
-    <div id="confirm-structural-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
+    <!-- Confirmation Modal -->
+    <div id="confirm-structural-modal" class="fixed inset-0 bg-black/50 z-50 items-center justify-center hidden"
+        role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4 p-6">
             <div class="text-center mb-6">
                 <div
-                    class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900">
+                    class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/50">
                     <svg class="h-6 w-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 </div>
-                <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">
+                <h3 id="modal-title" class="mt-4 text-xl font-bold text-gray-900 dark:text-white">
                     Confirm Structural Change
                 </h3>
             </div>
 
-            <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed text-center mb-8">
+            <div class="text-sm text-gray-600 dark:text-gray-300 text-center mb-8 leading-relaxed">
+                @if (session('temp_original_name'))
+                    You uploaded: <strong>{{ session('temp_original_name') }}</strong><br><br>
+                @endif
                 The uploaded program structure differs from the current version. Proceeding will create a new version
                 and reset the plan to draft.<br><br>
                 <strong>This action cannot be undone.</strong>
             </div>
 
             <div class="flex justify-end gap-3">
-                <button type="button" id="cancelConfirmBtn"
-                    class="px-5 py-2 text-gray-700 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300">
-                    No, Cancel
-                </button>
+                <!-- Cancel: Deletes temp file immediately -->
+                <form id="cancelForm" action="{{ route('admin.projectActivity.upload.cancel') }}" method="POST"
+                    class="inline">
+                    @csrf
+                    <button type="submit"
+                        class="px-5 py-2 text-gray-700 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 transition">
+                        Cancel
+                    </button>
+                </form>
+
+                <!-- Confirm Button: Triggers hidden form submit -->
                 <button type="button" id="proceedConfirmBtn"
-                    class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                     Yes, Create New Version
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- General Errors -->
-    @if ($errors->any() || session('error'))
+    <!-- Hidden Confirm Form -->
+    <form id="confirmForm" action="{{ route('admin.projectActivity.upload.confirm') }}" method="POST" class="hidden">
+        @csrf
+    </form>
+
+    <!-- Messages -->
+    @if ($errors->any())
         <div
             class="mt-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200">
             <p class="font-semibold">Upload Failed:</p>
@@ -105,50 +120,61 @@
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
-                @if (session('error'))
-                    <li>{{ session('error') }}</li>
-                @endif
             </ul>
         </div>
     @endif
 
+    @if (session('success'))
+        <div
+            class="mt-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200">
+            <p class="font-semibold">Success:</p>
+            <p class="mt-2 text-sm">{{ session('success') }}</p>
+        </div>
+    @endif
+
+    @if (session('info'))
+        <div
+            class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-blue-700 dark:text-blue-200">
+            <p class="text-sm">{{ session('info') }}</p>
+        </div>
+    @endif
+
     <script>
-        const form = document.getElementById('uploadForm');
         const modal = document.getElementById('confirm-structural-modal');
-        const cancelBtn = document.getElementById('cancelConfirmBtn');
         const confirmBtn = document.getElementById('proceedConfirmBtn');
-        const forceInput = document.getElementById('forceInput');
+        const confirmForm = document.getElementById('confirmForm');
 
         function openModal() {
             modal.classList.remove('hidden');
+            modal.classList.add('flex');
         }
 
         function closeModal() {
             modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
-        form.addEventListener('submit', function(e) {
-            if (forceInput.value === '1') {
-                return; // Already confirmed
-            }
+        // Auto-open modal if confirmation required
+        @if (session('requires_confirmation'))
+            openModal();
+        @endif
 
-            @if (session('requires_confirmation'))
-                e.preventDefault();
-                openModal();
-            @endif
+        // Confirm: Submit the hidden confirm form
+        confirmBtn.addEventListener('click', () => {
+            closeModal();
+            confirmForm.submit();
         });
 
-        cancelBtn.onclick = closeModal;
-
-        confirmBtn.onclick = () => {
-            forceInput.value = '1';
-            closeModal();
-            form.submit();
-        };
-
-        // Close when clicking outside
-        modal.addEventListener('click', function(e) {
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
             if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Close with Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
                 closeModal();
             }
         });

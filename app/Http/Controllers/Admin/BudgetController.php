@@ -10,6 +10,7 @@ use App\Models\Budget;
 use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
+use App\Models\Directorate;
 use Illuminate\Http\Request;
 use App\Imports\BudgetImport;
 use Illuminate\Support\Facades\DB;
@@ -96,22 +97,37 @@ class BudgetController extends Controller
         ]);
     }
 
-    private function getUserProjects()
+    private function getUserProjects($directorateId = null)
     {
         $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
 
-        if (in_array(Role::SUPERADMIN, $roleIds)) {
-            return Project::select('id', 'title')->get();
-        } elseif (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-            if ($user->directorate_id) {
-                return Project::where('directorate_id', $user->directorate_id)
-                    ->select('id', 'title')
-                    ->get();
+        $query = Project::query()->select('id', 'title', 'directorate_id');
+
+        if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
+            // Can see all + filter freely
+        } elseif (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
+            $query->where('directorate_id', $user->directorate_id);
+            // Cannot override filter
+        } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
+            $projectIds = $user->projects()->pluck('projects.id')->toArray();
+            if (empty($projectIds)) {
+                return collect();
             }
+            $query->whereIn('id', $projectIds);
+        } else {
+            return collect();
         }
 
-        return collect();
+        // Apply directorate filter ONLY for users who can see multiple directorates
+        if (
+            (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) &&
+            $directorateId && $directorateId !== '' && $directorateId !== '0'
+        ) {
+            $query->where('directorate_id', $directorateId);
+        }
+
+        return $query->orderBy('title')->get();
     }
 
     public function create(Request $request): View
@@ -121,24 +137,67 @@ class BudgetController extends Controller
         $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
 
+        // Default: show all allowed projects
         $projects = $this->getUserProjects();
-        $directorateTitle = 'All Directorates';
 
-        if (in_array(Role::DIRECTORATE_USER, $roleIds) && Auth::user()->directorate_id) {
-            $directorateTitle = Auth::user()->directorate->title ?? 'Unknown Directorate';
+        $directorateTitle = 'All Directorates';
+        if (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
+            $directorateTitle = $user->directorate->title ?? 'Unknown Directorate';
         }
 
         $projectId = $request->query('project_id');
-
-        if (!$projectId) {
-            Session::forget('project_id');
-        } else {
+        if ($projectId) {
             Session::put('project_id', $projectId);
         }
 
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        return view('admin.budgets.create', compact('projects', 'fiscalYears', 'projectId', 'directorateTitle'));
+        $directorates = [];
+        if (!in_array(Role::DIRECTORATE_USER, $roleIds) || !$user->directorate_id) {
+            $directorates = Directorate::orderBy('title')->get()->map(function ($d) use ($request) {
+                return [
+                    'value' => $d->id,
+                    'label' => $d->title,
+                    'selected' => $request->input('directorate_id') == $d->id,
+                ];
+            })->prepend([
+                'value' => '',
+                'label' => trans('global.all_directorates') ?? 'All Directorates',
+                'selected' => !$request->input('directorate_id'),
+            ])->toArray();
+        }
+
+        return view('admin.budgets.create', compact(
+            'projects',
+            'fiscalYears',
+            'projectId',
+            'directorateTitle',
+            'directorates'
+        ));
+    }
+
+    public function filterProjects(Request $request)
+    {
+        $directorateId = $request->input('directorate_id');
+        $fiscalYearId = $request->input('fiscal_year_id');
+        $user = Auth::user();
+
+        Log::info('=== filterProjects called ===', [
+            'user_id' => $user->id,
+            'user_roles' => $user->roles->pluck('title')->toArray(),
+            'directorate_id_requested' => $directorateId,
+            'fiscal_year_id' => $fiscalYearId,
+        ]);
+
+        $projects = $this->getUserProjects($directorateId);
+
+        Log::info('Projects query result', [
+            'count' => $projects->count(),
+            'project_ids' => $projects->pluck('id')->toArray(),
+            'project_titles' => $projects->pluck('title')->toArray(),
+        ]);
+
+        return view('admin.budgets.partials.project-table', compact('projects'));
     }
 
     public function store(StoreBudgetRequest $request): RedirectResponse
@@ -227,21 +286,31 @@ class BudgetController extends Controller
         return redirect()->route('admin.budget.index')->with('success', $message);
     }
 
-    public function downloadTemplate()
+    public function downloadTemplate(Request $request)
     {
         abort_if(Gate::denies('budget_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $projects = $this->getUserProjects();
+        $directorateId = $request->query('directorate_id');
 
-        // Get the directorate title from the authenticated user
-        // Adjust this line based on your User model relationship
-        $directorateTitle = Auth::user()->directorate?->title
-            ?? Auth::user()->directorate_name // fallback if stored directly
-            ?? 'Budget Template'; // final fallback
+        $projects = $this->getUserProjects($directorateId);
+
+        $directorateTitle = 'All Directorates';
+        if ($directorateId) {
+            $directorate = Directorate::find($directorateId);
+            $directorateTitle = $directorate?->title ?? 'Selected Directorate';
+        } elseif (Auth::user()->directorate) {
+            $directorateTitle = Auth::user()->directorate->title ?? 'My Directorate';
+        }
+
+        $filename = 'budget_template';
+        if ($directorateTitle !== 'All Directorates') {
+            $filename .= '_' . \Illuminate\Support\Str::slug($directorateTitle);
+        }
+        $filename .= '_' . now()->format('Y-m-d') . '.xlsx';
 
         return Excel::download(
             new BudgetTemplateExport($projects, $directorateTitle),
-            'budget_template.xlsx'
+            $filename
         );
     }
 

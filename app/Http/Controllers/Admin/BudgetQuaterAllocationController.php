@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\Role;
 use App\Models\Budget;
 use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
+use App\Models\Directorate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\RedirectResponse;
 use App\Models\BudgetQuaterAllocation;
+use Symfony\Component\HttpFoundation\Response;
+use App\Exports\Templates\AdminQuarterBudgetTemplateExport;
 use App\Http\Requests\BudgetQuaterAllocation\StoreBudgetQuaterAllocationRequest;
 
 class BudgetQuaterAllocationController extends Controller
@@ -296,5 +302,61 @@ class BudgetQuaterAllocationController extends Controller
     public function destroy(BudgetQuaterAllocation $budgetQuaterAllocation)
     {
         //
+    }
+
+    public function downloadTemplate(Request $request)
+    {
+        // Only admins
+        if (!Auth::user()->hasRole(['Super_Admin', 'admin'])) {
+            abort(403);
+        }
+
+        $fiscalYearId = $request->query('fiscal_year_id');
+        $directorateId = $request->query('directorate_id'); // Can be null/empty
+
+        if (!$fiscalYearId) {
+            abort(400, 'Fiscal year is required');
+        }
+
+        // Base query: all projects
+        $query = \App\Models\Project::query();
+
+        // If directorate selected → filter by it
+        if ($directorateId && $directorateId !== '') {
+            $query->where('directorate_id', $directorateId);
+        }
+        // Optional: if you want to respect user project access, uncomment below
+        // $query->whereIn('id', Auth::user()->projects()->pluck('projects.id'));
+
+        $projects = $query->orderBy('title')->get();
+
+        // Titles for header
+        $directorateTitle = 'All Directorates';
+        if ($directorateId && $directorateId !== '') {
+            $directorate = \App\Models\Directorate::find($directorateId);
+            $directorateTitle = $directorate?->title ?? 'Selected Directorate';
+        }
+
+        $fiscalYear = \App\Models\FiscalYear::find($fiscalYearId);
+        $fiscalYearTitle = $fiscalYear?->title ?? 'Fiscal Year ' . $fiscalYearId;
+
+        // Filename
+        $safeTitle = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $directorateTitle);
+        $filename = 'quarterly_allocation_template';
+        if ($directorateTitle !== 'All Directorates') {
+            $filename .= '_' . \Illuminate\Support\Str::slug($safeTitle, '_');
+        }
+        $filename .= '_' . now()->format('Y-m-d') . '.xlsx';
+
+        return Excel::download(
+            new \App\Exports\Templates\AdminQuarterBudgetTemplateExport($projects, $directorateTitle, $fiscalYearTitle),
+            $filename
+        );
+    }
+    private function authorizeAdmin()
+    {
+        if (!Auth::user()->hasRole(['Super_Admin', 'admin'])) {
+            abort(403);
+        }
     }
 }

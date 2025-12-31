@@ -8,6 +8,8 @@ use App\Models\Role;
 use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
+use App\Models\TempUpload;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -663,46 +665,166 @@ class ProjectActivityController extends Controller
         return view('admin.project-activities.upload');
     }
 
-    public function uploadExcel(Request $request): Response
+    /**
+     * Handle the initial Excel upload
+     */
+    public function uploadExcel(Request $request): RedirectResponse
     {
-        abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('projectActivity_create'), 403);
 
         $request->validate([
             'excel_file' => 'required|file|mimes:xlsx,xls|max:10240',
         ]);
 
-        $force = $request->boolean('force', false);
+        $uploadedFile = $request->file('excel_file');
 
         try {
-            $this->excelService->processUpload($request->file('excel_file'), $force);
+            // Try to process immediately (no structural change)
+            $this->excelService->processUpload($uploadedFile, force: false);
 
             return redirect()
                 ->route('admin.projectActivity.index')
-                ->with('success', 'Excel uploaded and activities processed successfully!');
+                ->with('success', 'Excel uploaded and processed successfully!');
         } catch (StructuralChangeRequiresConfirmationException $e) {
-            // This exception ONLY happens when:
-            // - Structure changed
-            // - AND there are existing definitions ($hasExistingData = true)
-            // → We want to show the confirmation modal
+            // Structural change detected — store file temporarily
 
-            if ($force) {
-                // User confirmed but something still failed → real error
-                return back()
-                    ->withInput()
-                    ->withErrors(['excel_file' => 'Upload failed even after confirmation.']);
+            if (!$uploadedFile->isValid()) {
+                throw new \Exception('Invalid file upload. Please try again.');
             }
 
-            // Trigger modal: return with input + special flag
-            return back()
-                ->withInput()
-                ->with('requires_confirmation', true); // This flag tells JS to open modal
-        } catch (\Exception $e) {
-            Log::error('Project Activity Excel Upload Failed: ' . $e->getMessage());
+            $originalName = $uploadedFile->getClientOriginalName();
+            $extension = $uploadedFile->getClientOriginalExtension() ?: 'xlsx';
 
-            return back()
-                ->withInput()
-                ->withErrors(['excel_file' => 'Upload failed: ' . $e->getMessage()]);
+            // Generate safe filename for disk storage
+            $safeFilename = 'temp_upload_' . time() . '_' . Str::random(16) . '.' . $extension;
+            $tempDirectory = storage_path('app/temp/excel-uploads');
+            $fullTempPath = $tempDirectory . DIRECTORY_SEPARATOR . $safeFilename;
+
+            // Ensure directory exists
+            if (!is_dir($tempDirectory)) {
+                mkdir($tempDirectory, 0755, true);
+            }
+
+            // Manually move uploaded file (bypasses Windows Unicode issues)
+            $tmpName = $uploadedFile->getRealPath();
+
+            if (!move_uploaded_file($tmpName, $fullTempPath)) {
+                Log::error('Failed to move uploaded file', ['from' => $tmpName, 'to' => $fullTempPath]);
+                throw new \Exception('Failed to save uploaded file. Please try again.');
+            }
+
+            // Safe MIME type (avoid inspecting moved temp file)
+            $mime = $uploadedFile->getClientMimeType()
+                ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+            // Relative path for DB storage
+            $relativePath = 'temp/excel-uploads/' . $safeFilename;
+
+            // Create DB record
+            $tempUpload = TempUpload::create([
+                'path' => $relativePath,
+                'original_name' => $originalName,
+                'mime' => $mime,
+                'expires_at' => now()->addHours(4), // Longer for better UX
+            ]);
+
+            // Store in session
+            session([
+                'temp_upload_id' => $tempUpload->id,
+                'temp_original_name' => $originalName,
+            ]);
+
+            return back()->with('requires_confirmation', true);
         }
+    }
+
+    /**
+     * User clicked "Yes, Create New Version" — process with force
+     */
+    public function confirmExcelUpload(Request $request): RedirectResponse
+    {
+        abort_if(Gate::denies('projectActivity_create'), 403);
+
+        $tempId = session('temp_upload_id');
+
+        if (!$tempId) {
+            return back()->withErrors(['excel_file' => 'No pending upload found.']);
+        }
+
+        $tempUpload = TempUpload::find($tempId);
+
+        if (!$tempUpload) {
+            session()->forget(['temp_upload_id', 'temp_original_name']);
+            return back()->withErrors(['excel_file' => 'Upload session expired. Please try again.']);
+        }
+
+        try {
+            $file = $tempUpload->toUploadedFile();
+
+            // Process with force = true
+            $this->excelService->processUpload($file, force: true);
+
+            // === CLEANUP: Manual + reliable file deletion ===
+            $fullPath = storage_path('app/' . $tempUpload->path);
+
+            if (file_exists($fullPath)) {
+                unlink($fullPath); // Direct filesystem delete — works 100%
+            }
+
+            // Delete DB record (also triggers model deleting event as backup)
+            $tempUpload->delete();
+
+            // Clear session
+            session()->forget(['temp_upload_id', 'temp_original_name']);
+
+            return redirect()
+                ->route('admin.projectActivity.index')
+                ->with('success', 'New version created successfully!');
+        } catch (\Exception $e) {
+            Log::error('Confirmed Excel Upload Failed: ' . $e->getMessage(), [
+                'temp_upload_id' => $tempId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            // Even on error: clean up to prevent orphans
+            $fullPath = storage_path('app/' . $tempUpload->path);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+            }
+            $tempUpload->delete();
+            session()->forget(['temp_upload_id', 'temp_original_name']);
+
+            return back()->withErrors([
+                'excel_file' => 'Processing failed: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * User clicked "Cancel" — discard upload
+     */
+    public function cancelExcelUpload(Request $request): RedirectResponse
+    {
+        if (session()->has('temp_upload_id')) {
+            $tempUpload = TempUpload::find(session('temp_upload_id'));
+
+            if ($tempUpload) {
+                // Manual direct deletion — guaranteed
+                $fullPath = storage_path('app/' . $tempUpload->path);
+
+                if (file_exists($fullPath)) {
+                    unlink($fullPath);
+                }
+
+                // Delete DB record (model event as backup)
+                $tempUpload->delete();
+            }
+
+            // Clear session
+            session()->forget(['temp_upload_id', 'temp_original_name']);
+        }
+
+        return back()->with('info', 'Upload cancelled.');
     }
 
     public function downloadActivities(int $projectId, int $fiscalYearId): BinaryFileResponse

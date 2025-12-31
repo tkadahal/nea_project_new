@@ -6,11 +6,11 @@ return [
         2 => 'green',
         3 => 'blue',
         4 => 'yellow',
-        5 => 'purple',
+        5 => 'orange',
         6 => 'pink',
         7 => 'gray',
         8 => 'teal',
-        9 => 'orange',
+        9 => 'purple',
     ],
     'priority' => [
         'Urgent' => '#EF4444',
