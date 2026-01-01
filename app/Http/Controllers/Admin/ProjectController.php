@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\Project;
 use Illuminate\View\View;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use App\Services\Project\ProjectService;
@@ -44,23 +43,30 @@ class ProjectController extends Controller
     private function getProjectsJson(): JsonResponse
     {
         try {
+            // Handle lightweight request for dropdown
+            if (request('lightweight')) {
+                $projects = $this->projectService->getProjectsForDropdown();
+                return response()->json(['projects' => $projects]);
+            }
+
             $perPage = (int) request('per_page', 12);
             $view = request('view', 'card');
             $directorateId = request('directorate_id');
+            $projectId = request('project_id');
+            $statusId = request('status_id');
             $search = request('search');
 
             $data = $this->projectService->getFilteredProjectsData(
                 perPage: $perPage,
                 directorateId: $directorateId,
+                projectId: $projectId,
+                statusId: $statusId,
                 search: $search,
                 view: $view
             );
 
             return response()->json($data);
         } catch (\Exception $e) {
-            Log::error('Error loading projects: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
 
             return response()->json([
                 'error' => 'Failed to load projects',

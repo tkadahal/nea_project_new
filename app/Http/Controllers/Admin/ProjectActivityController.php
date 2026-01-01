@@ -1073,6 +1073,47 @@ class ProjectActivityController extends Controller
         return back()->with('success', 'Annual program rejected and returned to draft with reason.');
     }
 
+    public function returnToDraft(int $projectId, int $fiscalYearId): RedirectResponse
+    {
+        $user = Auth::user();
+
+        // Only Superadmin
+        if (!$user->roles->pluck('id')->contains(Role::SUPERADMIN)) {
+            abort(403, 'Only Superadmin can return an approved program to draft.');
+        }
+
+        $currentDefinitionIds = ProjectActivityDefinition::forProject($projectId)
+            ->current()
+            ->pluck('id');
+
+        if ($currentDefinitionIds->isEmpty()) {
+            return back()->with('error', 'No current activity structure found.');
+        }
+
+        $updated = ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('activity_definition_version_id', $currentDefinitionIds)
+            ->approved()
+            ->active()
+            ->update([
+                'status' => 'draft',
+                // Clear all review/approval traces so it feels like a fresh draft
+                'reviewed_by' => null,
+                'reviewed_at' => null,
+                'approved_by' => null,
+                'approved_at' => null,
+                // Also clear rejection if it was previously rejected (just in case)
+                'rejection_reason' => null,
+                'rejected_by' => null,
+                'rejected_at' => null,
+            ]);
+
+        if ($updated === 0) {
+            return back()->with('error', 'No approved plans found to return to draft.');
+        }
+
+        return back()->with('success', 'Annual program successfully returned to draft. Project User can now make changes.');
+    }
+
     public function showLog(int $projectId, int $fiscalYearId): View
     {
         $project = Project::findOrFail($projectId);

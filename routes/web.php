@@ -217,6 +217,9 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
             Route::post('{projectId}/{fiscalYearId}/reject', [ProjectActivityController::class, 'reject'])
                 ->name('reject');
+
+            Route::post('{projectId}/{fiscalYearId}/returnToDraft', [ProjectActivityController::class, 'returnToDraft'])
+                ->name('returnToDraft');
         });
 
         // Contracts
@@ -285,11 +288,11 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
                 Route::get('download-template', 'downloadTemplate')
                     ->name('download-template');
 
-                Route::get('upload', 'uploadIndex')
-                    ->name('upload.index');
+                Route::get('upload-template', 'uploadIndex')
+                    ->name('uploadIndex');
 
-                Route::post('upload', 'upload')
-                    ->name('upload');
+                Route::post('upload-template', 'uploadTemplate')
+                    ->name('uploadTemplate');
             });
 
         // Separate route for AJAX load budgets

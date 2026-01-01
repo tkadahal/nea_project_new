@@ -74,7 +74,7 @@
                     </a>
 
                     <!-- Admin Only: Upload Quarterly Allocation -->
-                    <a href=""
+                    <a href="{{ route('admin.budgetQuaterAllocation.uploadIndex') }}"
                         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

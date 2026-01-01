@@ -18,6 +18,7 @@ use App\Models\ProjectExpenseFundingAllocation;
 use App\Exports\Reports\Consolidated\BudgetReportExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Exports\Reports\Consolidated\AnnualProgramReportExport;
+use App\Exports\Reports\Consolidated\BudgetReportMultiSheetExport;
 
 class ReportController extends Controller
 {
@@ -308,8 +309,75 @@ class ReportController extends Controller
     /**
      * Generate simple budget report
      */
-    public function budgetReport(): BinaryFileResponse
+    public function budgetReport(Request $request): BinaryFileResponse
     {
-        return Excel::download(new BudgetReportExport, 'budget_report_' . date('Ymd') . '.xlsx');
+        $validated = $request->validate([
+            'fiscal_year_id'     => 'required|integer|exists:fiscal_years,id',
+            'directorate_ids'    => 'nullable|array',
+            'directorate_ids.*'  => 'integer|exists:directorates,id',
+            'budget_heading_ids' => 'nullable|array',
+            'budget_heading_ids.*' => 'integer|exists:budget_headings,id',
+        ]);
+
+        $fiscalYear = FiscalYear::findOrFail($validated['fiscal_year_id']);
+
+        $query = Project::with(['budgets', 'directorate', 'budgetHeading'])
+            ->orderBy('directorate_id')
+            ->orderBy('title');
+
+        if (!empty($validated['directorate_ids'] ?? [])) {
+            $query->whereIn('directorate_id', $validated['directorate_ids']);
+        }
+
+        if (!empty($validated['budget_heading_ids'] ?? [])) {
+            $query->whereIn('budget_heading_id', $validated['budget_heading_ids']);
+        }
+
+        // Important: Map projects with related titles (directorate & budget heading)
+        $projects = $query->get()->map(function ($project) use ($fiscalYear) {
+            $budget = $project->budgets()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->first();
+
+            $data = [
+                'title'                  => $project->title,
+                'directorate'            => $project->directorate?->title ?? 'अन्य',
+                'budget_heading'         => $project->budgetHeading?->title ?? 'अन्य',
+                'gov_share'              => 0,
+                'gov_loan'               => 0,
+                'foreign_loan'           => 0,
+                'foreign_loan_source'    => '',
+                'grant'                  => 0,
+                'grant_source'           => '',
+                'total_lmbis'            => 0,
+                'nea_budget'             => 0,
+                'grand_total'            => 0,
+            ];
+
+            if ($budget) {
+                $data['gov_share']           = $budget->government_share ?? 0;
+                $data['gov_loan']            = $budget->government_loan ?? 0;
+                $data['foreign_loan']        = $budget->foreign_loan_budget ?? 0;
+                $data['foreign_loan_source'] = $budget->foreign_loan_source ?? '';
+                $data['grant']               = $budget->foreign_subsidy_budget ?? 0;
+                $data['grant_source']        = $budget->foreign_subsidy_source ?? '';
+                $data['total_lmbis']         = ($budget->government_share ?? 0)
+                    + ($budget->government_loan ?? 0)
+                    + ($budget->foreign_loan_budget ?? 0)
+                    + ($budget->foreign_subsidy_budget ?? 0);
+                $data['nea_budget']          = $budget->internal_budget ?? 0;
+                $data['grand_total']         = $budget->total_budget ?? ($data['total_lmbis'] + $data['nea_budget']);
+            }
+
+            return $data;
+        });
+
+        $fiscalYearTitle = $fiscalYear->title ?? '२०८१/८२';
+
+        // Now using Multi-Sheet Export
+        return Excel::download(
+            new BudgetReportMultiSheetExport($projects->collect(), $fiscalYearTitle),
+            'budget_report_full_' . date('Ymd') . '.xlsx'
+        );
     }
 }

@@ -292,6 +292,19 @@
                                             </div>
                                         </div>
                                     @endif
+
+                                    @if ($activity->status === 'approved' && auth()->user()->roles->pluck('id')->contains(\App\Models\Role::SUPERADMIN))
+                                        <form method="POST"
+                                            action="{{ route('admin.projectActivity.returnToDraft', [$activity->project_id, $activity->fiscal_year_id]) }}"
+                                            class="inline"
+                                            onsubmit="return confirm('Return this approved program to draft? The Project User will be able to edit it again.')">
+                                            @csrf
+                                            <button type="submit"
+                                                class="px-3 py-1.5 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition">
+                                                Return to Draft
+                                            </button>
+                                        </form>
+                                    @endif
                             </td>
                         </tr>
                     @empty

@@ -20,6 +20,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\RedirectResponse;
 use App\Models\BudgetQuaterAllocation;
 use Symfony\Component\HttpFoundation\Response;
+use App\Imports\AdminQuarterBudgetTemplateImport;
 use App\Exports\Templates\AdminQuarterBudgetTemplateExport;
 use App\Http\Requests\BudgetQuaterAllocation\StoreBudgetQuaterAllocationRequest;
 
@@ -328,7 +329,7 @@ class BudgetQuaterAllocationController extends Controller
         // Optional: if you want to respect user project access, uncomment below
         // $query->whereIn('id', Auth::user()->projects()->pluck('projects.id'));
 
-        $projects = $query->orderBy('title')->get();
+        $projects = $query->orderBy('id')->get();
 
         // Titles for header
         $directorateTitle = 'All Directorates';
@@ -353,10 +354,64 @@ class BudgetQuaterAllocationController extends Controller
             $filename
         );
     }
-    private function authorizeAdmin()
+
+    /**
+     * Show the upload template form
+     */
+    public function uploadIndex(): View
     {
-        if (!Auth::user()->hasRole(['Super_Admin', 'admin'])) {
-            abort(403);
+
+        $fiscalYears = FiscalYear::getFiscalYearOptions();
+        $directorates = Directorate::orderBy('title')->get();
+
+        return view('admin.budgetQuaterAllocations.upload-template', compact(
+            'fiscalYears',
+            'directorates'
+        ));
+    }
+
+    public function uploadTemplate(Request $request): RedirectResponse
+    {
+
+        $request->validate([
+            'template' => 'required|mimes:xlsx,xls|file|max:10240',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Correct way for older versions of Laravel Excel
+            Excel::import(new AdminQuarterBudgetTemplateImport, $request->file('template'));
+
+            DB::commit();
+
+            return redirect()->back()
+                ->with('success', 'Quarterly budget allocations have been successfully imported and updated.');
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            DB::rollBack();
+
+            // This works in both old and new versions
+            $failures = $e->failures();
+
+            $errors = [];
+            foreach ($failures as $failure) {
+                $errors[] = "Row {$failure->row()}: {$failure->attribute()} - " . implode(', ', $failure->errors());
+            }
+
+            return redirect()->back()
+                ->with('error', 'Import failed due to validation errors:')
+                ->with('import_errors', $errors)
+                ->withInput();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Quarterly template import failed: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Failed to import template. Please ensure the file matches the downloaded template format.')
+                ->withInput();
         }
     }
 }

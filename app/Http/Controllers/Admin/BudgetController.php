@@ -127,7 +127,8 @@ class BudgetController extends Controller
             $query->where('directorate_id', $directorateId);
         }
 
-        return $query->orderBy('title')->get();
+        // Changed from orderBy('title') to orderBy('id', 'asc')
+        return $query->orderBy('id', 'asc')->get();
     }
 
     public function create(Request $request): View
@@ -137,7 +138,6 @@ class BudgetController extends Controller
         $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
 
-        // Default: show all allowed projects
         $projects = $this->getUserProjects();
 
         $directorateTitle = 'All Directorates';

@@ -51,11 +51,33 @@ class ProjectService
     }
 
     /**
+     * Get lightweight list of projects for dropdown
+     */
+    public function getProjectsForDropdown(): array
+    {
+        $projects = $this->projectRepository->getProjectsForUser(
+            Auth::user(),
+            withRelations: false,
+            paginate: null
+        );
+
+        return $projects->map(function ($project) {
+            return [
+                'id' => $project->id,
+                'title' => $project->title,
+                'directorate_id' => $project->directorate_id,
+            ];
+        })->toArray();
+    }
+
+    /**
      * Get filtered projects with pagination for AJAX requests
      */
     public function getFilteredProjectsData(
         int $perPage = 12,
         ?string $directorateId = null,
+        ?string $projectId = null,
+        ?string $statusId = null,
         ?string $search = null,
         string $view = 'card'
     ): array {
@@ -64,6 +86,8 @@ class ProjectService
                 user: Auth::user(),
                 perPage: $perPage,
                 directorateId: $directorateId,
+                projectId: $projectId,
+                statusId: $statusId,
                 search: $search
             );
 

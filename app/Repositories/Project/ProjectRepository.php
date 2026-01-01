@@ -32,8 +32,6 @@ class ProjectRepository
                 'budget_heading_id',
                 'start_date',
                 'end_date',
-                //'budget',
-                //'total_budget',
                 'priority_id',
                 'progress',
                 'project_manager',
@@ -74,6 +72,8 @@ class ProjectRepository
         User $user,
         int $perPage = 12,
         ?string $directorateId = null,
+        ?string $projectId = null,
+        ?string $statusId = null,
         ?string $search = null
     ): LengthAwarePaginator {
         $query = Project::query()
@@ -85,8 +85,6 @@ class ProjectRepository
                 'budget_heading_id',
                 'start_date',
                 'end_date',
-                //'budget',
-                //'total_budget',
                 'priority_id',
                 'progress',
                 'project_manager',
@@ -108,6 +106,16 @@ class ProjectRepository
         // Apply directorate filter
         if ($directorateId) {
             $query->where('directorate_id', $directorateId);
+        }
+
+        // Apply project filter (specific project)
+        if ($projectId) {
+            $query->where('id', $projectId);
+        }
+
+        // Apply status filter
+        if ($statusId) {
+            $query->where('status_id', $statusId);
         }
 
         // Apply search filter

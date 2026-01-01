@@ -69,6 +69,11 @@ class Budget extends Model
         return $this->hasMany(ProjectBudgetRevision::class);
     }
 
+    public function quarterAllocations(): HasMany
+    {
+        return $this->hasMany(BudgetQuaterAllocation::class, 'budget_id');
+    }
+
     public function getRemainingInternalBudgetAttribute(): float
     {
         $spent = $this->project->expenses()

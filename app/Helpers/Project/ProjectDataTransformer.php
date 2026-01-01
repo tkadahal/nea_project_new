@@ -122,13 +122,6 @@ class ProjectDataTransformer
                 'value' => $project->end_date?->format('Y-m-d') ?? 'N/A'
             ],
             [
-                'label' => trans('global.project.fields.latest_budget'),
-                'key' => 'budget',
-                'value' => is_numeric($project->total_budget)
-                    ? number_format((float) $project->total_budget, 2)
-                    : 'N/A'
-            ],
-            [
                 'label' => trans('global.project.fields.priority_id'),
                 'key' => 'priority',
                 'value' => $priorityValue,
@@ -142,7 +135,12 @@ class ProjectDataTransformer
             [
                 'label' => trans('global.project.fields.project_manager'),
                 'key' => 'project_manager',
-                'value' => $project->projectManager->name ?? 'N/A'
+                'value' => $project->project_manager ?? 'N/A'
+            ],
+            [
+                'label' => 'Location',
+                'key' => 'location',
+                'value' => $project->location ?? 'N/A'
             ],
         ];
     }

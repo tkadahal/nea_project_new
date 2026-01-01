@@ -33,22 +33,72 @@
         </div>
     </div>
 
-    <!-- Filter Section -->
-    <div id="card-search" class="mb-4">
-        <div class="flex flex-col md:flex-row gap-4">
-            <select id="directorateFilter"
-                class="w-full max-w-md p-2 border border-gray-300 dark:border-gray-700 rounded-md
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                   bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                <option value="">{{ trans('global.allDirectorate') }}</option>
-                @foreach ($directorates as $id => $title)
-                    <option value="{{ $id }}">{{ $title }}</option>
-                @endforeach
-            </select>
-            <input type="text" id="searchInput" placeholder="{{ trans('global.search') }}"
-                class="w-full max-w-md p-2 border border-gray-300 dark:border-gray-700 rounded-md
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                   bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+    <!-- Filter Section - Works for both Card and List Views -->
+    <div class="mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Directorate Filter -->
+            <div>
+                <label for="directorateFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {{ trans('global.project.fields.directorate_id') }}
+                </label>
+                <select id="directorateFilter"
+                    class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    <option value="">{{ trans('global.allDirectorate') }}</option>
+                    @foreach ($directorates as $id => $title)
+                        <option value="{{ $id }}">{{ $title }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Project Filter -->
+            <div>
+                <label for="projectFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {{ trans('global.project.title_singular') }}
+                </label>
+                <select id="projectFilter"
+                    class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    <option value="">{{ trans('global.allProjects') }}</option>
+                </select>
+            </div>
+
+            <!-- Status Filter (Optional - if you have status) -->
+            <div>
+                <label for="statusFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Status
+                </label>
+                <select id="statusFilter"
+                    class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    <option value="">All Status</option>
+                    <option value="1">To Do</option>
+                    <option value="2">In Progress</option>
+                    <option value="3">Completed</option>
+                </select>
+            </div>
+
+            <!-- Search Input -->
+            <div>
+                <label for="searchInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {{ trans('global.search') }}
+                </label>
+                <input type="text" id="searchInput" placeholder="Search projects..."
+                    class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+            </div>
+        </div>
+
+        <!-- Clear Filters Button -->
+        <div class="mt-3 flex justify-end">
+            <button id="clearFilters"
+                class="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
+                Clear Filters
+            </button>
         </div>
     </div>
 
@@ -115,10 +165,13 @@
             perPage: 12,
             currentView: 'card',
             directorateFilter: '',
+            projectFilter: '',
+            statusFilter: '',
             searchQuery: '',
             totalPages: 1,
             totalRecords: 0,
-            debounceTimer: null
+            debounceTimer: null,
+            allProjects: [] // Store all projects for project dropdown
         };
 
         const arrayColumnColor = @json($arrayColumnColor);
@@ -131,6 +184,53 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Populate project dropdown based on directorate
+        function populateProjectDropdown(directorateId = '') {
+            const projectFilter = document.getElementById('projectFilter');
+            const currentValue = projectFilter.value;
+
+            projectFilter.innerHTML = '<option value="">{{ trans('global.allProjects') }}</option>';
+
+            // If no directorate selected, show ALL projects
+            // If directorate selected, filter by that directorate
+            const filteredProjects = directorateId ?
+                state.allProjects.filter(p => p.directorate_id == directorateId) :
+                state.allProjects;
+
+            filteredProjects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.title;
+                if (project.id == currentValue) {
+                    option.selected = true;
+                }
+                projectFilter.appendChild(option);
+            });
+
+            console.log(
+                `Populated dropdown with ${filteredProjects.length} projects${directorateId ? ' for directorate ' + directorateId : ' (all)'}`
+            );
+        }
+
+        // Load all projects for dropdown (lightweight query)
+        async function loadProjectsForDropdown() {
+            try {
+                const response = await fetch('{{ route('admin.project.index') }}?lightweight=1', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                state.allProjects = data.projects || [];
+
+                // Populate dropdown with ALL projects initially
+                populateProjectDropdown('');
+            } catch (error) {
+                console.error('Error loading projects for dropdown:', error);
+            }
         }
 
         // Delete project function
@@ -243,6 +343,8 @@
                     per_page: state.perPage,
                     view: state.currentView,
                     directorate_id: state.directorateFilter,
+                    project_id: state.projectFilter,
+                    status_id: state.statusFilter,
                     search: state.searchQuery
                 });
 
@@ -347,26 +449,26 @@
                     </div>
 
                     ${project.directorate ? `
-                        <div class="mt-4">
-                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ trans('global.project.fields.directorate_id') }}:</span>
-                            <span class="ml-2">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${directorateColor}-100 text-${directorateColor}-800 dark:bg-${directorateColor}-900 dark:text-${directorateColor}-200">
-                                    ${escapeHtml(project.directorate.title)}
+                            <div class="mt-4">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ trans('global.project.fields.directorate_id') }}:</span>
+                                <span class="ml-2">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${directorateColor}-100 text-${directorateColor}-800 dark:bg-${directorateColor}-900 dark:text-${directorateColor}-200">
+                                        ${escapeHtml(project.directorate.title)}
+                                    </span>
                                 </span>
-                            </span>
-                        </div>
-                        ` : ''}
+                            </div>
+                            ` : ''}
 
                     ${project.budget_heading ? `
-                        <div class="mt-4">
-                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Budget Heading:</span>
-                            <span class="ml-2">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" style="background-color: ${budgetHeadingColor}20; color: ${budgetHeadingColor};">
-                                    ${escapeHtml(project.budget_heading.title)}
+                            <div class="mt-4">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Budget Heading:</span>
+                                <span class="ml-2">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" style="background-color: ${budgetHeadingColor}20; color: ${budgetHeadingColor};">
+                                        ${escapeHtml(project.budget_heading.title)}
+                                    </span>
                                 </span>
-                            </span>
-                        </div>
-                        ` : ''}
+                            </div>
+                            ` : ''}
 
                     <div class="mt-6">
                         <div class="flex justify-end items-center gap-2 flex-wrap">
@@ -397,11 +499,11 @@
 
                         <div id="${accordionId}" class="project-accordion hidden mt-4 grid grid-cols-1 gap-2">
                             ${project.fields.map(field => `
-                                    <div>
-                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${field.label}:</span>
-                                        <span class="text-gray-600 dark:text-gray-400 ml-2">${escapeHtml(field.value)}</span>
-                                    </div>
-                                `).join('')}
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${field.label}:</span>
+                                            <span class="text-gray-600 dark:text-gray-400 ml-2">${escapeHtml(field.value)}</span>
+                                        </div>
+                                    `).join('')}
                         </div>
                     </div>
                 </div>
@@ -414,7 +516,7 @@
 
             if (!projects || projects.length === 0) {
                 tbody.innerHTML =
-                '<tr><td colspan="100" class="text-center text-gray-500 py-8">No projects found</td></tr>';
+                    '<tr><td colspan="100" class="text-center text-gray-500 py-8">No projects found</td></tr>';
                 return;
             }
 
@@ -426,10 +528,10 @@
                     <td class="py-3 px-6">${escapeHtml(project.title)}</td>
                     <td class="py-3 px-6">
                         ${project.directorate?.[0] ? `
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${directorateColor}-100 text-${directorateColor}-800 dark:bg-${directorateColor}-900 dark:text-${directorateColor}-200">
-                                ${escapeHtml(project.directorate[0].title)}
-                            </span>
-                            ` : 'N/A'}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${directorateColor}-100 text-${directorateColor}-800 dark:bg-${directorateColor}-900 dark:text-${directorateColor}-200">
+                                    ${escapeHtml(project.directorate[0].title)}
+                                </span>
+                                ` : 'N/A'}
                     </td>
                     <td class="py-3 px-6">
                         ${project.fields?.map(f => `<div class="text-xs text-gray-600 dark:text-gray-400">${f.title}</div>`).join('') || ''}
@@ -522,6 +624,30 @@
         document.getElementById('directorateFilter').addEventListener('change', (e) => {
             state.directorateFilter = e.target.value;
             state.currentPage = 1;
+
+            // Update project dropdown based on directorate
+            populateProjectDropdown(e.target.value);
+
+            // Reset project filter if it's not in the new list
+            const projectFilter = document.getElementById('projectFilter');
+            const projectExists = Array.from(projectFilter.options).some(opt => opt.value === state.projectFilter);
+            if (!projectExists) {
+                state.projectFilter = '';
+                projectFilter.value = '';
+            }
+
+            loadProjects();
+        });
+
+        document.getElementById('projectFilter').addEventListener('change', (e) => {
+            state.projectFilter = e.target.value;
+            state.currentPage = 1;
+            loadProjects();
+        });
+
+        document.getElementById('statusFilter').addEventListener('change', (e) => {
+            state.statusFilter = e.target.value;
+            state.currentPage = 1;
             loadProjects();
         });
 
@@ -532,6 +658,23 @@
                 state.currentPage = 1;
                 loadProjects();
             }, 300);
+        });
+
+        // Clear all filters
+        document.getElementById('clearFilters').addEventListener('click', () => {
+            state.directorateFilter = '';
+            state.projectFilter = '';
+            state.statusFilter = '';
+            state.searchQuery = '';
+            state.currentPage = 1;
+
+            document.getElementById('directorateFilter').value = '';
+            document.getElementById('projectFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('searchInput').value = '';
+
+            populateProjectDropdown();
+            loadProjects();
         });
 
         // Helper functions
