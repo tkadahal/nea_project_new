@@ -168,6 +168,18 @@ class ProjectActivityDefinition extends Model
         return $query->orderBy('sort_index');
     }
 
+    public function scopeNaturalOrder($query)
+    {
+        return $query->orderByRaw("string_to_array(sort_index, '.')::int[]");
+    }
+
+    public static function sortNaturally($definitions)
+    {
+        return $definitions->sort(function ($a, $b) {
+            return strnatcmp($a->sort_index, $b->sort_index);
+        })->values();
+    }
+
     /* -----------------------------------------------------------------
      | Business Logic Helpers
      |----------------------------------------------------------------- */

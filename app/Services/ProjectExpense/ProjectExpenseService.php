@@ -14,6 +14,7 @@ use App\Repositories\ProjectExpense\ProjectExpenseRepository;
 use App\Helpers\ProjectExpense\ExpenseTreeBuilder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProjectExpenseService
 {
@@ -23,9 +24,12 @@ class ProjectExpenseService
         private readonly ExpenseTreeBuilder $treeBuilder
     ) {}
 
-    public function getAggregatedExpenses()
-    {
-        return $this->repository->getAggregatedExpenses();
+    public function getAggregatedExpenses(
+        array $accessibleProjectIds,
+        int $perPage = 20,
+        array $filters = []
+    ): LengthAwarePaginator {
+        return $this->repository->getAggregatedExpenses($accessibleProjectIds, $perPage, $filters);
     }
 
     public function prepareCreateView(
@@ -166,8 +170,11 @@ class ProjectExpenseService
         );
     }
 
-    public function getProjectExpenseData(int $projectId, int $fiscalYearId): array
+    public function getProjectExpenseData($projectId, $fiscalYearId): array
     {
+        $projectId = (int) $projectId;
+        $fiscalYearId = (int) $fiscalYearId;
+
         $project = Project::findOrFail($projectId);
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
@@ -313,10 +320,10 @@ class ProjectExpenseService
         return ProjectActivityDefinition::forProject($projectId)
             ->current()
             ->with([
-                'children' => fn($q) => $q->current()->orderBy('sort_index'),
-                'children.children' => fn($q) => $q->current()->orderBy('sort_index')
+                'children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
+                'children.children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ])
-            ->orderBy('sort_index')
+            ->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ->get();
     }
 
@@ -326,10 +333,10 @@ class ProjectExpenseService
             ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', $expenditureId)
-            ->orderBy('sort_index')
+            ->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ->with([
-                'children' => fn($q) => $q->current()->orderBy('sort_index'),
-                'children.children' => fn($q) => $q->current()->orderBy('sort_index')
+                'children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
+                'children.children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ])
             ->get();
     }
@@ -411,6 +418,7 @@ class ProjectExpenseService
         })
             ->where('fiscal_year_id', $fiscalYearId)
             ->first();
+
 
         return $plan && $plan->status === 'approved';
     }

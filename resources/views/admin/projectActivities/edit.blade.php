@@ -42,16 +42,6 @@
                     {{ trans('global.projectActivity.excel.upload') }}
                 </a>
 
-                <!-- NEW: Create New Version Template Button -->
-                <button type="button" id="download-new-version-template-btn"
-                    class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-                    title="Download template for creating a new version of the activity structure">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                    </svg>
-                    New Version Template
-                </button>
             </div>
         </div>
     </div>
@@ -60,6 +50,12 @@
         action="{{ route('admin.projectActivity.update', [$projectId, $fiscalYearId]) }}" method="POST">
         @csrf
         @method('PUT')
+
+        <!-- Hidden inputs to track initial state (page load) -->
+        <input type="hidden" id="initial-capital-ids" name="initial_capital_ids"
+            value="{{ collect($capitalRows)->pluck('id')->implode(',') }}">
+        <input type="hidden" id="initial-recurrent-ids" name="initial_recurrent_ids"
+            value="{{ collect($recurrentRows)->pluck('id')->implode(',') }}">
 
         <!-- Project & Fiscal Year Selection -->
         <div
@@ -97,6 +93,19 @@
                 </svg>
             </button>
         </div>
+
+        @if ($errors->any())
+            <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative dark:bg-red-900 dark:border-red-700 dark:text-red-200"
+                role="alert">
+                <strong class="font-bold">{{ trans('global.error') }}!</strong>
+                <span class="block sm:inline">{{ trans('global.validation_failed_message') }}:</span>
+                <ul class="mt-2 list-disc list-inside text-sm">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div
             class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden p-6">
@@ -184,10 +193,9 @@
                             </thead>
                             <tbody id="capital-tbody">
                                 @forelse($capitalRows as $activity)
-                                    @include('admin.projectActivities.partials.activity-row-full', [
+                                    @include('admin.projectActivities.partials.activity-row', [
                                         'activity' => $activity,
                                         'type' => 'capital',
-                                        'isPreloaded' => true,
                                     ])
                                 @empty
                                     <tr class="no-data-row">
@@ -300,10 +308,9 @@
                             </thead>
                             <tbody id="recurrent-tbody">
                                 @forelse($recurrentRows as $activity)
-                                    @include('admin.projectActivities.partials.activity-row-full', [
+                                    @include('admin.projectActivities.partials.activity-row', [
                                         'activity' => $activity,
                                         'type' => 'recurrent',
-                                        'isPreloaded' => true,
                                     ])
                                 @empty
                                     <tr class="no-data-row">
@@ -357,6 +364,74 @@
             </div>
         </div>
     </form>
+
+    <!-- Structural Change Confirmation Modal -->
+    @if (session('requires_structural_confirmation'))
+        <div id="structuralChangeModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">
+                            {{ __('global.projectActivity.structural_change_title') ?? 'Structural Change Detected' }}
+                        </h3>
+                        <button type="button" id="close-modal"
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="mb-6 text-gray-700 dark:text-gray-300">
+                        <p class="mb-3">
+                            {{ session('structural_warning') }}
+                        </p>
+                        <p class="font-semibold text-red-600 dark:text-red-400">
+                            This will create a <strong>new version</strong> of the activity structure and <strong>reset
+                                all quarterly plans</strong>.
+                        </p>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button type="button" id="cancel-structural-change"
+                            class="px-5 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
+                            {{ __('global.cancel') }}
+                        </button>
+
+                        <button type="button" id="confirm-structural-change"
+                            class="px-5 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600">
+                            Yes, Create New Version
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById('confirm-structural-change').addEventListener('click', function() {
+                const form = document.getElementById('projectActivity-form');
+
+                // Add hidden input to force new version
+                let forceInput = document.createElement('input');
+                forceInput.type = 'hidden';
+                forceInput.name = 'force_structural_change';
+                forceInput.value = '1';
+                form.appendChild(forceInput);
+
+                form.submit();
+            });
+
+            document.getElementById('cancel-structural-change').addEventListener('click', () => {
+                document.getElementById('structuralChangeModal').remove();
+            });
+
+            document.getElementById('close-modal').addEventListener('click', () => {
+                document.getElementById('structuralChangeModal').remove();
+            });
+        </script>
+    @endif
 
     @push('scripts')
         <style>
@@ -495,8 +570,17 @@
         <script src="https://unpkg.com/tippy.js@6"></script>
         <script>
             $(document).ready(function() {
+                // FIX 1: Inject PHP variables to ensure initial load works
+                const initialProjectId = "{{ $projectId }}";
+                const initialFiscalYearId = "{{ $fiscalYearId }}";
+
                 const projectIdInput = $('.js-single-select[data-name="project_id"] .js-hidden-input');
                 const fiscalYearInput = $('.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
+                const $budgetDisplay = $('#budget-display');
+
+                // Ensure inputs have values immediately (fixes custom select timing issues)
+                if (projectIdInput.val() === '' && initialProjectId) projectIdInput.val(initialProjectId);
+                if (fiscalYearInput.val() === '' && initialFiscalYearId) fiscalYearInput.val(initialFiscalYearId);
 
                 // Remove "no data" rows helper
                 function removeNoDataRows() {
@@ -510,16 +594,20 @@
                     let recurrentTotal = 0,
                         recurrentPlannedTotal = 0;
 
+                    // FIX 2: Updated selectors to match Name Attributes.
+                    // Using .total-budget-input class was failing because the inputs don't have that class.
                     $('#capital-tbody tr.activity-row').each(function() {
                         const $row = $(this);
-                        capitalTotal += parseFloat($row.find('.total-budget-input').val()) || 0;
-                        capitalPlannedTotal += parseFloat($row.find('.planned-budget-input').val()) || 0;
+                        capitalTotal += parseFloat($row.find('input[name$="[total_budget]"]').val()) || 0;
+                        capitalPlannedTotal += parseFloat($row.find('input[name$="[planned_budget]"]').val()) ||
+                            0;
                     });
 
                     $('#recurrent-tbody tr.activity-row').each(function() {
                         const $row = $(this);
-                        recurrentTotal += parseFloat($row.find('.total-budget-input').val()) || 0;
-                        recurrentPlannedTotal += parseFloat($row.find('.planned-budget-input').val()) || 0;
+                        recurrentTotal += parseFloat($row.find('input[name$="[total_budget]"]').val()) || 0;
+                        recurrentPlannedTotal += parseFloat($row.find('input[name$="[planned_budget]"]')
+                            .val()) || 0;
                     });
 
                     $('#capital-total').text(capitalTotal.toFixed(2));
@@ -557,10 +645,25 @@
                     }
                 }
 
-                // Bind events to row (formatting + totals on blur)
+                // Bind events to row
                 function bindRowEvents($row) {
+                    // FIX 2: Updated selectors to use Name Attributes for reliability
                     $row.find(
-                        '.program-input, .total-budget-input, .total-budget-quantity-input, .total-expense-quantity-input, .expenses-input, .planned-budget-input, .planned-budget-quantity-input, .q1-quantity-input, .quarter-input, .q2-quantity-input, .q3-quantity-input, .q4-quantity-input'
+                        'input[name$="[program]"], ' +
+                        'input[name$="[total_budget]"], ' +
+                        'input[name$="[total_budget_quantity]"], ' +
+                        'input[name$="[total_expense_quantity]"], ' +
+                        'input[name$="[total_expense]"], ' +
+                        'input[name$="[planned_budget]"], ' +
+                        'input[name$="[planned_budget_quantity]"], ' +
+                        'input[name$="[q1_quantity]"], ' +
+                        'input[name$="[q1]"], ' +
+                        'input[name$="[q2_quantity]"], ' +
+                        'input[name$="[q2]"], ' +
+                        'input[name$="[q3_quantity]"], ' +
+                        'input[name$="[q3]"], ' +
+                        'input[name$="[q4_quantity]"], ' +
+                        'input[name$="[q4]"]'
                     ).on('blur', function() {
                         const $input = $(this);
                         if ($input.hasClass('numeric-input')) {
@@ -571,7 +674,7 @@
                     });
                 }
 
-                // FIXED: Add sub-row handler (ensured POST)
+                // Add sub-row handler
                 $(document).on('click', '.add-subrow', function(e) {
                     e.preventDefault();
                     const $btn = $(this);
@@ -597,7 +700,7 @@
 
                     $.ajax({
                         url: '{{ route('admin.projectActivity.addRow') }}',
-                        method: 'POST', // FIXED: Explicit POST
+                        method: 'POST',
                         data: {
                             project_id: projectId,
                             expenditure_id: expenditureId,
@@ -632,7 +735,7 @@
                     });
                 });
 
-                // FIXED: Top-level add (ensured POST)
+                // Top-level add
                 $('#add-capital-row, #add-recurrent-row').on('click', function(e) {
                     e.preventDefault();
                     const $btn = $(this);
@@ -649,7 +752,7 @@
 
                     $.ajax({
                         url: '{{ route('admin.projectActivity.addRow') }}',
-                        method: 'POST', // FIXED: Explicit POST (was 'Get' in old code)
+                        method: 'POST',
                         data: {
                             project_id: projectId,
                             expenditure_id: expenditureId,
@@ -681,7 +784,7 @@
                     });
                 });
 
-                // FIXED: Delete handler (ensured DELETE)
+                // Delete handler
                 $(document).on('click', '.delete-row', function(e) {
                     e.preventDefault();
 
@@ -765,29 +868,76 @@
                 });
 
                 // Form submit validation
-                $('#projectActivity-form').on('submit', function(e) {
+                // $('#projectActivity-form').on('submit', function(e) {
+                //     const projectId = projectIdInput.val();
+                //     const fiscalYearId = fiscalYearInput.val();
+                //     if (!projectId || !fiscalYearId) {
+                //         // e.preventDefault();
+                //         showError('Please select both project and fiscal year');
+                //         return false;
+                //     }
+                // });
+
+                // Load Budget Data
+                function loadBudgetData() {
                     const projectId = projectIdInput.val();
                     const fiscalYearId = fiscalYearInput.val();
-                    if (!projectId || !fiscalYearId) {
-                        e.preventDefault();
-                        showError('Please select both project and fiscal year');
-                        return false;
-                    }
-                });
 
-                // Budget data loader (unchanged)
-                function loadBudgetData() {
-                    // ... your existing loadBudgetData code ...
+                    if (!projectId) {
+                        $budgetDisplay.html(
+                            '<span class="block text-sm text-gray-500 dark:text-gray-400">Please select a project to view budget details.</span>'
+                        );
+                        return;
+                    }
+
+                    $budgetDisplay.html(
+                        '<span class="block text-sm text-gray-500 dark:text-gray-400">Loading budget...</span>');
+
+                    $.ajax({
+                        url: '{{ route('admin.projectActivity.budgetData') }}',
+                        method: 'GET',
+                        data: {
+                            project_id: projectId,
+                            fiscal_year_id: fiscalYearId || null
+                        },
+                        success: function(data) {
+                            if (data.success && data.data) {
+                                const d = data.data;
+                                const fyNote = fiscalYearId ? '' :
+                                    ` (using default FY: ${d.fiscal_year || 'N/A'})`;
+
+                                $budgetDisplay.html(`
+                                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300 font-medium">Total Remaining Budget${fyNote}:</span><span class="font-bold">${Number(d.total).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Internal:</span><span class="font-bold">${Number(d.internal).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Government Share:</span><span class="font-bold">${Number(d.government_share).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Government Loan:</span><span class="font-bold">${Number(d.government_loan).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Foreign Loan:</span><span class="font-bold">${Number(d.foreign_loan).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Foreign Subsidy:</span><span class="font-bold">${Number(d.foreign_subsidy).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>
+                                    </div>
+                                    <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400">Cumulative (incl. prior years): ${Number(d.cumulative).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                    </div>
+                                </div>
+                            `);
+                            } else {
+                                $budgetDisplay.html(
+                                    `<span class="block text-sm text-red-500 dark:text-red-400">${data.message || 'No budget data available.'}</span>`
+                                );
+                            }
+                        },
+                        error: function() {
+                            $budgetDisplay.html(
+                                '<span class="block text-sm text-red-500 dark:text-red-400">Error loading budget data.</span>'
+                            );
+                        }
+                    });
                 }
 
                 // Listen for changes
                 projectIdInput.on('change', loadBudgetData);
                 fiscalYearInput.on('change', loadBudgetData);
-
-                // Download sync (unchanged)
-                window.syncDownloadValues = function() {
-                    // ... existing ...
-                };
 
                 // Initial load
                 loadBudgetData();

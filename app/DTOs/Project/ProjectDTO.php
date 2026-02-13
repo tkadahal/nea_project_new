@@ -19,12 +19,13 @@ class ProjectDTO
         public readonly ?int $status_id = null,
         public readonly ?int $priority_id = null,
         public readonly ?int $fiscal_year_id = null,
-        public readonly ?int $project_manager_id = null,
+        public readonly ?int $project_manager = null,
         public readonly ?Carbon $start_date = null,
         public readonly ?Carbon $end_date = null,
         public readonly ?float $budget = null,
         public readonly ?float $total_budget = null,
         public readonly ?float $progress = null,
+        public readonly ?string $location = null,
     ) {}
 
     public static function fromArray(array $data): self
@@ -39,12 +40,13 @@ class ProjectDTO
             status_id: isset($data['status_id']) ? (int) $data['status_id'] : null,
             priority_id: isset($data['priority_id']) ? (int) $data['priority_id'] : null,
             fiscal_year_id: isset($data['fiscal_year_id']) ? (int) $data['fiscal_year_id'] : null,
-            project_manager_id: isset($data['project_manager_id']) ? (int) $data['project_manager_id'] : null,
+            project_manager: isset($data['project_manager']) ? (int) $data['project_manager'] : null,
             start_date: isset($data['start_date']) ? Carbon::parse($data['start_date']) : null,
             end_date: isset($data['end_date']) ? Carbon::parse($data['end_date']) : null,
             budget: isset($data['budget']) ? (float) $data['budget'] : null,
             total_budget: isset($data['total_budget']) ? (float) $data['total_budget'] : null,
             progress: isset($data['progress']) ? (float) $data['progress'] : null,
+            location: $data['location'] ?? null,
         );
     }
 
@@ -60,12 +62,13 @@ class ProjectDTO
             'status_id' => $this->status_id,
             'priority_id' => $this->priority_id,
             'fiscal_year_id' => $this->fiscal_year_id,
-            'project_manager_id' => $this->project_manager_id,
+            'project_manager' => $this->project_manager,
             'start_date' => $this->start_date?->format('Y-m-d'),
             'end_date' => $this->end_date?->format('Y-m-d'),
             'budget' => $this->budget,
             'total_budget' => $this->total_budget,
             'progress' => $this->progress,
+            'location' => $this->location,
         ], fn($value) => $value !== null);
     }
 }

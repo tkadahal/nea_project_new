@@ -22,6 +22,7 @@ class ProjectExpenseFundingAllocation extends Model
         'government_loan',
         'foreign_loan_budget',
         'foreign_subsidy_budget',
+        'remarks',
     ];
 
     protected $casts = [

@@ -11,6 +11,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProjectActivityPlan extends Model
 {
@@ -89,6 +90,12 @@ class ProjectActivityPlan extends Model
     public function rejectedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(ProjectActivitySchedule::class)
+            ->orderBy('sort_order');
     }
 
     /* -----------------------------------------------------------------

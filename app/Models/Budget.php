@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Builders\ModelBuilder;
+use App\Trait\RoleBasedAccess;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 class Budget extends Model
 {
     use HasFactory, SoftDeletes, LogsActivity;
+    use RoleBasedAccess;
 
     protected $dates = [
         'created_at',
@@ -33,8 +35,8 @@ class Budget extends Model
         'government_loan',
         'foreign_loan_budget',
         'foreign_subsidy_budget',
-        'foreign_loan_source', // new (column F value)
-        'foreign_subsidy_source', // new (column H value)
+        'foreign_loan_source',
+        'foreign_subsidy_source',
         'budget_revision',
         'created_at',
         'updated_at',
@@ -74,67 +76,79 @@ class Budget extends Model
         return $this->hasMany(BudgetQuaterAllocation::class, 'budget_id');
     }
 
-    public function getRemainingInternalBudgetAttribute(): float
+    protected static function booted()
     {
-        $spent = $this->project->expenses()
-            ->where('fiscal_year_id', $this->fiscal_year_id)
-            ->where('budget_type', 'internal')
-            ->sum('amount');
-
-        return max(0, (float) $this->internal_budget - (float) $spent);
+        static::saving(function ($allocation) {
+            $allocation->total_budget =
+                ($allocation->government_share ?? 0) +
+                ($allocation->government_loan ?? 0) +
+                ($allocation->foreign_loan_budget ?? 0) +
+                ($allocation->foreign_subsidy_budget ?? 0) +
+                ($allocation->internal_budget ?? 0);
+        });
     }
 
-    public function getRemainingGovernmentShareAttribute(): float
-    {
-        $spent = $this->project->expenses()
-            ->where('fiscal_year_id', $this->fiscal_year_id)
-            ->where('budget_type', 'government_share')
-            ->sum('amount');
+    // public function getRemainingInternalBudgetAttribute(): float
+    // {
+    //     $spent = $this->project->expenses()
+    //         ->where('fiscal_year_id', $this->fiscal_year_id)
+    //         ->where('budget_type', 'internal')
+    //         ->sum('amount');
 
-        return max(0, (float) $this->government_share - (float) $spent);
-    }
+    //     return max(0, (float) $this->internal_budget - (float) $spent);
+    // }
 
-    public function getRemainingGovernmentLoanAttribute(): float
-    {
-        $spent = $this->project->expenses()
-            ->where('fiscal_year_id', $this->fiscal_year_id)
-            ->where('budget_type', 'government_loan')
-            ->sum('amount');
+    // public function getRemainingGovernmentShareAttribute(): float
+    // {
+    //     $spent = $this->project->expenses()
+    //         ->where('fiscal_year_id', $this->fiscal_year_id)
+    //         ->where('budget_type', 'government_share')
+    //         ->sum('amount');
 
-        return max(0, (float) $this->government_loan - (float) $spent);
-    }
+    //     return max(0, (float) $this->government_share - (float) $spent);
+    // }
 
-    public function getRemainingForeignLoanBudgetAttribute(): float
-    {
-        $spent = $this->project->expenses()
-            ->where('fiscal_year_id', $this->fiscal_year_id)
-            ->where('budget_type', 'foreign_loan')
-            ->sum('amount');
+    // public function getRemainingGovernmentLoanAttribute(): float
+    // {
+    //     $spent = $this->project->expenses()
+    //         ->where('fiscal_year_id', $this->fiscal_year_id)
+    //         ->where('budget_type', 'government_loan')
+    //         ->sum('amount');
 
-        return max(0, (float) $this->foreign_loan_budget - (float) $spent);
-    }
+    //     return max(0, (float) $this->government_loan - (float) $spent);
+    // }
 
-    public function getRemainingForeignSubsidyBudgetAttribute(): float
-    {
-        $spent = $this->project->expenses()
-            ->where('fiscal_year_id', $this->fiscal_year_id)
-            ->where('budget_type', 'foreign_subsidy')
-            ->sum('amount');
+    // public function getRemainingForeignLoanBudgetAttribute(): float
+    // {
+    //     $spent = $this->project->expenses()
+    //         ->where('fiscal_year_id', $this->fiscal_year_id)
+    //         ->where('budget_type', 'foreign_loan')
+    //         ->sum('amount');
 
-        return max(0, (float) $this->foreign_subsidy_budget - (float) $spent);
-    }
+    //     return max(0, (float) $this->foreign_loan_budget - (float) $spent);
+    // }
 
-    public function getRemainingBudgetAttribute(): float
-    {
-        return round(
-            $this->remaining_internal_budget +
-                $this->remaining_government_share +
-                $this->remaining_government_loan +
-                $this->remaining_foreign_loan_budget +
-                $this->remaining_foreign_subsidy_budget,
-            2
-        );
-    }
+    // public function getRemainingForeignSubsidyBudgetAttribute(): float
+    // {
+    //     $spent = $this->project->expenses()
+    //         ->where('fiscal_year_id', $this->fiscal_year_id)
+    //         ->where('budget_type', 'foreign_subsidy')
+    //         ->sum('amount');
+
+    //     return max(0, (float) $this->foreign_subsidy_budget - (float) $spent);
+    // }
+
+    // public function getRemainingBudgetAttribute(): float
+    // {
+    //     return round(
+    //         $this->remaining_internal_budget +
+    //             $this->remaining_government_share +
+    //             $this->remaining_government_loan +
+    //             $this->remaining_foreign_loan_budget +
+    //             $this->remaining_foreign_subsidy_budget,
+    //         2
+    //     );
+    // }
 
     public static function getCumulativeBudget(Project $project, FiscalYear $fiscalYear): float
     {

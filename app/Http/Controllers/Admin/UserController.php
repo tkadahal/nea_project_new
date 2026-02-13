@@ -10,6 +10,8 @@ use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\Directorate;
 use Illuminate\Http\Request;
+use App\Services\User\UserService;
+use App\Trait\RoleBasedAccess;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -17,68 +19,48 @@ use Illuminate\Http\RedirectResponse;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class UserController extends Controller
 {
-    public function index(): View
+    public function __construct(
+        private readonly UserService $userService
+    ) {}
+
+    public function index(): View|JsonResponse
     {
         abort_if(Gate::denies('user_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $user = Auth::user();
-        $userQuery = User::with(['roles', 'directorate'])->latest();
-
-        try {
-            $roleIds = $user->roles->pluck('id')->toArray();
-
-            if (!in_array(Role::SUPERADMIN, $roleIds) && !in_array(Role::ADMIN, $roleIds)) {
-                if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-                    $directorateId = $user->directorate ? [$user->directorate->id] : [];
-                    $userQuery->whereHas('directorate', function ($query) use ($directorateId) {
-                        $query->whereIn('directorate_id', $directorateId);
-                    });
-                } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
-                    $projectIds = $user->projects()->pluck('projects.id')->toArray();
-                    $userQuery->whereHas('projects', function ($query) use ($projectIds) {
-                        $query->whereIn('projects.id', $projectIds);
-                    });
-                } else {
-                    $userQuery->where('id', $user->id);
-                }
-            }
-        } catch (\Exception $e) {
-            $data['error'] = 'Unable to load users due to an error.';
+        if (request()->wantsJson() || request()->ajax()) {
+            return $this->getUsersJson();
         }
 
-        $users = $userQuery->get();
+        $data = $this->userService->getIndexData();
+        return view('admin.users.index', $data);
+    }
 
-        $headers = [
-            trans('global.user.fields.id'),
-            trans('global.user.fields.name'),
-            trans('global.user.fields.email'),
-            trans('global.user.fields.roles'),
-            trans('global.user.fields.directorate_id'),
-        ];
+    private function getUsersJson(): JsonResponse
+    {
+        try {
+            $perPage = (int) request('per_page', 20);
+            $roleFilter = request('role_filter');
+            $directorateFilter = request('directorate_filter');
+            $search = request('search');
 
-        $data = $users->map(function ($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'roles' => $user->roles->pluck('title')->toArray() ?? [],
-                'directorate_id' => $user->directorate ? $user->directorate->title : 'N/A',
-            ];
-        })->all();
+            $data = $this->userService->getFilteredUsersData(
+                perPage: $perPage,
+                roleFilter: $roleFilter,
+                directorateFilter: $directorateFilter,
+                search: $search
+            );
 
-        return view('admin.users.index', [
-            'headers' => $headers,
-            'data' => $data,
-            'users' => $users,
-            'routePrefix' => 'admin.user',
-            'actions' => ['view', 'edit', 'delete'],
-            'deleteConfirmationMessage' => 'Are you sure you want to delete this user?',
-            'arrayColumnColor' => 'purple',
-            'projectManager' => $user->isProjectManager(),
-        ]);
+            return response()->json($data);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load users',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function create(): View
@@ -87,22 +69,16 @@ class UserController extends Controller
 
         $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
-        $isDirectorateOrProjectUser = in_array(3, $roleIds) || in_array(4, $roleIds);
+        $isDirectorateOrProjectUser = in_array(Role::DIRECTORATE_USER, $roleIds) || in_array(Role::PROJECT_USER, $roleIds);
         $directorateId = $user->directorate_id;
 
+        // Use trait helper methods for getting accessible resources
         $roles = $isDirectorateOrProjectUser ? collect([]) : Role::pluck('title', 'id');
         $directorates = $isDirectorateOrProjectUser ? collect([]) : Directorate::pluck('title', 'id');
-        $projects = collect([]);
 
-        if ($isDirectorateOrProjectUser) {
-            if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-                $projects = Project::where('directorate_id', $directorateId)->pluck('title', 'id');
-            } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
-                $projects = $user->projects()->pluck('title', 'id');
-            }
-        } else {
-            $projects = Project::pluck('title', 'id');
-        }
+        // Use trait method to get accessible projects
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $projects = Project::whereIn('id', $accessibleProjectIds)->pluck('title', 'id');
 
         return view('admin.users.create', compact('roles', 'directorates', 'projects', 'isDirectorateOrProjectUser', 'directorateId'));
     }
@@ -118,7 +94,7 @@ class UserController extends Controller
         $validated = $request->validated();
 
         if ($isDirectorateOrProjectUser) {
-            $validated['roles'] = [4];
+            $validated['roles'] = [Role::PROJECT_USER];
             $validated['directorate_id'] = $user->directorate_id;
         }
 
@@ -129,7 +105,6 @@ class UserController extends Controller
         $newUser = User::create(\Illuminate\Support\Arr::except($validated, ['projects', 'roles']));
 
         $newUser->roles()->sync($validated['roles'] ?? []);
-
         $newUser->projects()->sync($validated['projects'] ?? []);
 
         return redirect()->route('admin.user.index')
@@ -141,38 +116,24 @@ class UserController extends Controller
         abort_if(Gate::denies('user_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $authUser = Auth::user();
-        $roleIds = $authUser->roles->pluck('id')->toArray();
-        $isDirectorateOrProjectUser = in_array(Role::DIRECTORATE_USER, $roleIds) || in_array(Role::PROJECT_USER, $roleIds);
-
         $user = User::with(['roles', 'directorate', 'projects'])->findOrFail($id);
 
-        if ($isDirectorateOrProjectUser) {
-            if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-                if ($user->directorate_id !== $authUser->directorate_id) {
-                    abort(Response::HTTP_FORBIDDEN, 'You can only edit users in your directorate.');
-                }
-            } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
-                $authUserProjectIds = $authUser->projects()->pluck('projects.id')->toArray();
-                $userProjectIds = $user->projects()->pluck('projects.id')->toArray();
-                if (empty(array_intersect($authUserProjectIds, $userProjectIds))) {
-                    abort(Response::HTTP_FORBIDDEN, 'You can only edit users in your projects.');
-                }
-            }
-        }
+        // Use trait method for authorization
+        abort_unless(
+            RoleBasedAccess::canEditResource($authUser, $user),
+            Response::HTTP_FORBIDDEN,
+            'You do not have permission to edit this user.'
+        );
+
+        $roleIds = $authUser->roles->pluck('id')->toArray();
+        $isDirectorateOrProjectUser = in_array(Role::DIRECTORATE_USER, $roleIds) || in_array(Role::PROJECT_USER, $roleIds);
 
         $roles = $isDirectorateOrProjectUser ? collect([]) : Role::pluck('title', 'id');
         $directorates = $isDirectorateOrProjectUser ? collect([]) : Directorate::pluck('title', 'id');
 
-        $projects = collect([]);
-        if ($isDirectorateOrProjectUser) {
-            if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-                $projects = Project::where('directorate_id', $authUser->directorate_id)->pluck('title', 'id');
-            } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
-                $projects = Auth::user()->projects()->pluck('title', 'id');
-            }
-        } else {
-            $projects = Project::pluck('title', 'id');
-        }
+        // Use trait method to get accessible projects
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($authUser);
+        $projects = Project::whereIn('id', $accessibleProjectIds)->pluck('title', 'id');
 
         return view('admin.users.edit', compact('user', 'roles', 'directorates', 'projects', 'isDirectorateOrProjectUser'));
     }
@@ -182,15 +143,24 @@ class UserController extends Controller
         abort_if(Gate::denies('user_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $authUser = Auth::user();
+
+        // Use trait method for authorization
+        abort_unless(
+            RoleBasedAccess::canEditResource($authUser, $user),
+            Response::HTTP_FORBIDDEN,
+            'You do not have permission to update this user.'
+        );
+
         $roleIds = $authUser->roles->pluck('id')->toArray();
-        $isDirectorateOrProjectUser = in_array(3, $roleIds) || in_array(4, $roleIds);
+        $isDirectorateOrProjectUser = in_array(Role::DIRECTORATE_USER, $roleIds) || in_array(Role::PROJECT_USER, $roleIds);
 
         $validated = $request->validated();
 
         if ($isDirectorateOrProjectUser) {
-            $validated['roles'] = [4];
+            $validated['roles'] = [Role::PROJECT_USER];
             $validated['directorate_id'] = $authUser->directorate_id;
         }
+
         if (isset($validated['password']) && !empty($validated['password'])) {
             $validated['password'] = bcrypt($validated['password']);
         } else {
@@ -202,9 +172,7 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-
         $user->roles()->sync($validated['roles'] ?? []);
-
         $user->projects()->sync($validated['projects'] ?? []);
 
         return redirect()->route('admin.user.index')
@@ -215,6 +183,15 @@ class UserController extends Controller
     {
         abort_if(Gate::denies('user_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
+        $authUser = Auth::user();
+
+        // Use trait method for authorization (allows viewing self)
+        abort_unless(
+            RoleBasedAccess::canViewResource($authUser, $user),
+            Response::HTTP_FORBIDDEN,
+            'You do not have permission to view this user.'
+        );
+
         $user->load(['roles', 'directorate', 'projects']);
 
         return view('admin.users.show', compact('user'));
@@ -224,9 +201,38 @@ class UserController extends Controller
     {
         abort_if(Gate::denies('user_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $user->delete();
+        $authUser = Auth::user();
 
-        return back()->with('message', 'User deleted successfully.');
+        // Prevent self-deletion
+        if ($authUser->id === $user->id) {
+            return back()->with('error', 'You cannot delete or remove yourself.');
+        }
+
+        // Use trait method for authorization
+        abort_unless(
+            RoleBasedAccess::canDeleteResource($authUser, $user),
+            Response::HTTP_FORBIDDEN,
+            'You do not have permission to delete or remove this user.'
+        );
+
+        $roleIds = $authUser->roles->pluck('id')->toArray();
+
+        // SuperAdmin and Admin can actually delete users
+        if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
+            $user->delete();
+            return back()->with('message', 'User deleted successfully.');
+        }
+
+        // Other roles: remove from projects only
+        if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
+            $projectIds = Project::where('directorate_id', $authUser->directorate_id)->pluck('id');
+            $user->projects()->detach($projectIds);
+        } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
+            $authUserProjectIds = $authUser->projects()->pluck('projects.id');
+            $user->projects()->detach($authUserProjectIds);
+        }
+
+        return back()->with('message', 'User removed from projects successfully.');
     }
 
     public function getProjects($directorateId)
@@ -249,12 +255,12 @@ class UserController extends Controller
         }
     }
 
-    /**
-     * Load users belonging to a specific directorate
-     */
     public function loadUsers($directorateId = null)
     {
-        $query = User::query();
+        $authUser = Auth::user();
+
+        // Use trait method to filter users
+        $query = User::applyResourceAccessFilter($authUser);
 
         if ($directorateId && $directorateId != 0) {
             $query->where('directorate_id', $directorateId);
@@ -267,13 +273,16 @@ class UserController extends Controller
         return response()->json($users);
     }
 
-    /**
-     * Load projects belonging to a specific directorate
-     */
     public function loadProjects($directorateId)
     {
+        $authUser = Auth::user();
+
+        // Use trait method to get accessible project IDs
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($authUser);
+
         $projects = Project::where('directorate_id', $directorateId)
-            ->with('status') // if you have status relation
+            ->whereIn('id', $accessibleProjectIds)
+            ->with('status')
             ->select('id', 'title', 'status_id')
             ->orderBy('title')
             ->get()
@@ -288,15 +297,11 @@ class UserController extends Controller
         return response()->json($projects);
     }
 
-    /**
-     * Show the assignment page
-     */
     public function assignUserToProject(): View | RedirectResponse
     {
         $currentUser = Auth::user();
         $roleIds = $currentUser->roles->pluck('id')->toArray();
 
-        // Only SUPERADMIN can access this page
         if (!in_array(Role::SUPERADMIN, $roleIds)) {
             abort(403, 'Only superadmin can assign users across directorates.');
         }
@@ -306,9 +311,6 @@ class UserController extends Controller
         return view('admin.users.assignment', compact('directorates'));
     }
 
-    /**
-     * Handle the assignment form submission
-     */
     public function storeAssignment(Request $request): RedirectResponse
     {
         $currentUser = Auth::user();

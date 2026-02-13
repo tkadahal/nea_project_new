@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Role;
 use App\Models\Budget;
 use App\Models\Project;
 use Illuminate\View\View;
@@ -15,13 +14,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\RedirectResponse;
 use App\Models\BudgetQuaterAllocation;
-use Symfony\Component\HttpFoundation\Response;
 use App\Imports\AdminQuarterBudgetTemplateImport;
-use App\Exports\Templates\AdminQuarterBudgetTemplateExport;
 use App\Http\Requests\BudgetQuaterAllocation\StoreBudgetQuaterAllocationRequest;
 
 class BudgetQuaterAllocationController extends Controller
@@ -31,68 +27,35 @@ class BudgetQuaterAllocationController extends Controller
         //
     }
 
-    public function create(): View
+    public function create(): View | RedirectResponse
     {
         $user = Auth::user();
         $projects = $user->projects;
-        $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        // Check for passed project_id via query parameter
-        $requestedProjectId = request()->get('project_id');
-        $selectedProjectId = '';
+        $budgetId = request()->get('budget_id');
 
-        if ($requestedProjectId) {
-            // Validate: Ensure the project belongs to the user
-            $requestedProject = $projects->find($requestedProjectId);
-            if ($requestedProject) {
-                $selectedProjectId = $requestedProjectId;
-            } else {
-                // Optional: Log or flash a message for invalid project_id
-                session()->flash('warning', 'Invalid project selected. Defaulting to first available project.');
-            }
+        $budget = Budget::with(['project', 'fiscalYear'])
+            ->where('id', $budgetId)
+            ->first();
+
+        if (!$budgetId) {
+            return redirect()->back()->with('error', 'Budget ID is required.');
         }
 
-        // Fallback to first project if no valid selection
-        if (!$selectedProjectId) {
-            $selectedProjectId = $projects->first()?->id ?? '';
-        }
+        $projectName   = $budget->project->title ?? 'N/A';
+        $fiscalYear    = $budget->fiscalYear->title ?? 'N/A';
 
-        $firstProject = $projects->find($selectedProjectId) ?? $projects->first();
-        $selectedFiscalYearId = collect($fiscalYears)->firstWhere('selected', true)['value'] ?? '';
+        $allocations = BudgetQuaterAllocation::where('budget_id', $budget->id)->get();
 
-        $currentFiscalYear = FiscalYear::currentFiscalYear();
+        $allocationMap = $allocations->groupBy('budget_id')
+            ->map(fn($group) => $group->keyBy('quarter'));
 
-        if (!$currentFiscalYear) {
-            abort(404, 'No current fiscal year found.');
-        }
-
-        // Use selectedFiscalYearId if available, fallback to current
-        $fiscalYearId = $selectedFiscalYearId ?: $currentFiscalYear->id;
-        $selectedFiscalYear = FiscalYear::find($fiscalYearId) ?? $currentFiscalYear;
-
-        $budgets = Budget::where('project_id', $selectedProjectId)
-            ->where('fiscal_year_id', $fiscalYearId)
-            ->get();
-
-        // Fetch existing allocations for pre-population
-        $allocations = BudgetQuaterAllocation::whereIn('budget_id', $budgets->pluck('id'))->get();
-        $allocationMap = $allocations->groupBy('budget_id')->map(fn($group) => $group->keyBy('quarter'));
-
-        $budgetData = $this->prepareBudgetData($budgets, $allocationMap);
-
-        $projectOptions = $projects->map(fn(Project $project) => [
-            'value' => $project->id,
-            'label' => $project->title,
-        ])->toArray();
+        $budgetData = $this->prepareBudgetData(collect([$budget]), $allocationMap);
 
         return view('admin.budgetQuaterAllocations.create', compact(
-            'projectOptions',
-            'fiscalYears',
             'budgetData',
-            'firstProject',
-            'selectedFiscalYear', // Renamed for consistency
-            'selectedProjectId',
-            'selectedFiscalYearId'
+            'projectName',
+            'fiscalYear',
         ));
     }
 
@@ -116,7 +79,6 @@ class BudgetQuaterAllocationController extends Controller
             ->where('fiscal_year_id', $fiscalYearId)
             ->get();
 
-        // Fetch existing allocations for pre-population
         $allocations = BudgetQuaterAllocation::whereIn('budget_id', $budgets->pluck('id'))->get();
         $allocationMap = $allocations->groupBy('budget_id')->map(fn($group) => $group->keyBy('quarter'));
 
@@ -155,37 +117,34 @@ class BudgetQuaterAllocationController extends Controller
         foreach ($budgets as $budget) {
             foreach ($fieldMap as $budgetField => $title) {
                 $amount = $budget->{$budgetField} ?? 0;
-                if ($amount > 0) {
-                    $storageField = $storageFieldMap[$budgetField];
+                $storageField = $storageFieldMap[$budgetField];
 
-                    // Pre-populate quarter allocations
-                    $q1 = 0;
-                    $q2 = 0;
-                    $q3 = 0;
-                    $q4 = 0;
+                $q1 = 0;
+                $q2 = 0;
+                $q3 = 0;
+                $q4 = 0;
 
-                    if (isset($allocationMap[$budget->id])) {
-                        foreach (['Q1', 'Q2', 'Q3', 'Q4'] as $quarter) {
-                            $qIndex = substr($quarter, 1); // 1,2,3,4
-                            if (isset($allocationMap[$budget->id][$quarter])) {
-                                $allocation = $allocationMap[$budget->id][$quarter];
-                                ${'q' . $qIndex} = $allocation->{$storageField} ?? 0;
-                            }
+                if (isset($allocationMap[$budget->id])) {
+                    foreach (['Q1', 'Q2', 'Q3', 'Q4'] as $quarter) {
+                        $qIndex = substr($quarter, 1);
+                        if (isset($allocationMap[$budget->id][$quarter])) {
+                            $allocation = $allocationMap[$budget->id][$quarter];
+                            ${'q' . $qIndex} = $allocation->{$storageField} ?? 0;
                         }
                     }
-
-                    $budgetData[] = [
-                        'sn' => $counter++,
-                        'title' => $title,
-                        'amount' => $amount,
-                        'budget_id' => $budget->id,
-                        'field' => $storageField,
-                        'q1' => $q1,
-                        'q2' => $q2,
-                        'q3' => $q3,
-                        'q4' => $q4,
-                    ];
                 }
+
+                $budgetData[] = [
+                    'sn' => $counter++,
+                    'title' => $title,
+                    'amount' => $amount,
+                    'budget_id' => $budget->id,
+                    'field' => $storageField,
+                    'q1' => $q1,
+                    'q2' => $q2,
+                    'q3' => $q3,
+                    'q4' => $q4,
+                ];
             }
         }
 
@@ -249,7 +208,6 @@ class BudgetQuaterAllocationController extends Controller
                 $index++;
             }
 
-            // Save all accumulated data in one go (outside loops)
             foreach ($allocationData as $budgetId => $quarters) {
                 foreach ($quarters as $quarter => $data) {
                     BudgetQuaterAllocation::updateOrCreate(
@@ -307,22 +265,19 @@ class BudgetQuaterAllocationController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        // Only admins
         if (!Auth::user()->hasRole(['Super_Admin', 'admin'])) {
             abort(403);
         }
 
         $fiscalYearId = $request->query('fiscal_year_id');
-        $directorateId = $request->query('directorate_id'); // Can be null/empty
+        $directorateId = $request->query('directorate_id');
 
         if (!$fiscalYearId) {
             abort(400, 'Fiscal year is required');
         }
 
-        // Base query: all projects
         $query = \App\Models\Project::query();
 
-        // If directorate selected → filter by it
         if ($directorateId && $directorateId !== '') {
             $query->where('directorate_id', $directorateId);
         }
@@ -331,7 +286,6 @@ class BudgetQuaterAllocationController extends Controller
 
         $projects = $query->orderBy('id')->get();
 
-        // Titles for header
         $directorateTitle = 'All Directorates';
         if ($directorateId && $directorateId !== '') {
             $directorate = \App\Models\Directorate::find($directorateId);
@@ -341,7 +295,6 @@ class BudgetQuaterAllocationController extends Controller
         $fiscalYear = \App\Models\FiscalYear::find($fiscalYearId);
         $fiscalYearTitle = $fiscalYear?->title ?? 'Fiscal Year ' . $fiscalYearId;
 
-        // Filename
         $safeTitle = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $directorateTitle);
         $filename = 'quarterly_allocation_template';
         if ($directorateTitle !== 'All Directorates') {
@@ -372,7 +325,6 @@ class BudgetQuaterAllocationController extends Controller
 
     public function uploadTemplate(Request $request): RedirectResponse
     {
-
         $request->validate([
             'template' => 'required|mimes:xlsx,xls|file|max:10240',
         ]);
@@ -380,8 +332,10 @@ class BudgetQuaterAllocationController extends Controller
         try {
             DB::beginTransaction();
 
-            // Correct way for older versions of Laravel Excel
-            Excel::import(new AdminQuarterBudgetTemplateImport, $request->file('template'));
+            Excel::import(
+                new AdminQuarterBudgetTemplateImport($request->file('template')),
+                $request->file('template')
+            );
 
             DB::commit();
 
@@ -390,9 +344,7 @@ class BudgetQuaterAllocationController extends Controller
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             DB::rollBack();
 
-            // This works in both old and new versions
             $failures = $e->failures();
-
             $errors = [];
             foreach ($failures as $failure) {
                 $errors[] = "Row {$failure->row()}: {$failure->attribute()} - " . implode(', ', $failure->errors());
@@ -406,11 +358,22 @@ class BudgetQuaterAllocationController extends Controller
             DB::rollBack();
             Log::error('Quarterly template import failed: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
-                'trace' => $e->getTraceAsString()
+                'trace'   => $e->getTraceAsString()
             ]);
 
+            $message = $e->getMessage();
+
+            if (
+                str_contains($message, 'skipped because they already have allocations') ||
+                str_contains($message, 'Quarterly budget imported successfully')
+            ) {
+                return redirect()->back()
+                    ->with('success', 'Quarterly budget import completed.')
+                    ->with('warning', $message);
+            }
+
             return redirect()->back()
-                ->with('error', 'Failed to import template. Please ensure the file matches the downloaded template format.')
+                ->with('error', $e->getMessage() ?: 'Failed to import template. Please ensure the file matches the downloaded template format.')
                 ->withInput();
         }
     }

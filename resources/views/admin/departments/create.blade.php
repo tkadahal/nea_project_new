@@ -45,6 +45,17 @@
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            @if ($isAdminOrSuperAdmin)
+                                <div class="col-span-full">
+                                    <x-forms.select label="{{ trans('global.user.fields.directorate_id') }}"
+                                        name="directorate_id" id="directorate_id" :options="collect($directorates)
+                                            ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
+                                            ->values()
+                                            ->all()" :selected="old('directorate_id')"
+                                        placeholder="Select directorate" :error="$errors->first('directorate_id')" />
+                                </div>
+                            @endif
+
                             <div class="col-span-full">
                                 <x-forms.input label="{{ trans('global.department.fields.title') }}" name="title"
                                     type="text" :value="old('title')" :error="$errors->first('title')" />

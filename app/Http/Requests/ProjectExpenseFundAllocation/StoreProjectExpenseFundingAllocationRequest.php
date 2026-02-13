@@ -29,6 +29,7 @@ class StoreProjectExpenseFundingAllocationRequest extends FormRequest
             'foreign_loan_allocations' => 'required|numeric|min:0',
             'foreign_subsidy_allocations' => 'required|numeric|min:0',
             'activity_details' => 'required|json',
+            'remarks' => 'nullable|string',
         ];
     }
 

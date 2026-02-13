@@ -36,6 +36,18 @@ class RolesTableSeeder extends Seeder
                 'updated_at' => '2022-01-24 18:00:13',
                 'deleted_at' => null,
             ],
+            [
+                'title' => 'Department User',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
+            [
+                'title' => 'Corporate User',
+                'created_at' => '2022-01-24 18:00:13',
+                'updated_at' => '2022-01-24 18:00:13',
+                'deleted_at' => null,
+            ],
         ];
 
         Role::insert($roles);

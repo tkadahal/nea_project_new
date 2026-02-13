@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\Role;
 use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
@@ -12,16 +13,32 @@ use Illuminate\Http\Request;
 use App\Models\BudgetHeading;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\BudgetQuaterAllocation;
 use App\Models\ProjectExpenseFundingAllocation;
-use App\Exports\Reports\Consolidated\BudgetReportExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Exports\Reports\Consolidated\AnnualProgramReportExport;
 use App\Exports\Reports\Consolidated\BudgetReportMultiSheetExport;
 
 class ReportController extends Controller
 {
+    /**
+     * Helper to check if user is admin or superadmin based on specific Role IDs
+     */
+    private function isAdmin(): bool
+    {
+        // Ensure user is logged in
+        if (!Auth::check()) {
+            return false;
+        }
+
+        // Use your specific logic to check against Role IDs
+        return Auth::user()->roles->pluck('id')
+            ->intersect([Role::ADMIN, Role::SUPERADMIN])
+            ->isNotEmpty();
+    }
+
     /**
      * Shared data for report views
      */
@@ -33,11 +50,29 @@ class ReportController extends Controller
             ?? collect($fiscalYearOptions)->firstWhere('selected', true)['value'] ?? null
             ?? collect($fiscalYearOptions)->first()['value'] ?? null;
 
+        $isAdmin = $this->isAdmin();
+
+        // Fetch directorates and budget headings only for Admins
+        $directorates = $isAdmin ? Directorate::orderBy('title')->get() : collect();
+        $budgetHeadings = $isAdmin ? BudgetHeading::orderBy('title')->pluck('title', 'id') : collect();
+
+        // Fetch projects for the logged-in user
+        // Assuming relationship: User->belongsToMany(Project) or similar
+        // If using a direct 'user_id' on projects, adjust accordingly.
+        $userProjects = collect();
+        if (!$isAdmin) {
+            // Assuming a many-to-many relationship 'projects' on the User model
+            // Or Project::where('user_id', Auth::id())->get();
+            $userProjects = Auth::user()->projects()->orderBy('title')->get();
+        }
+
         return [
             'fiscalYearOptions'    => $fiscalYearOptions,
             'selectedFiscalYearId' => $selectedFiscalYearId,
-            'directorates'         => Directorate::orderBy('title')->get(),
-            'budgetHeadings'       => BudgetHeading::orderBy('title')->pluck('title', 'id'),
+            'directorates'         => $directorates,
+            'budgetHeadings'       => $budgetHeadings,
+            'userProjects'         => $userProjects,
+            'isAdmin'              => $isAdmin,
         ];
     }
 
@@ -63,18 +98,29 @@ class ReportController extends Controller
             'directorate_ids.*'     => 'integer|exists:directorates,id',
             'budget_heading_ids'    => 'nullable|array',
             'budget_heading_ids.*'  => 'integer|exists:budget_headings,id',
+            'project_ids'           => 'nullable|array', // Added validation for projects
+            'project_ids.*'         => 'integer|exists:projects,id',
         ]);
 
         $query = Project::query();
 
-        // Filter by directorates
-        if (!empty($validated['directorate_ids'] ?? [])) {
-            $query->whereIn('directorate_id', $validated['directorate_ids']);
+        // 1. Filter by Role (Security)
+        if (!$this->isAdmin()) {
+            // Force restrict to user's projects
+            $query->whereIn('id', Auth::user()->projects()->pluck('id'));
+        } else {
+            // Admin filters
+            if (!empty($validated['directorate_ids'] ?? [])) {
+                $query->whereIn('directorate_id', $validated['directorate_ids']);
+            }
+            if (!empty($validated['budget_heading_ids'] ?? [])) {
+                $query->whereIn('budget_heading_id', $validated['budget_heading_ids']);
+            }
         }
 
-        // Filter by budget headings
-        if (!empty($validated['budget_heading_ids'] ?? [])) {
-            $query->whereIn('budget_heading_id', $validated['budget_heading_ids']);
+        // 2. Filter by specific selection (User can select specific projects from their list)
+        if (!empty($validated['project_ids'] ?? [])) {
+            $query->whereIn('id', $validated['project_ids']);
         }
 
         $projectCount = $query->count();
@@ -100,10 +146,13 @@ class ReportController extends Controller
             'directorate_ids.*'     => 'integer|exists:directorates,id',
             'budget_heading_ids'    => 'nullable|array',
             'budget_heading_ids.*'  => 'integer|exists:budget_headings,id',
+            'project_ids'           => 'nullable|array', // Validate project IDs
+            'project_ids.*'         => 'integer|exists:projects,id',
             'consolidated'          => 'nullable|in:0,1',
         ]);
 
         $isConsolidated = (bool) ($validated['consolidated'] ?? false);
+        $isAdmin = $this->isAdmin();
 
         // Quarter mappings
         $quarterMapForBudget = [
@@ -125,14 +174,9 @@ class ReportController extends Controller
 
         // Determine quarters to sum (cumulative if consolidated)
         if ($isConsolidated) {
-            $quartersToSumBudget  = ['Q1', 'Q2', 'Q3', 'Q4'];
-            $quartersToSumExpense = [1, 2, 3, 4];
-
             $index = array_search($currentQuarterBudget, ['Q1', 'Q2', 'Q3', 'Q4']);
-            if ($index !== false) {
-                $quartersToSumBudget  = array_slice(['Q1', 'Q2', 'Q3', 'Q4'], 0, $index + 1);
-                $quartersToSumExpense = array_slice([1, 2, 3, 4], 0, $index + 1);
-            }
+            $quartersToSumBudget  = $index !== false ? array_slice(['Q1', 'Q2', 'Q3', 'Q4'], 0, $index + 1) : [$currentQuarterBudget];
+            $quartersToSumExpense = $index !== false ? array_slice([1, 2, 3, 4], 0, $index + 1) : [$currentQuarterExpense];
         } else {
             $quartersToSumBudget  = [$currentQuarterBudget];
             $quartersToSumExpense = [$currentQuarterExpense];
@@ -152,20 +196,37 @@ class ReportController extends Controller
             $fiscalYearId = $validated['fiscal_year_id'];
             $directorateIds = $validated['directorate_ids'] ?? [];
             $budgetHeadingIds = $validated['budget_heading_ids'] ?? [];
+            $projectIds = $validated['project_ids'] ?? [];
 
             $query = Project::with(['directorate', 'budgets', 'budgetHeading'])
                 ->orderBy('directorate_id')
                 ->orderBy('title');
 
-            // Apply filters
-            if (!empty($directorateIds)) {
-                $query->whereIn('directorate_id', $directorateIds);
-            }
+            // --- AUTH / PERMISSION LOGIC ---
+            if (!$isAdmin) {
+                // Force restrict to User's projects
+                $query->whereIn('id', Auth::user()->projects()->pluck('id'));
 
-            if (!empty($budgetHeadingIds)) {
-                $query->whereIn('budget_heading_id', $budgetHeadingIds);
+                // Also restrict by specific project selection if provided
+                if (!empty($projectIds)) {
+                    $query->whereIn('id', $projectIds);
+                }
+            } else {
+                // Admin filters
+                if (!empty($directorateIds)) {
+                    $query->whereIn('directorate_id', $directorateIds);
+                }
+                if (!empty($budgetHeadingIds)) {
+                    $query->whereIn('budget_heading_id', $budgetHeadingIds);
+                }
+                // If admin sends project_ids (optional), respect it
+                if (!empty($projectIds)) {
+                    $query->whereIn('id', $projectIds);
+                }
             }
+            // ----------------------------------
 
+            // ... (Rest of the mapping logic remains exactly the same, just the $query definition changed) ...
             $projects = $query->get()->map(function ($project) use (
                 $fiscalYearId,
                 $quartersToSumBudget,
@@ -343,6 +404,8 @@ class ReportController extends Controller
                 'title'                  => $project->title,
                 'directorate'            => $project->directorate?->title ?? 'अन्य',
                 'budget_heading'         => $project->budgetHeading?->title ?? 'अन्य',
+                'budget_heading_code'    => $project->budgetHeading?->code ?? '',
+                'budget_heading_description' => $project->budgetHeading?->description ?? '',
                 'gov_share'              => 0,
                 'gov_loan'               => 0,
                 'foreign_loan'           => 0,

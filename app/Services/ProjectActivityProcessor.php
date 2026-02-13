@@ -6,16 +6,10 @@ namespace App\Services;
 
 use App\Models\ProjectActivityDefinition;
 use App\Models\ProjectActivityPlan;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ProjectActivityProcessor
 {
-    /**
-     * Process a section's plans (create/update based on validated data)
-     * Supports both real definition IDs and temp_ keys from form/Excel
-     */
     public function processSection(array &$validated, string $section, int $projectId, int $fiscalYearId, int $expenditureId): void
     {
         $sectionData = $validated[$section] ?? [];
@@ -24,14 +18,8 @@ class ProjectActivityProcessor
             return;
         }
 
-        $tempKeys = array_filter(array_keys($sectionData), fn($k) => str_starts_with((string)$k, 'temp_'));
-        if (!empty($tempKeys)) {
-            throw new \RuntimeException("Temporary IDs not resolved: " . implode(', ', $tempKeys));
-        }
-
         $fromExcel = $validated['from_excel'] ?? false;
 
-        $processedCount = 0;
         foreach ($sectionData as $defId => $rowData) {
             $defId = (int) $defId;
 
@@ -43,7 +31,7 @@ class ProjectActivityProcessor
                 try {
                     $this->validateRowSums($rowData, $defId);
                 } catch (ValidationException $e) {
-                    throw $e; // Let it bubble up
+                    throw $e;
                 }
             }
 
@@ -55,31 +43,14 @@ class ProjectActivityProcessor
                 ->where('is_current', true)
                 ->firstOrFail();
 
-            try {
-                ProjectActivityPlan::updateOrCreate(
-                    [
-                        'activity_definition_version_id' => $definitionVersion->id,
-                        'fiscal_year_id' => $fiscalYearId,
-                    ],
-                    $planData
-                );
-
-                Log::info("Processor: Successfully saved/updated plan for definition {$defId}", [
-                    'planned_budget' => $planData['planned_budget'],
-                    'q1_amount' => $planData['q1_amount'],
-                ]);
-
-                $processedCount++;
-            } catch (\Exception $e) {
-                Log::error("Failed to save plan for definition {$defId}", [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                throw $e;
-            }
+            ProjectActivityPlan::updateOrCreate(
+                [
+                    'activity_definition_version_id' => $definitionVersion->id,
+                    'fiscal_year_id' => $fiscalYearId,
+                ],
+                $planData
+            );
         }
-
-        Log::info("Processor: Completed {$section} — {$processedCount} plans processed successfully");
     }
 
     private function validateRowSums(array $rowData, $identifier): void

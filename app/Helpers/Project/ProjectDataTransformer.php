@@ -55,6 +55,8 @@ class ProjectDataTransformer
             'budget_heading_color' => $budgetHeadingColor,
             'fields' => $this->buildCardFields($project, $priorityValue, $priorityColor),
             'comment_count' => $project->comments_count ?? 0,
+
+            'contracts_count' => $project->contracts_count ?? 0,
             // These are needed for the Blade component
             'arrayColumnColor' => $this->getColorConfig(),
         ];

@@ -1,8 +1,8 @@
 <x-layouts.app>
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100" id="page-title">
-            Quarterly Budget Allocation for {{ $firstProject->title ?? '' }} -
-            {{ $selectedFiscalYear->title ?? 'Current Fiscal Year' }}
+            Quarterly Budget Allocation for {{ $projectName ?? '' }} -
+            {{ $fiscalYear ?? 'Current Fiscal Year' }}
         </h1>
         <p class="text-gray-600 dark:text-gray-400 mt-1">
             {{ trans('global.create') }} Quarterly Budget Allocation
@@ -13,29 +13,7 @@
         method="POST" enctype="multipart/form-data">
         @csrf
 
-        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="w-full md:w-1/2 relative z-50">
-                    <x-forms.select label="{{ trans('global.budget.fields.project_id') }}" name="project_id"
-                        id="project_id" :options="$projectOptions" :selected="$selectedProjectId ?? ''"
-                        placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('project_id')" class="js-single-select"
-                        required />
-                </div>
 
-                <div class="w-full md:w-1/2 relative z-50">
-                    <x-forms.select label="{{ trans('global.budget.fields.fiscal_year_id') }}" name="fiscal_year_id"
-                        id="fiscal_year_id" :options="$fiscalYears" :selected="$selectedFiscalYearId ?? ''"
-                        placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('fiscal_year_id')" class="js-single-select"
-                        required />
-                </div>
-            </div>
-
-            <div id="budget-display" class="mt-2">
-                <span class="block text-sm text-gray-500 dark:text-gray-400">
-                    Select a project and fiscal year to view budget details.
-                </span>
-            </div>
-        </div>
 
         <div
             class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden p-6">

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Project extends Model
 {
@@ -38,16 +39,17 @@ class Project extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'datetime',
-        'end_date' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
-        'budget' => 'decimal:2',
-        'progress' => 'float',
+        'start_date'  => 'datetime',
+        'end_date'    => 'datetime',
+        'created_at'  => 'datetime',
+        'updated_at'  => 'datetime',
+        'deleted_at'  => 'datetime',
+        'progress'    => 'float',
     ];
 
-    protected $attributes = [];
+    // ────────────────────────────────────────────────
+    // Relationships
+    // ────────────────────────────────────────────────
 
     public function directorate(): BelongsTo
     {
@@ -96,114 +98,56 @@ class Project extends Model
             ->withTimestamps();
     }
 
-    public function calculatePhysicalProgress(): float
+    public function activityDefinitions(): HasMany
     {
-        $tasks = $this->tasks()->get();
-        if ($tasks->isNotEmpty()) {
-            $totalWeight = $tasks->sum('estimated_hours') ?: $tasks->count();
-            if ($totalWeight == 0) {
-                return $tasks->avg('progress');
-            }
-            $weightedProgress = $tasks->sum(fn($task) => $task->progress * $task->estimated_hours);
-            return (float) round($weightedProgress / $totalWeight, 2);
-        }
-
-        $contracts = $this->contracts()->get();
-        if ($contracts->isNotEmpty()) {
-            $totalWeight = $contracts->sum('contract_amount') ?: $contracts->count();
-            if ($totalWeight == 0) {
-                return $contracts->avg('progress');
-            }
-            $weightedProgress = $contracts->sum(fn($contract) => $contract->progress * $contract->contract_amount);
-            return (float) round($weightedProgress / $totalWeight, 2);
-        }
-
-        return 0.0;
+        return $this->hasMany(ProjectActivityDefinition::class);
     }
 
-    public function updatePhysicalProgress(): void
+    public function currentActivityDefinitions(): HasMany
     {
-        $this->update(['progress' => $this->calculatePhysicalProgress()]);
+        return $this->activityDefinitions()
+            ->where('is_current', true);
     }
 
-    public function getTotalBudgetAttribute(): float
+    public function activityPlans(): HasManyThrough
     {
-        if (!array_key_exists('total_budget', $this->attributes)) {
-            $latestBudget = $this->relationLoaded('budgets')
-                ? $this->budgets->sortByDesc('id')->first()
-                : $this->budgets()->latest('id')->first();
-
-            $this->attributes['total_budget'] = $latestBudget ? (float) $latestBudget->total_budget : 0.0;
-        }
-
-        return (float) $this->attributes['total_budget'];
+        return $this->hasManyThrough(
+            ProjectActivityPlan::class,
+            ProjectActivityDefinition::class,
+            'project_id',
+            'activity_definition_version_id',
+            'id',
+            'id'
+        );
     }
 
-    public function expenses(): HasMany
+    /**
+     * All activity plans (regardless of version)
+     */
+    public function allProjectExpensesQuery(): Builder
     {
-        return $this->hasMany(Expense::class);
+        return ProjectExpense::query()
+            ->whereHas('plan.definitionVersion', function (Builder $q) {
+                $q->where('project_id', $this->id);
+            });
     }
 
-    public function getFinancialProgressAttribute(): float
+    /**
+     * Only expenses linked to CURRENT (latest active) versions of definitions
+     */
+    public function currentProjectExpensesQuery(): Builder
     {
-        if (!array_key_exists('financial_progress', $this->attributes)) {
-            $totalBudget = $this->total_budget;
-            if ($totalBudget == 0) {
-                $this->attributes['financial_progress'] = 0.0;
-            } else {
-                $totalExpenses = $this->relationLoaded('expenses')
-                    ? $this->expenses->sum('amount')
-                    : $this->expenses()->sum('amount');
-                $contractExpenses = $this->relationLoaded('contracts')
-                    ? $this->contracts->sum('contract_amount')
-                    : $this->contracts()->sum('contract_amount');
-                $totalSpent = $totalExpenses + $contractExpenses;
-                $this->attributes['financial_progress'] = round(($totalSpent / $totalBudget) * 100, 2);
-            }
-        }
-
-        return $this->attributes['financial_progress'];
+        return ProjectExpense::query()
+            ->whereHas('plan.definitionVersion', function (Builder $q) {
+                $q->where('project_id', $this->id)
+                    ->where('is_current', true);
+            });
     }
 
-    public function getExpensesByQuarter(FiscalYear $fiscalYear): array
+    public function topLevelCurrentExpensesQuery(): Builder
     {
-        $expenses = $this->expenses()
-            ->where('fiscal_year_id', $fiscalYear->id)
-            ->get()
-            ->groupBy('quarter');
-
-        $result = [];
-        for ($quarter = 1; $quarter <= 4; $quarter++) {
-            $result[$quarter] = $expenses->has($quarter)
-                ? $expenses[$quarter]->sum('amount')
-                : 0.0;
-        }
-
-        return $result;
-    }
-
-    public function getExpensesByBudgetType(FiscalYear $fiscalYear): array
-    {
-        $expenses = $this->expenses()
-            ->where('fiscal_year_id', $fiscalYear->id)
-            ->get()
-            ->groupBy('budget_type');
-
-        return [
-            'internal' => $expenses->has('internal') ? $expenses['internal']->sum('amount') : 0.0,
-            'foreign_loan' => $expenses->has('foreign_loan') ? $expenses['foreign_loan']->sum('amount') : 0.0,
-            'foreign_subsidy' => $expenses->has('foreign_subsidy') ? $expenses['foreign_subsidy']->sum('amount') : 0.0,
-        ];
-    }
-
-    public function scopeFilterByRole($query, User $user)
-    {
-        return $query->whereExists(function ($subQuery) use ($user) {
-            $subQuery->select(DB::raw(1))
-                ->from('project_user')
-                ->whereColumn('project_user.project_id', 'projects.id')
-                ->where('project_user.user_id', $user->id);
-        });
+        return $this->currentProjectExpensesQuery()
+            ->whereNull('parent_id');
     }
 
     public function users(): BelongsToMany
@@ -221,6 +165,198 @@ class Project extends Model
         return $this->morphMany(File::class, 'fileable');
     }
 
+    public function activitySchedules(): BelongsToMany
+    {
+        return $this->belongsToMany(ProjectActivitySchedule::class, 'project_schedule_assignments', 'project_id', 'schedule_id')
+            ->withPivot([
+                'progress',
+                'start_date',
+                'end_date',
+                'actual_start_date',
+                'actual_end_date',
+                'remarks'
+            ])
+            ->withTimestamps()
+            ->orderBy('sort_order');
+    }
+
+    /**
+     * Get only top-level phase schedules for this project
+     */
+    public function topLevelSchedules(): BelongsToMany
+    {
+        return $this->activitySchedules()
+            ->where('level', 1)
+            ->whereNotNull('weightage');
+    }
+
+    /**
+     * Get leaf schedules (executable activities without children)
+     */
+    public function leafSchedules(): BelongsToMany
+    {
+        return $this->activitySchedules()
+            ->whereDoesntHave('children');
+    }
+
+    // ────────────────────────────────────────────────
+    // Progress & Financial Calculations
+    // ────────────────────────────────────────────────
+
+    public function calculatePhysicalProgress(): float
+    {
+        // Try schedule-based progress calculation first
+        $topLevelSchedules = $this->topLevelSchedules()->get();
+
+        if ($topLevelSchedules->isNotEmpty()) {
+            $totalWeightedProgress = 0.0;
+            $totalWeightage = 0.0;
+
+            foreach ($topLevelSchedules as $schedule) {
+                $phaseWeightage = (float) $schedule->weightage;
+                $phaseProgress = $schedule->calculateProgressForProject($this->id);
+
+                $totalWeightedProgress += ($phaseProgress * $phaseWeightage);
+                $totalWeightage += $phaseWeightage;
+            }
+
+            // Return weighted average
+            if ($totalWeightage > 0) {
+                return round($totalWeightedProgress / $totalWeightage, 2);
+            }
+        }
+
+        // Fallback to existing task-based calculation
+        $tasks = $this->tasks()->get();
+
+        if ($tasks->isNotEmpty()) {
+            $totalWeight = $tasks->sum('estimated_hours') ?: $tasks->count();
+            if ($totalWeight == 0) {
+                return (float) round($tasks->avg('progress') ?? 0, 2);
+            }
+            $weighted = $tasks->sum(fn($t) => $t->progress * ($t->estimated_hours ?: 1));
+            return (float) round($weighted / $totalWeight, 2);
+        }
+
+        // Fallback to contract-based calculation
+        $contracts = $this->contracts()->get();
+
+        if ($contracts->isNotEmpty()) {
+            $totalWeight = $contracts->sum('contract_amount') ?: $contracts->count();
+            if ($totalWeight == 0) {
+                return (float) round($contracts->avg('progress') ?? 0, 2);
+            }
+            $weighted = $contracts->sum(fn($c) => $c->progress * $c->contract_amount);
+            return (float) round($weighted / $totalWeight, 2);
+        }
+
+        return 0.0;
+    }
+
+    public function updatePhysicalProgress(): void
+    {
+        $this->updateQuietly(['progress' => $this->calculatePhysicalProgress()]);
+    }
+
+    public function getTotalBudgetAttribute(): float
+    {
+        if (!array_key_exists('total_budget', $this->attributes)) {
+            $latest = $this->relationLoaded('budgets')
+                ? $this->budgets->sortByDesc('id')->first()
+                : $this->budgets()->latest('id')->first();
+
+            $this->attributes['total_budget'] = $latest ? (float) $latest->total_budget : 0.0;
+        }
+
+        return (float) $this->attributes['total_budget'];
+    }
+
+    /**
+     * Total finalized quarterly amounts — only from CURRENT activity definition versions
+     */
+    public function getTotalApprovedExpenseAttribute(): float
+    {
+        if (!array_key_exists('total_approved_expense', $this->attributes)) {
+            $sum = $this->currentProjectExpensesQuery()
+                ->withSum(['quarters' => fn($q) => $q->finalized()], 'amount')
+                ->get()
+                ->sum('quarters_sum_amount');
+
+            $this->attributes['total_approved_expense'] = (float) ($sum ?? 0.0);
+        }
+
+        return $this->attributes['total_approved_expense'];
+    }
+
+    public function getFinancialProgressAttribute(): float
+    {
+        if (!array_key_exists('financial_progress', $this->attributes)) {
+            $budget = $this->total_budget;
+            $spent  = $this->total_approved_expense;
+
+            $this->attributes['financial_progress'] = $budget > 0
+                ? round(($spent / $budget) * 100, 2)
+                : 0.0;
+        }
+
+        return $this->attributes['financial_progress'];
+    }
+
+    /**
+     * Get detailed progress breakdown by phase
+     */
+    public function getScheduleProgressBreakdown(): array
+    {
+        $breakdown = [];
+        $topLevelSchedules = $this->topLevelSchedules()->get();
+
+        foreach ($topLevelSchedules as $schedule) {
+            $phaseProgress = $schedule->calculateProgressForProject($this->id);
+
+            $breakdown[] = [
+                'code' => $schedule->code,
+                'name' => $schedule->name,
+                'weightage' => (float) $schedule->weightage,
+                'progress' => $phaseProgress,
+                'weighted_contribution' => round(($phaseProgress * $schedule->weightage) / 100, 2),
+            ];
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Update progress for a specific schedule
+     */
+    public function updateScheduleProgress(int $scheduleId, float $progress): void
+    {
+        $this->activitySchedules()->updateExistingPivot($scheduleId, [
+            'progress' => min(100, max(0, $progress)),
+            'updated_at' => now(),
+        ]);
+
+        $this->updatePhysicalProgress();
+    }
+
+    /**
+     * Bulk update multiple schedule progresses
+     */
+    public function bulkUpdateScheduleProgress(array $progressData): void
+    {
+        foreach ($progressData as $scheduleId => $progress) {
+            $this->activitySchedules()->updateExistingPivot($scheduleId, [
+                'progress' => min(100, max(0, (float) $progress)),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $this->updatePhysicalProgress();
+    }
+
+    // ────────────────────────────────────────────────
+    // Logging & Scopes
+    // ────────────────────────────────────────────────
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
@@ -237,17 +373,22 @@ class Project extends Model
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
                 return match ($eventName) {
-                    'created' => "Project created by {$user}",
-                    'updated' => "Project updated by {$user}",
-                    'deleted' => "Project deleted by {$user}",
-                    default => "Project {$eventName} by {$user}",
+                    'created'  => "Project created by {$user}",
+                    'updated'  => "Project updated by {$user}",
+                    'deleted'  => "Project deleted by {$user}",
+                    default    => "Project {$eventName} by {$user}",
                 };
             });
     }
 
-    public function activityDefinitions(): HasMany
+    public function scopeFilterByRole(Builder $query, User $user): Builder
     {
-        return $this->hasMany(ProjectActivityDefinition::class);
+        return $query->whereExists(function ($sub) use ($user) {
+            $sub->select(DB::raw(1))
+                ->from('project_user')
+                ->whereColumn('project_user.project_id', 'projects.id')
+                ->where('project_user.user_id', $user->id);
+        });
     }
 
     public function newEloquentBuilder($query): ModelBuilder

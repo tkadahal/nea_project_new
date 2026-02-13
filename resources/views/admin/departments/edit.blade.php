@@ -58,6 +58,28 @@
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                            @if ($isAdminOrSuperAdmin)
+                                <div class="col-span-full">
+                                    <x-forms.select label="{{ trans('global.directorate.title_singular') }}"
+                                        name="directorate_id" id="directorate_id" :options="$directorates
+                                            ->map(
+                                                fn($title, $id) => [
+                                                    'value' => (string) $id,
+                                                    'label' => $title,
+                                                ],
+                                            )
+                                            ->values()
+                                            ->all()" :selected="old(
+                                            'directorate_id',
+                                            $department->directorates->first()?->id
+                                                ? (string) $department->directorates->first()->id
+                                                : null,
+                                        )"
+                                        placeholder="{{ __('Select directorate') }}" :error="$errors->first('directorate_id')" required />
+                                </div>
+                            @endif
+
                             <div class="col-span-full">
                                 <x-forms.input label="{{ trans('global.department.fields.title') }}" name="title"
                                     type="text" :value="old('title', $department->title)" :error="$errors->first('title')" />

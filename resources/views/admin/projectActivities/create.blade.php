@@ -31,9 +31,26 @@
             </a>
         </div>
     </div>
+    @if (session('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    @if (session('success'))
+        <div class="alert alert-success">
+            {{ session('success') }}
+        </div>
+    @endif
 
     <form id="projectActivity-form" class="w-full" action="{{ route('admin.projectActivity.store') }}" method="POST">
         @csrf
+
+        <!-- Hidden inputs to track initial state (page load) -->
+        <input type="hidden" id="initial-capital-ids" name="initial_capital_ids"
+            value="{{ collect($capitalActivities)->pluck('id')->implode(',') }}">
+        <input type="hidden" id="initial-recurrent-ids" name="initial_recurrent_ids"
+            value="{{ collect($recurrentActivities)->pluck('id')->implode(',') }}">
 
         <!-- Project & Fiscal Year Selection -->
         <div
@@ -61,9 +78,14 @@
 
         <!-- Error Message -->
         <div id="error-message"
-            class="mb-6 hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative dark:bg-red-900 dark:border-gray-700 dark:text-red-200">
-            <span id="error-text"></span>
-            <button type="button" id="close-error" class="absolute top-0 right-0 px-4 py-3">
+            class="mb-6 {{ $errors->any() ? '' : 'hidden' }} bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative dark:bg-red-900 dark:border-gray-700 dark:text-red-200">
+            <ul class="list-disc ml-5">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" id="close-error" class="absolute top-0 right-0 px-4 py-3"
+                onclick="this.parentElement.classList.add('hidden')">
                 <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20">
                     <path
@@ -157,11 +179,10 @@
                                 </tr>
                             </thead>
                             <tbody id="capital-tbody">
-                                @forelse($capitalActivities as $activity)
+                                @forelse($capitalActivities->sortBy('sort_index', SORT_NATURAL)->values() as $activity)
                                     @include('admin.projectActivities.partials.activity-row-full', [
                                         'activity' => $activity,
                                         'type' => 'capital',
-                                        'isPreloaded' => true,
                                     ])
                                 @empty
                                     <tr class="no-data-row">
@@ -273,11 +294,10 @@
                                 </tr>
                             </thead>
                             <tbody id="recurrent-tbody">
-                                @forelse($recurrentActivities as $activity)
+                                @forelse($recurrentActivities->sortBy('sort_index', SORT_NATURAL)->values() as $activity)
                                     @include('admin.projectActivities.partials.activity-row-full', [
                                         'activity' => $activity,
                                         'type' => 'recurrent',
-                                        'isPreloaded' => true,
                                     ])
                                 @empty
                                     <tr class="no-data-row">
@@ -327,6 +347,43 @@
             </div>
         </div>
     </form>
+
+    <div id="structure-change-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+        <div class="relative mx-auto p-6 border w-11/12 max-w-lg shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="text-center">
+                <div
+                    class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 dark:bg-yellow-900/50 mb-4">
+                    <svg class="h-6 w-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Confirm Structure Change
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-6" id="modal-message">
+                    The number of activities has changed. This will create a new version of the activity definitions and
+                    affect all fiscal years.
+                </p>
+                <div class="text-xs text-gray-500 dark:text-gray-400 italic mb-6">
+                    <strong>Note:</strong> Previous plans in other fiscal years will be deleted. This cannot be undone.
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-4">
+                <button type="button" id="cancel-structure-change"
+                    class="px-5 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-400 transition">
+                    Cancel
+                </button>
+                <button type="button" id="confirm-structure-change"
+                    class="px-5 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition flex items-center">
+                    <span id="confirm-button-text">Confirm & Proceed</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     @push('scripts')
         <style>
@@ -457,13 +514,220 @@
         <script src="https://unpkg.com/tippy.js@6"></script>
         <script>
             $(document).ready(function() {
-                const projectIdInput = $('.js-single-select[data-name="project_id"] .js-hidden-input');
-                const fiscalYearInput = $('.js-single-select[data-name="fiscal_year_id"] .js-hidden-input');
+                const projectIdInput = $('select[name="project_id"], input[name="project_id"]');
+                const fiscalYearInput = $('select[name="fiscal_year_id"], input[name="fiscal_year_id"]');
+
                 const $budgetDisplay = $('#budget-display');
                 const $capitalTbody = $('#capital-tbody');
                 const $recurrentTbody = $('#recurrent-tbody');
 
-                // Load Budget Data
+                // ============================================================
+                // STATE PRESERVATION (AJAX Interceptor Version)
+                // ============================================================
+                const STORAGE_KEY = 'project_activity_draft';
+                let isRestoring = false;
+                let saveTimeout = null;
+
+                // ------------------------------------------------------------
+                // THE AJAX INTERCEPTOR (Stops the "Blink")
+                // ------------------------------------------------------------
+                // We wrap jQuery's get function. If it tries to fetch activities
+                // for a project we have a draft for, we cancel it.
+                (function() {
+                    const _get = $.get;
+                    $.get = function(url, data, callback) {
+                        if (url.includes('getActivities')) {
+                            const draft = sessionStorage.getItem(STORAGE_KEY);
+                            if (draft) {
+                                try {
+                                    const state = JSON.parse(draft);
+                                    // If request is for the same project ID as the draft, BLOCK IT.
+                                    if (state.project_id == data.project_id) {
+                                        console.log(
+                                            '🛑 AJAX Interceptor: Blocked server fetch to preserve draft for Project ' +
+                                            state.project_id);
+                                        return false; // Stop the request
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                }
+                            }
+                        }
+                        return _get(url, data, callback);
+                    };
+                })();
+
+                function debouncedSave() {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(() => {
+                        saveFormState();
+                    }, 500);
+                }
+
+                function saveFormState() {
+                    if (isRestoring) return;
+
+                    const projectId = projectIdInput.val();
+                    const fiscalYearId = fiscalYearInput.val();
+
+                    if (!projectId) {
+                        console.log('⚠ Skipping save - no project selected');
+                        return;
+                    }
+
+                    // Sync DOM Properties to HTML Attributes
+                    $('#capital-tbody input, #recurrent-tbody input').each(function() {
+                        $(this).attr('value', $(this).val());
+                    });
+                    $('#capital-tbody select, #recurrent-tbody select').each(function() {
+                        const $el = $(this);
+                        $el.find('option').prop('selected', false);
+                        $el.find('option[value="' + $el.val() + '"]').prop('selected', true);
+                    });
+
+                    const state = {
+                        project_id: projectId,
+                        fiscal_year_id: fiscalYearId,
+                        capital_html: $('#capital-tbody').html(),
+                        recurrent_html: $('#recurrent-tbody').html(),
+                        timestamp: Date.now()
+                    };
+
+                    try {
+                        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                        updateDraftIndicator();
+                        console.log('✓ Draft auto-saved');
+                    } catch (e) {
+                        console.warn('Failed to save state:', e);
+                    }
+                }
+
+                function saveImmediately() {
+                    if (!isRestoring) {
+                        clearTimeout(saveTimeout);
+                        saveFormState();
+                    }
+                }
+
+                function clearFormState() {
+                    sessionStorage.removeItem(STORAGE_KEY);
+                    console.log('✓ Draft cleared');
+                }
+
+                function restoreFormState() {
+                    const saved = sessionStorage.getItem(STORAGE_KEY);
+                    if (!saved) return false;
+
+                    try {
+                        const state = JSON.parse(saved);
+
+                        const hoursSinceLastSave = (Date.now() - state.timestamp) / (1000 * 60 * 60);
+                        if (hoursSinceLastSave > 24) {
+                            clearFormState();
+                            return false;
+                        }
+
+                        isRestoring = true;
+
+                        // Restore Values
+                        if (state.project_id) projectIdInput.val(state.project_id);
+                        if (state.fiscal_year_id) fiscalYearInput.val(state.fiscal_year_id);
+
+                        // Restore Tables
+                        if (state.capital_html) $capitalTbody.html(state.capital_html);
+                        if (state.recurrent_html) $recurrentTbody.html(state.recurrent_html);
+
+                        // Bind & Calculate
+                        bindRowEvents($('.activity-row'));
+                        updateTotals();
+
+                        isRestoring = false;
+
+                        // Trigger change events (Interceptor will handle the resulting AJAX)
+                        if (state.project_id) projectIdInput.trigger('change');
+                        if (state.fiscal_year_id) fiscalYearInput.trigger('change');
+
+                        showSuccessToast('Draft restored from ' + new Date(state.timestamp).toLocaleTimeString());
+                        return true;
+
+                    } catch (e) {
+                        console.error('❌ Error restoring state:', e);
+                        clearFormState();
+                        isRestoring = false;
+                        return false;
+                    }
+                }
+
+                function updateDraftIndicator() {
+                    const hasDraft = sessionStorage.getItem(STORAGE_KEY);
+                    let $indicator = $('#draft-indicator');
+
+                    if (!$indicator.length) {
+                        $indicator = $(
+                            '<div id="draft-indicator" class="fixed bottom-4 right-4 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm shadow-lg z-50 hidden transition-opacity duration-300"></div>'
+                        );
+                        $('body').append($indicator);
+                    }
+
+                    if (hasDraft) {
+                        const state = JSON.parse(hasDraft);
+                        const timeAgo = Math.floor((Date.now() - state.timestamp) / 1000);
+                        const timeText = timeAgo < 60 ? 'just now' : `${Math.floor(timeAgo / 60)}m ago`;
+
+                        $indicator.html(`
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                    <span>Draft saved ${timeText}</span>
+                </div>
+            `).removeClass('hidden').css('opacity', 1);
+
+                        setTimeout(() => $indicator.css('opacity', 0).hide(), 3000);
+                    }
+                }
+
+                // ============================================================
+                // SIMPLE OBSERVER (Budget Only)
+                // ============================================================
+                function observeHiddenInput(input, callback) {
+                    input.on('change', function() {
+                        if (!isRestoring) callback();
+                    });
+                    const observer = new MutationObserver(function(mutations) {
+                        if (!isRestoring) callback();
+                    });
+                    observer.observe(input[0], {
+                        attributes: true
+                    });
+                }
+
+                observeHiddenInput(projectIdInput, function() {
+                    // If we switch projects, we MUST clear draft and load new data
+                    const currentVal = projectIdInput.val();
+                    const draft = sessionStorage.getItem(STORAGE_KEY);
+                    if (draft) {
+                        try {
+                            const state = JSON.parse(draft);
+                            // If value changed to a different project, clear draft
+                            if (state.project_id != currentVal) {
+                                clearFormState();
+                                loadActivities();
+                            }
+                            // If value is same as draft, loadActivities() is BLOCKED by the Interceptor
+                        } catch (e) {}
+                    } else {
+                        loadActivities();
+                    }
+                    loadBudgetData();
+                });
+
+                observeHiddenInput(fiscalYearInput, function() {
+                    loadBudgetData();
+                });
+
+
+                // ============================================================
+                // LOAD BUDGET DATA
+                // ============================================================
                 function loadBudgetData() {
                     const projectId = projectIdInput.val();
                     const fiscalYearId = fiscalYearInput.val();
@@ -471,7 +735,7 @@
                     if (!projectId) {
                         $budgetDisplay.html(
                             '<span class="block text-sm text-gray-500 dark:text-gray-400">Please select a project to view budget details.</span>'
-                        );
+                            );
                         return;
                     }
 
@@ -490,7 +754,6 @@
                                 const d = data.data;
                                 const fyNote = fiscalYearId ? '' :
                                     ` (using default FY: ${d.fiscal_year || 'N/A'})`;
-
                                 $budgetDisplay.html(`
                                 <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
@@ -509,32 +772,33 @@
                             } else {
                                 $budgetDisplay.html(
                                     `<span class="block text-sm text-red-500 dark:text-red-400">${data.message || 'No budget data available.'}</span>`
-                                );
+                                    );
                             }
                         },
                         error: function() {
                             $budgetDisplay.html(
                                 '<span class="block text-sm text-red-500 dark:text-red-400">Error loading budget data.</span>'
-                            );
+                                );
                         }
                     });
                 }
 
-                // Load Activities (Capital + Recurrent)
+                // ============================================================
+                // LOAD ACTIVITIES
+                // ============================================================
                 function loadActivities() {
                     const projectId = projectIdInput.val();
                     if (!projectId) {
                         $capitalTbody.html(
                             '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet. Click "Add Row" to create one.</td></tr>'
-                        );
+                            );
                         $recurrentTbody.html(
                             '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet. Click "Add Row" to create one.</td></tr>'
-                        );
+                            );
                         updateTotals();
                         return;
                     }
 
-                    // Load Capital
                     $.get('{{ route('admin.projectActivity.getActivities') }}', {
                         project_id: projectId,
                         expenditure_id: 1
@@ -542,13 +806,12 @@
                         if (res.success) {
                             $capitalTbody.html(res.html ||
                                 '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet.</td></tr>'
-                            );
+                                );
                             bindRowEvents($capitalTbody.find('.activity-row'));
                             updateTotals();
                         }
                     });
 
-                    // Load Recurrent
                     $.get('{{ route('admin.projectActivity.getActivities') }}', {
                         project_id: projectId,
                         expenditure_id: 2
@@ -556,54 +819,34 @@
                         if (res.success) {
                             $recurrentTbody.html(res.html ||
                                 '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet.</td></tr>'
-                            );
+                                );
                             bindRowEvents($recurrentTbody.find('.activity-row'));
                             updateTotals();
                         }
                     });
                 }
 
-                // Observe changes to hidden inputs (works even if no 'change' event fired)
-                function observeHiddenInput(input, callback) {
-                    input.on('change', callback); // fallback for native events
-
-                    const observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                                callback();
-                            }
-                        });
-                    });
-                    observer.observe(input[0], {
-                        attributes: true
-                    });
-                }
-
-                observeHiddenInput(projectIdInput, function() {
-                    loadBudgetData();
-                    loadActivities();
-                });
-
-                observeHiddenInput(fiscalYearInput, function() {
-                    loadBudgetData();
-                });
-
-                // Initial Load
-                if (projectIdInput.val()) {
+                // ============================================================
+                // INITIALIZATION
+                // ============================================================
+                if (restoreFormState()) {
+                    console.log('Previous draft loaded');
+                } else if (projectIdInput.val()) {
                     loadBudgetData();
                     loadActivities();
                 } else {
                     $budgetDisplay.html(
                         '<span class="block text-sm text-gray-500 dark:text-gray-400">Please select a project to view budget details.</span>'
-                    );
+                        );
                 }
 
-                // Remove "no data" rows helper
+                // ============================================================
+                // HELPER FUNCTIONS
+                // ============================================================
                 function removeNoDataRows() {
                     $('.no-data-row').remove();
                 }
 
-                // Calculate totals
                 function updateTotals() {
                     let capitalTotal = 0,
                         capitalPlannedTotal = 0;
@@ -630,7 +873,6 @@
                     $('#overall-planned-total').text((capitalPlannedTotal + recurrentPlannedTotal).toFixed(2));
                 }
 
-                // Find last descendant
                 function findLastDescendant($row, $table) {
                     const rowId = $row.data('id');
                     let $last = $row;
@@ -640,7 +882,6 @@
                     return $last;
                 }
 
-                // Remove row and descendants
                 function removeRowAndDescendants($row) {
                     const rowId = $row.data('id');
                     $('tr[data-parent-id="' + rowId + '"]').each(function() {
@@ -648,30 +889,38 @@
                     });
                     $row.remove();
 
-                    // Re-add no-data if empty
                     const $tbody = $row.closest('tbody');
                     if ($tbody.find('tr.activity-row').length === 0) {
                         $tbody.html(
                             '<tr class="no-data-row"><td colspan="17" class="border px-2 py-4 text-center text-gray-500">No activities yet. Click "Add Row" to create one.</td></tr>'
-                        );
+                            );
                     }
                 }
 
-                // Bind events to row (formatting + totals on blur)
                 function bindRowEvents($row) {
                     $row.find(
-                        '.program-input, .total-budget-input, .total-budget-quantity-input, .total-expense-quantity-input, .expenses-input, .planned-budget-input, .planned-budget-quantity-input, .q1-quantity-input, .quarter-input, .q2-quantity-input, .q3-quantity-input, .q4-quantity-input'
-                    ).on('blur', function() {
-                        const $input = $(this);
-                        if ($input.hasClass('numeric-input')) {
-                            let val = parseFloat($input.val()) || 0;
-                            $input.val(val.toFixed(2));
-                        }
-                        updateTotals();
-                    });
+                            '.program-input, .total-budget-input, .total-budget-quantity-input, .total-expense-quantity-input, .expenses-input, .planned-budget-input, .planned-budget-quantity-input, .q1-quantity-input, .quarter-input, .q2-quantity-input, .q3-quantity-input, .q4-quantity-input'
+                            )
+                        .on('blur', function() {
+                            const $input = $(this);
+                            if ($input.hasClass('numeric-input')) {
+                                let val = parseFloat($input.val()) || 0;
+                                $input.val(val.toFixed(2));
+                            }
+                            updateTotals();
+                            saveImmediately();
+                        });
                 }
 
-                // FIXED: Add sub-row handler (ensured POST)
+                $(document).on('input change',
+                    '.program-input, .numeric-input, .total-budget-input, .planned-budget-input, .total-budget-quantity-input, .total-expense-quantity-input, .expenses-input, .planned-budget-quantity-input, .q1-quantity-input, .q2-quantity-input, .q3-quantity-input, .q4-quantity-input, .quarter-input',
+                    function() {
+                        if (!isRestoring) debouncedSave();
+                    });
+
+                // ============================================================
+                // ADD SUB-ROW
+                // ============================================================
                 $(document).on('click', '.add-subrow', function(e) {
                     e.preventDefault();
                     const $btn = $(this);
@@ -686,9 +935,7 @@
                         showError('Please select a project first');
                         return;
                     }
-
-                    const currentDepth = parseInt($btn.closest('tr').data('depth')) || 0;
-                    if (currentDepth >= 2) {
+                    if (parseInt($btn.closest('tr').data('depth')) >= 2) {
                         showError('Maximum depth (2 levels) reached');
                         return;
                     }
@@ -697,7 +944,7 @@
 
                     $.ajax({
                         url: '{{ route('admin.projectActivity.addRow') }}',
-                        method: 'POST', // FIXED: Explicit POST
+                        type: 'POST',
                         data: {
                             project_id: projectId,
                             expenditure_id: expenditureId,
@@ -713,12 +960,12 @@
                             const $parentRow = $table.find('tr[data-id="' + parentId + '"]');
                             const $insertAfter = findLastDescendant($parentRow, $table);
                             const $newRow = $(response.row.html).insertAfter($insertAfter);
-                            $newRow.attr('data-id', response.row.id);
-                            $newRow.attr('data-depth', response.row.depth);
-                            $newRow.attr('data-parent-id', response.row.parent_id || '');
-                            $newRow.attr('data-sort-index', response.row.sort_index);
+                            $newRow.attr('data-id', response.row.id).attr('data-depth', response.row
+                                    .depth).attr('data-parent-id', response.row.parent_id || '')
+                                .attr('data-sort-index', response.row.sort_index);
                             bindRowEvents($newRow);
                             updateTotals();
+                            saveImmediately();
                             $('html, body').animate({
                                 scrollTop: $newRow.offset().top - 100
                             }, 500);
@@ -732,7 +979,9 @@
                     });
                 });
 
-                // FIXED: Top-level add (ensured POST)
+                // ============================================================
+                // ADD TOP-LEVEL ROW
+                // ============================================================
                 $('#add-capital-row, #add-recurrent-row').on('click', function(e) {
                     e.preventDefault();
                     const $btn = $(this);
@@ -749,7 +998,7 @@
 
                     $.ajax({
                         url: '{{ route('admin.projectActivity.addRow') }}',
-                        method: 'POST', // FIXED: Explicit POST (was 'Get' in old code)
+                        method: 'POST',
                         data: {
                             project_id: projectId,
                             expenditure_id: expenditureId,
@@ -763,12 +1012,12 @@
                             }
                             removeNoDataRows();
                             const $newRow = $(response.row.html).appendTo($tbody);
-                            $newRow.attr('data-id', response.row.id);
-                            $newRow.attr('data-depth', response.row.depth);
-                            $newRow.attr('data-parent-id', response.row.parent_id || '');
-                            $newRow.attr('data-sort-index', response.row.sort_index);
+                            $newRow.attr('data-id', response.row.id).attr('data-depth', response.row
+                                    .depth).attr('data-parent-id', response.row.parent_id || '')
+                                .attr('data-sort-index', response.row.sort_index);
                             bindRowEvents($newRow);
                             updateTotals();
+                            saveImmediately();
                         },
                         error: function(xhr) {
                             showError(xhr.responseJSON?.error || 'Failed to add row');
@@ -776,17 +1025,18 @@
                         complete: function() {
                             $btn.prop('disabled', false).html(
                                 '<span class="text-xl mr-2">+</span>{{ trans('global.projectActivity.fields.add_new_row') }}'
-                            );
+                                );
                         }
                     });
                 });
 
-                // FIXED: Delete handler (ensured DELETE)
+                // ============================================================
+                // DELETE ROW
+                // ============================================================
                 $(document).on('click', '.delete-row', function(e) {
                     e.preventDefault();
-
                     if (!confirm('Delete this row and all sub-rows? Remaining rows will be re-indexed.'))
-                        return;
+                return;
 
                     const activityId = $(this).data('id');
                     const $row = $('tr[data-id="' + activityId + '"]');
@@ -806,13 +1056,8 @@
                                 showError(response.error || 'Failed to delete');
                                 return;
                             }
-
-                            // Remove row and descendants from view
                             removeRowAndDescendants($row);
-
-                            // Reload the activities to show updated indices
                             reloadActivities(projectId, expenditureId, $tbody);
-
                             updateTotals();
                         },
                         error: function(xhr) {
@@ -821,7 +1066,6 @@
                     });
                 });
 
-                // Helper function to reload activities after deletion
                 function reloadActivities(projectId, expenditureId, $tbody) {
                     $.ajax({
                         url: '{{ route('admin.projectActivity.getActivities') }}',
@@ -833,13 +1077,11 @@
                         success: function(response) {
                             if (response.success) {
                                 $tbody.html(response.html);
-
-                                // Re-bind events to new rows
                                 $tbody.find('.activity-row').each(function() {
                                     bindRowEvents($(this));
                                 });
-
                                 updateTotals();
+                                saveImmediately();
                             }
                         },
                         error: function() {
@@ -848,82 +1090,220 @@
                     });
                 }
 
-                // Numeric input validation
+                // ============================================================
+                // VALIDATION & ERRORS
+                // ============================================================
                 $(document).on('input', '.numeric-input', function() {
                     this.value = this.value.replace(/[^0-9.]/g, '');
                 });
 
-                // Show error message
                 function showError(message) {
-                    $('#error-text').text(message);
+                    const $errorText = $('#error-text').length ? $('#error-text') : $('#modal-message');
+                    if ($errorText.length) $errorText.html(message);
                     $('#error-message').removeClass('hidden');
                 }
-
-                // Close error
                 $('#close-error').on('click', function() {
                     $('#error-message').addClass('hidden');
                 });
 
-                // Form submit validation
+                // ============================================================
+                // FORM SUBMISSION
+                // ============================================================
                 $('#projectActivity-form').on('submit', function(e) {
+                    e.preventDefault();
                     const projectId = projectIdInput.val();
                     const fiscalYearId = fiscalYearInput.val();
                     if (!projectId || !fiscalYearId) {
-                        e.preventDefault();
                         showError('Please select both project and fiscal year');
                         return false;
                     }
+
+                    const formData = new FormData(this);
+                    const submitButton = $('#submit-button');
+                    const originalButtonText = submitButton.html();
+                    submitButton.prop('disabled', true).html(
+                        '<svg class="animate-spin h-5 w-5 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Saving...'
+                        );
+
+                    $.ajax({
+                        url: $(this).attr('action'),
+                        method: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        success: function(response) {
+                            if (response.requires_confirmation) {
+                                pendingFormData = formData;
+                                showModal(response.message);
+                            } else if (response.success) {
+                                clearFormState();
+                                showSuccessToast(response.message ||
+                                    'Project activities saved successfully!');
+                                setTimeout(function() {
+                                    if (response.redirect) {
+                                        window.location.href = response.redirect;
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                }, 1500);
+                            } else {
+                                showError(response.message || 'An error occurred while saving');
+                            }
+                        },
+                        error: function(xhr) {
+                            if (xhr.status === 409 && xhr.responseJSON?.requires_confirmation) {
+                                pendingFormData = formData;
+                                showModal(xhr.responseJSON.message);
+                                return;
+                            }
+                            let errorMessage = 'An error occurred while saving';
+                            if (xhr.responseJSON?.message) {
+                                errorMessage = xhr.responseJSON.message;
+                            } else if (xhr.responseJSON?.error) {
+                                errorMessage = xhr.responseJSON.error;
+                            } else if (xhr.responseJSON?.errors) {
+                                errorMessage = Object.values(xhr.responseJSON.errors).flat().join(
+                                    '<br>');
+                            }
+                            showError(errorMessage);
+                        },
+                        complete: function() {
+                            submitButton.prop('disabled', false).html(originalButtonText);
+                        }
+                    });
                 });
 
-                // Download sync (unchanged)
-                window.syncDownloadValues = function() {
-                    // ... existing ...
-                };
-
-                // Initial load
-                loadBudgetData();
-                updateTotals();
-
-                // Initial bind for existing rows
-                $('.activity-row').each(function() {
-                    bindRowEvents($(this));
-                });
-
-                // Download template handler
+                // ============================================================
+                // DOWNLOAD TEMPLATE
+                // ============================================================
                 $('#download-template-btn').on('click', function(e) {
                     e.preventDefault();
-
                     const projectId = $('#project_id').val() || $(
                         '.js-single-select[data-name="project_id"] .js-hidden-input').val();
                     const fiscalYearId = $('#fiscal_year_id').val() || $(
                         '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input').val();
-
                     if (!projectId || !fiscalYearId) {
                         showError('Please select both project and fiscal year before downloading template');
                         return;
                     }
-
                     window.location.href = '{{ route('admin.projectActivity.template') }}?project_id=' +
                         projectId + '&fiscal_year_id=' + fiscalYearId;
                 });
-            });
 
-            $('#download-new-version-template-btn').on('click', function() {
-                const projectId = $('#project_id').val() || $(
-                    '.js-single-select[data-name="project_id"] .js-hidden-input').val();
-                const fiscalYearId = $('#fiscal_year_id').val() || $(
-                    '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input').val();
+                $('#download-new-version-template-btn').on('click', function() {
+                    const projectId = $('#project_id').val() || $(
+                        '.js-single-select[data-name="project_id"] .js-hidden-input').val();
+                    const fiscalYearId = $('#fiscal_year_id').val() || $(
+                        '.js-single-select[data-name="fiscal_year_id"] .js-hidden-input').val();
+                    if (!projectId || !fiscalYearId) {
+                        alert('कृपया पहिले परियोजना र आर्थिक वर्ष छान्नुहोस्।');
+                        return;
+                    }
+                    const url = '{{ route('admin.projectActivity.template') }}?project_id=' + projectId +
+                        '&fiscal_year_id=' + fiscalYearId + '&new_version=1';
+                    window.location.href = url;
+                });
 
-                if (!projectId || !fiscalYearId) {
-                    alert('कृपया पहिले परियोजना र आर्थिक वर्ष छान्नुहोस्।');
-                    return;
+                // ============================================================
+                // MODAL & TOASTS
+                // ============================================================
+                const modal = document.getElementById('structure-change-modal');
+                const confirmButton = document.getElementById('confirm-structure-change');
+                const cancelButton = document.getElementById('cancel-structure-change');
+                const confirmButtonText = document.getElementById('confirm-button-text');
+                let pendingFormData = null;
+
+                function showModal(message) {
+                    const modalMessage = document.getElementById('modal-message');
+                    if (message) modalMessage.textContent = message;
+                    modal.classList.remove('hidden');
                 }
 
-                const url = '{{ route('admin.projectActivity.template') }}?project_id=' + projectId +
-                    '&fiscal_year_id=' + fiscalYearId +
-                    '&new_version=1';
+                function hideModal() {
+                    modal.classList.add('hidden');
+                    pendingFormData = null;
+                    confirmButton.disabled = false;
+                    confirmButtonText.textContent = 'Confirm & Proceed';
+                }
 
-                window.location.href = url;
+                cancelButton.addEventListener('click', hideModal);
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) hideModal();
+                });
+
+                function showSuccessToast(message) {
+                    let toastContainer = document.getElementById('toast-container');
+                    if (!toastContainer) {
+                        toastContainer = document.createElement('div');
+                        toastContainer.id = 'toast-container';
+                        toastContainer.className = 'fixed top-4 right-4 z-50 space-y-2';
+                        document.body.appendChild(toastContainer);
+                    }
+                    const toast = document.createElement('div');
+                    toast.className =
+                        'bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in';
+                    toast.innerHTML =
+                        `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>${message}</span>`;
+                    toastContainer.appendChild(toast);
+                    setTimeout(function() {
+                        toast.classList.add('animate-slide-out');
+                        setTimeout(function() {
+                            toast.remove();
+                        }, 300);
+                    }, 3000);
+                }
+
+                confirmButton.addEventListener('click', function() {
+                    if (!pendingFormData) return;
+                    pendingFormData.append('confirm_structure_change', '1');
+                    confirmButton.disabled = true;
+                    confirmButtonText.innerHTML =
+                        '<span class="inline-block animate-spin mr-2">⌛</span>Processing...';
+                    $.ajax({
+                        url: $('#projectActivity-form').attr('action'),
+                        method: 'POST',
+                        data: pendingFormData,
+                        processData: false,
+                        contentType: false,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                hideModal();
+                                clearFormState();
+                                showSuccessToast(response.message ||
+                                    'Project activities saved successfully!');
+                                setTimeout(function() {
+                                    if (response.redirect) {
+                                        window.location.href = response.redirect;
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                }, 1500);
+                            } else {
+                                showError(response.message || 'An error occurred');
+                                confirmButton.disabled = false;
+                                confirmButtonText.textContent = 'Confirm & Proceed';
+                            }
+                        },
+                        error: function(xhr) {
+                            let errorMessage = 'An error occurred while saving';
+                            if (xhr.responseJSON) {
+                                errorMessage = xhr.responseJSON.message || xhr.responseJSON.error ||
+                                    errorMessage;
+                            }
+                            showError(errorMessage);
+                            confirmButton.disabled = false;
+                            confirmButtonText.textContent = 'Confirm & Proceed';
+                        }
+                    });
+                });
             });
         </script>
     @endpush

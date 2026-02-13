@@ -728,7 +728,7 @@ class TaskController extends Controller
             ->get();
 
         try {
-            $commentIds = $user->comments()
+            $commentIds = Auth::user()->comments()
                 ->where('commentable_type', Task::class)
                 ->where('commentable_id', $task->id)
                 ->where('project_id', $project?->id)
@@ -736,7 +736,7 @@ class TaskController extends Controller
                 ->pluck('comments.id');
 
             foreach ($commentIds as $commentId) {
-                $user->comments()->updateExistingPivot($commentId, ['read_at' => now()]);
+                Auth::user()->comments()->updateExistingPivot($commentId, ['read_at' => now()]);
             }
         } catch (\Exception $e) {
             Log::error("Failed to mark comments as read for task {$task->id}, project " . ($project?->id ?? 'null'), [
@@ -826,7 +826,7 @@ class TaskController extends Controller
             $directorates = collect([$user->directorate_id => Directorate::find($user->directorate_id)?->title ?? 'N/A']);
             $departments = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
                 ->pluck('title', 'id');
-            $projects = $user->projects()
+            $projects = Auth::user()->projects()
                 ->whereNull('deleted_at')
                 ->pluck('title', 'id');
             $users = User::whereHas('projects', fn($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))
@@ -891,14 +891,14 @@ class TaskController extends Controller
                 $task->users()->sync($validated['users']);
             }
 
-            if (isset($validated['parent_id']) && $task->parent_id != $validated['parent_id']) {
-                if ($validated['parent_id']) {
-                    $parentTask = Task::findOrFail($validated['parent_id']);
-                    foreach ($parentTask->users as $user) {
-                        $user->notify(new TaskUpdated($task));
-                    }
-                }
-            }
+            // if (isset($validated['parent_id']) && $task->parent_id != $validated['parent_id']) {
+            //     if ($validated['parent_id']) {
+            //         $parentTask = Task::findOrFail($validated['parent_id']);
+            //         foreach ($parentTask->users as $user) {
+            //             $user->notify(new TaskUpdated($task));
+            //         }
+            //     }
+            // }
 
             return redirect()->route('admin.task.show', [$task->id, $project?->id])
                 ->with('message', 'Task updated successfully.');
@@ -1086,7 +1086,7 @@ class TaskController extends Controller
 
             $canAccess = false;
 
-            if (in_array(Role::SUPERADMIN, $roleIds) || in_arry(Role::ADMIN, $roleIds)) {
+            if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
                 $canAccess = true;
             } elseif (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id == $project->directorate_id) {
                 $canAccess = true;

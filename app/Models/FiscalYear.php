@@ -34,6 +34,25 @@ class FiscalYear extends Model
     ];
 
     /**
+     * Get the previous fiscal year relative to the current one.
+     *
+     * @return FiscalYear|null
+     */
+    public static function previousFiscalYear(): ?self
+    {
+        $current = self::currentFiscalYear();
+
+        if (!$current) {
+            return null;
+        }
+
+        // Find the fiscal year whose end_date is just before the current start_date
+        return self::where('end_date', '<', $current->start_date)
+            ->orderByDesc('end_date')
+            ->first();
+    }
+
+    /**
      * Get the fiscal year that contains today's date.
      *
      * @return FiscalYear|null

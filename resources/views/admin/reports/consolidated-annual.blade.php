@@ -4,7 +4,7 @@
             Progress Report
         </h1>
         <p class="text-gray-600 dark:text-gray-400 mt-1">
-            Generate Progress Report Summary
+            {{ $isAdmin ? 'Generate Organization Progress Report' : 'Generate Project Progress Report' }}
         </p>
     </div>
 
@@ -31,45 +31,72 @@
                 </div>
             </div>
 
-            <!-- Budget Headings (Optional) - Full width -->
-            <div class="mb-6">
-                <div class="w-full relative z-40">
-                    <x-forms.multi-select label="Budget Headings (Optional)" name="budget_heading_ids[]"
-                        :options="collect($budgetHeadings)
+            @if ($isAdmin)
+                <!-- ADMIN FILTERS -->
+
+                <!-- Budget Headings (Optional) - Full width -->
+                <div class="mb-6">
+                    <div class="w-full relative z-40">
+                        <x-forms.multi-select label="Budget Headings (Optional)" name="budget_heading_ids[]"
+                            :options="collect($budgetHeadings)
+                                ->map(
+                                    fn($title, $id) => [
+                                        'value' => (string) $id,
+                                        'label' => $title,
+                                    ],
+                                )
+                                ->values()
+                                ->all()" :selected="old('budget_heading_ids', [])" multiple
+                            placeholder="Select Budget Headings (Leave empty for all)" :error="$errors->first('budget_heading_ids')" />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Leave empty to include all budget headings
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Directorate (Optional) - Full width -->
+                <div class="mb-6">
+                    <div class="w-full relative z-30">
+                        <x-forms.multi-select label="Directorate (Optional)" name="directorate_ids[]" :options="collect($directorates)
                             ->map(
-                                fn($title, $id) => [
-                                    'value' => (string) $id,
-                                    'label' => $title,
+                                fn($dir) => [
+                                    'value' => (string) $dir->id,
+                                    'label' => $dir->title,
                                 ],
                             )
                             ->values()
-                            ->all()" :selected="old('budget_heading_ids', [])" multiple
-                        placeholder="Select Budget Headings (Leave empty for all)" :error="$errors->first('budget_heading_ids')" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Leave empty to include all budget headings
-                    </p>
+                            ->all()"
+                            :selected="old('directorate_ids', [])" multiple placeholder="Select Directorates (Leave empty for all)"
+                            :error="$errors->first('directorate_ids')" />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Leave empty to include all directorates
+                        </p>
+                    </div>
                 </div>
-            </div>
+            @else
+                <!-- USER FILTERS -->
 
-            <!-- Directorate (Optional) - Full width -->
-            <div class="mb-6">
-                <div class="w-full relative z-30">
-                    <x-forms.multi-select label="Directorate (Optional)" name="directorate_ids[]" :options="collect($directorates)
-                        ->map(
-                            fn($dir) => [
-                                'value' => (string) $dir->id,
-                                'label' => $dir->title,
-                            ],
-                        )
-                        ->values()
-                        ->all()"
-                        :selected="old('directorate_ids', [])" multiple placeholder="Select Directorates (Leave empty for all)"
-                        :error="$errors->first('directorate_ids')" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Leave empty to include all directorates
-                    </p>
+                <!-- Projects (Optional) - Full width -->
+                <div class="mb-6">
+                    <div class="w-full relative z-40">
+                        <x-forms.multi-select label="Select Projects" name="project_ids[]" :options="collect($userProjects)
+                            ->map(
+                                fn($proj) => [
+                                    'value' => (string) $proj->id,
+                                    'label' => $proj->title,
+                                ],
+                            )
+                            ->values()
+                            ->all()"
+                            :selected="old('project_ids', [])" multiple
+                            placeholder="{{ $userProjects->count() > 1 ? 'Select Specific Projects (Leave empty for all yours)' : 'Your Project' }}"
+                            :error="$errors->first('project_ids')" />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {{ $userProjects->count() > 1 ? 'Leave empty to include all your assigned projects' : 'You have access to this project.' }}
+                        </p>
+                    </div>
                 </div>
-            </div>
+            @endif
 
             <!-- Consolidated Report Checkbox -->
             <div class="mb-8">
@@ -94,10 +121,18 @@
                 <div class="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                     <p><span class="font-medium">Fiscal Year:</span> <span id="summary-fy">-</span></p>
                     <p><span class="font-medium">Quarter:</span> <span id="summary-quarter">-</span></p>
-                    <p><span class="font-medium">Budget Headings:</span> <span id="summary-budget-headings">All</span>
+
+                    @if ($isAdmin)
+                        <p><span class="font-medium">Budget Headings:</span> <span
+                                id="summary-budget-headings">All</span></p>
+                        <p><span class="font-medium">Directorates:</span> <span id="summary-directorates">All</span></p>
+                    @else
+                        <p><span class="font-medium">Projects:</span> <span id="summary-projects-text">All Your
+                                Projects</span></p>
+                    @endif
+
+                    <p><span class="font-medium">Total Projects in Report:</span> <span id="summary-projects">-</span>
                     </p>
-                    <p><span class="font-medium">Directorates:</span> <span id="summary-directorates">All</span></p>
-                    <p><span class="font-medium">Total Projects:</span> <span id="summary-projects">-</span></p>
                 </div>
             </div>
 
@@ -174,19 +209,17 @@
                     return quarterHiddenInput ? quarterHiddenInput.value : '';
                 }
 
-                function getBudgetHeadingValues() {
+                // Helper to get values from Multi-Selects
+                function getMultiSelectValues(name) {
                     const values = [];
-
-                    // Try multiple selector strategies
-                    let inputs = document.querySelectorAll('input[name="budget_heading_ids[]"]');
+                    let inputs = document.querySelectorAll(`input[name="${name}"]`);
 
                     if (inputs.length === 0) {
-                        inputs = document.querySelectorAll(
-                            '.js-multi-select[data-name="budget_heading_ids[]"] .js-hidden-input');
+                        inputs = document.querySelectorAll(`.js-multi-select[data-name="${name}"] .js-hidden-input`);
                     }
 
                     if (inputs.length === 0) {
-                        inputs = document.querySelectorAll('input[name^="budget_heading_ids"]');
+                        inputs = document.querySelectorAll(`input[name^="${name}"]`);
                     }
 
                     inputs.forEach(input => {
@@ -196,34 +229,19 @@
                         }
                     });
 
-                    console.log('💼 Budget Heading IDs found:', values);
                     return values;
                 }
 
+                function getBudgetHeadingValues() {
+                    return getMultiSelectValues('budget_heading_ids[]');
+                }
+
                 function getDirectorateValues() {
-                    const values = [];
+                    return getMultiSelectValues('directorate_ids[]');
+                }
 
-                    // Try multiple selector strategies
-                    let inputs = document.querySelectorAll('input[name="directorate_ids[]"]');
-
-                    if (inputs.length === 0) {
-                        inputs = document.querySelectorAll(
-                            '.js-multi-select[data-name="directorate_ids[]"] .js-hidden-input');
-                    }
-
-                    if (inputs.length === 0) {
-                        inputs = document.querySelectorAll('input[name^="directorate_ids"]');
-                    }
-
-                    inputs.forEach(input => {
-                        const val = input.value.trim();
-                        if (val && !values.includes(val)) {
-                            values.push(val);
-                        }
-                    });
-
-                    console.log('📊 Directorate IDs found:', values);
-                    return values;
+                function getProjectValues() {
+                    return getMultiSelectValues('project_ids[]');
                 }
 
                 function getFiscalYearText() {
@@ -261,8 +279,11 @@
                 // Preview button
                 document.getElementById('preview-btn').addEventListener('click', async function() {
                     const fiscalYearId = getFiscalYearValue();
+
+                    // Get relevant filters based on visibility
                     const budgetHeadingIds = getBudgetHeadingValues();
                     const directorateIds = getDirectorateValues();
+                    const projectIds = getProjectValues();
 
                     if (!fiscalYearId || !getQuarterValue()) {
                         alert('Please select Fiscal Year and Quarter');
@@ -276,29 +297,39 @@
                             .origin);
                         url.searchParams.append('fiscal_year_id', fiscalYearId);
 
-                        budgetHeadingIds.forEach(id => {
-                            url.searchParams.append('budget_heading_ids[]', id);
-                        });
-
-                        directorateIds.forEach(id => {
-                            url.searchParams.append('directorate_ids[]', id);
-                        });
+                        // Append IDs only if they exist
+                        budgetHeadingIds.forEach(id => url.searchParams.append('budget_heading_ids[]', id));
+                        directorateIds.forEach(id => url.searchParams.append('directorate_ids[]', id));
+                        projectIds.forEach(id => url.searchParams.append('project_ids[]', id));
 
                         console.log('🔍 Preview URL:', url.toString());
 
                         const response = await fetch(url);
                         const data = await response.json();
 
+                        // Update Summary UI
                         document.getElementById('summary-fy').textContent = getFiscalYearText();
                         document.getElementById('summary-quarter').textContent = getQuarterValue();
-                        document.getElementById('summary-budget-headings').textContent =
-                            budgetHeadingIds.length === 0 ? 'All Budget Headings' :
-                            `${budgetHeadingIds.length} Selected`;
-                        document.getElementById('summary-directorates').textContent =
-                            directorateIds.length === 0 ? 'All Directorates' :
-                            `${directorateIds.length} Selected`;
-                        document.getElementById('summary-projects').textContent = data.project_count || 0;
 
+                        // Conditional UI Updates
+                        const summaryBudget = document.getElementById('summary-budget-headings');
+                        const summaryDirectorate = document.getElementById('summary-directorates');
+                        const summaryProjectsText = document.getElementById('summary-projects-text');
+
+                        if (summaryBudget) {
+                            summaryBudget.textContent = budgetHeadingIds.length === 0 ?
+                                'All Budget Headings' : `${budgetHeadingIds.length} Selected`;
+                        }
+                        if (summaryDirectorate) {
+                            summaryDirectorate.textContent = directorateIds.length === 0 ?
+                                'All Directorates' : `${directorateIds.length} Selected`;
+                        }
+                        if (summaryProjectsText) {
+                            summaryProjectsText.textContent = projectIds.length === 0 ?
+                                'All Your Projects' : `${projectIds.length} Selected`;
+                        }
+
+                        document.getElementById('summary-projects').textContent = data.project_count || 0;
                         document.getElementById('report-summary').classList.remove('hidden');
                     } catch (error) {
                         console.error('❌ Preview error:', error);
@@ -316,6 +347,7 @@
                     const quarter = getQuarterValue();
                     const budgetHeadingIds = getBudgetHeadingValues();
                     const directorateIds = getDirectorateValues();
+                    const projectIds = getProjectValues();
 
                     if (!fyId || !quarter) {
                         alert('Please select Fiscal Year and Quarter');
@@ -332,18 +364,16 @@
                     url.searchParams.set('include_data', '1');
                     url.searchParams.set('consolidated', consolidatedCheckbox.checked ? '1' : '0');
 
-                    budgetHeadingIds.forEach(id => {
-                        url.searchParams.append('budget_heading_ids[]', id);
-                    });
-
-                    directorateIds.forEach(id => {
-                        url.searchParams.append('directorate_ids[]', id);
-                    });
+                    // Append available IDs
+                    budgetHeadingIds.forEach(id => url.searchParams.append('budget_heading_ids[]', id));
+                    directorateIds.forEach(id => url.searchParams.append('directorate_ids[]', id));
+                    projectIds.forEach(id => url.searchParams.append('project_ids[]', id));
 
                     console.log('📥 Download URL:', url.toString());
                     console.log('📋 Parameters:', {
                         fiscal_year_id: fyId,
                         quarter: quarter,
+                        project_ids: projectIds,
                         budget_heading_ids: budgetHeadingIds,
                         directorate_ids: directorateIds,
                         consolidated: consolidatedCheckbox.checked

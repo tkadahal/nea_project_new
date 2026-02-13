@@ -24,7 +24,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
     protected $fiscalYearId;
     protected $project;
     protected $fiscalYear;
-    protected $budget; // NEW: Budget data
+    protected $budget;
     protected $totalRows = [];
     protected $headerRows = [];
     protected $parentRows = [];
@@ -41,7 +41,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $this->fiscalYear = $fiscalYear;
         $this->project->load(['projectManager', 'budgetHeading', 'department']);
 
-        // NEW: Load budget data for this project and fiscal year
         $this->budget = Budget::where('project_id', $projectId)
             ->where('fiscal_year_id', $fiscalYearId)
             ->first();
@@ -66,7 +65,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
     private function formatBudgetAmount($amount): string
     {
-        // Convert to thousands and format with Nepali digits
         $thousands = round($amount / 1000, 2);
         return $this->toNepaliDigits(number_format($thousands, 2));
     }
@@ -84,7 +82,6 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $budgetHeadingTitle = $this->project->budgetHeading?->title ?? 'N/A';
         $departmentTitle = $this->project->department?->title ?? 'N/A';
 
-        // Calculate budget components
         $totalBudget = $this->budget ? $this->budget->total_budget : 0;
         $internalTotal = $this->budget
             ? ($this->budget->government_loan + $this->budget->government_share + $this->budget->internal_budget)
@@ -208,12 +205,11 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $row21[15] = '(२) अनुदान:';
         $data[] = $row21;
 
-        // Note about amount format
         $noteRow = array_fill(0, 25, '');
         $noteRow[24] = '(रकम रु. हजारमा)';
         $data[] = $noteRow;
 
-        // ========== TABLE SECTION (unchanged) ==========
+        // ========== TABLE SECTION ==========
         $this->tableHeaderRow = count($data) + 1;
 
         // Main Table Headers
@@ -279,20 +275,16 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Capital Section
         $capitalTotals = [];
+        // FIX: Fetch data without orderBy, then sort in PHP
         $capitalDefinitions = ProjectActivityDefinition::forProject($this->projectId)
             ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
-            ->orderBy('sort_index')
-            ->with([
-                'children' => function ($query) {
-                    $query->orderBy('sort_index')
-                        ->with(['children' => function ($q) {
-                            $q->orderBy('sort_index');
-                        }]);
-                }
-            ])
+            ->with(['children', 'children.children']) // Eager load all needed levels
             ->get();
+
+        // Apply Natural Sort recursively
+        $capitalDefinitions = $this->sortActivitiesRecursively($capitalDefinitions);
 
         $capitalDefIds = $capitalDefinitions->flatMap(function ($def) {
             return collect([$def])->merge($def->getDescendants());
@@ -320,20 +312,16 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Recurrent Section
         $recurrentTotals = [];
+        // FIX: Fetch data without orderBy, then sort in PHP
         $recurrentDefinitions = ProjectActivityDefinition::forProject($this->projectId)
             ->current()
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
-            ->orderBy('sort_index')
-            ->with([
-                'children' => function ($query) {
-                    $query->orderBy('sort_index')
-                        ->with(['children' => function ($q) {
-                            $q->orderBy('sort_index');
-                        }]);
-                }
-            ])
+            ->with(['children', 'children.children']) // Eager load all needed levels
             ->get();
+
+        // Apply Natural Sort recursively
+        $recurrentDefinitions = $this->sortActivitiesRecursively($recurrentDefinitions);
 
         $recurrentDefIds = $recurrentDefinitions->flatMap(function ($def) {
             return collect([$def])->merge($def->getDescendants());
@@ -433,8 +421,18 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         return $data;
     }
 
-    // ... (All other methods remain unchanged: buildActivityRows, buildActivityRow, buildTotalRow,
-    // calculateTotalsForParent, sumLeafNodes, calculateOverallTotals, title, styles, registerEvents)
+    private function sortActivitiesRecursively(Collection $items): Collection
+    {
+        return $items->sortBy(function ($item) {
+            return $item->sort_index;
+        }, SORT_NATURAL)->map(function ($item) {
+            // If the item has children, sort them recursively
+            if ($item->relationLoaded('children') && $item->children->isNotEmpty()) {
+                $item->setRelation('children', $this->sortActivitiesRecursively($item->children));
+            }
+            return $item;
+        });
+    }
 
     private function buildActivityRows(Collection $rootDefinitions, SupportCollection $plans, string $expenditureType, int $activityStartRow, float $globalX): array
     {
@@ -493,8 +491,8 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         if ($hasChildren) {
             $row = array_fill(0, 25, '');
-            $row[0] = $number;   // क्र.सं. (sort_index in Nepali digits)
-            $row[1] = $program;  // कार्यक्रम/क्रियाकलाप
+            $row[0] = $number;
+            $row[1] = $program;
             return $row;
         }
 
@@ -649,13 +647,28 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $totals['total_quantity'] += $totalQuantity;
             $totals['total_budget'] += $budget;
 
+            // ✅ Store individual values BEFORE adding to totals
+            $completedQty = 0;
+            $plannedQty = 0;
+            $q1Qty = 0;
+            $q2Qty = 0;
+            $q3Qty = 0;
+            $q4Qty = 0;
+
             if ($plan) {
-                $totals['completed_quantity'] += (float) ($plan->completed_quantity ?? 0);
-                $totals['planned_quantity'] += (float) ($plan->planned_quantity ?? 0);
-                $totals['q1_quantity'] += (float) ($plan->q1_quantity ?? 0);
-                $totals['q2_quantity'] += (float) ($plan->q2_quantity ?? 0);
-                $totals['q3_quantity'] += (float) ($plan->q3_quantity ?? 0);
-                $totals['q4_quantity'] += (float) ($plan->q4_quantity ?? 0);
+                $completedQty = (float) ($plan->completed_quantity ?? 0);
+                $plannedQty = (float) ($plan->planned_quantity ?? 0);
+                $q1Qty = (float) ($plan->q1_quantity ?? 0);
+                $q2Qty = (float) ($plan->q2_quantity ?? 0);
+                $q3Qty = (float) ($plan->q3_quantity ?? 0);
+                $q4Qty = (float) ($plan->q4_quantity ?? 0);
+
+                $totals['completed_quantity'] += $completedQty;
+                $totals['planned_quantity'] += $plannedQty;
+                $totals['q1_quantity'] += $q1Qty;
+                $totals['q2_quantity'] += $q2Qty;
+                $totals['q3_quantity'] += $q3Qty;
+                $totals['q4_quantity'] += $q4Qty;
                 $totals['total_expense'] += (float) ($plan->total_expense ?? 0);
                 $totals['planned_budget'] += (float) ($plan->planned_budget ?? 0);
                 $totals['q1'] += (float) ($plan->q1_amount ?? 0);
@@ -664,26 +677,25 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $totals['q4'] += (float) ($plan->q4_amount ?? 0);
             }
 
+            // ✅ Calculate weighted contributions using INDIVIDUAL values
             if ($totalQuantity > 0 && $def->expenditure_id == 1) {
-                $progress = $totals['completed_quantity'] / $totalQuantity;
+                $progress = $completedQty / $totalQuantity;
                 $totals['weighted_expense_contrib'] += $progress * $budget;
 
-                $plannedProgress = $totals['planned_quantity'] / $totalQuantity;
+                $plannedProgress = $plannedQty / $totalQuantity;
                 $totals['weighted_planned_contrib'] += $plannedProgress * $budget;
 
-                if ($totals['planned_quantity'] > 0) {
-                    $q1Progress = $totals['q1_quantity'] / $totalQuantity;
-                    $totals['weighted_q1_contrib'] += $q1Progress * $budget;
+                $q1Progress = $q1Qty / $totalQuantity;
+                $totals['weighted_q1_contrib'] += $q1Progress * $budget;
 
-                    $q2Progress = $totals['q2_quantity'] / $totalQuantity;
-                    $totals['weighted_q2_contrib'] += $q2Progress * $budget;
+                $q2Progress = $q2Qty / $totalQuantity;
+                $totals['weighted_q2_contrib'] += $q2Progress * $budget;
 
-                    $q3Progress = $totals['q3_quantity'] / $totalQuantity;
-                    $totals['weighted_q3_contrib'] += $q3Progress * $budget;
+                $q3Progress = $q3Qty / $totalQuantity;
+                $totals['weighted_q3_contrib'] += $q3Progress * $budget;
 
-                    $q4Progress = $totals['q4_quantity'] / $totalQuantity;
-                    $totals['weighted_q4_contrib'] += $q4Progress * $budget;
-                }
+                $q4Progress = $q4Qty / $totalQuantity;
+                $totals['weighted_q4_contrib'] += $q4Progress * $budget;
             }
         } else {
             foreach ($children as $child) {

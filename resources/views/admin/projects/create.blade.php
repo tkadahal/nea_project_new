@@ -1,3 +1,14 @@
+@php
+    use App\Models\Role;
+
+    $user = Auth::user();
+    $roleIds = $user->roles->pluck('id')->toArray();
+
+    $isAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
+
+    $userDirectorateId = $user->directorate_id ?? '';
+@endphp
+
 <x-layouts.app>
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
@@ -45,15 +56,36 @@
                             {{ trans('global.project.title_singular') }} {{ trans('global.information') }}
                         </h3>
                         <div class="grid grid-cols-1 gap-6">
-                            <div class="col-span-full">
-                                <x-forms.select label="{{ trans('global.project.fields.directorate_id') }}"
-                                    name="directorate_id" id="directorate_id" :options="collect($directorates)
-                                        ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
-                                        ->values()
-                                        ->all()" :selected="old('directorate_id')"
-                                    placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('directorate_id')"
-                                    class="js-single-select" />
-                            </div>
+
+                            @if ($isAdmin)
+                                <!-- Admins can select any directorate -->
+                                <div class="col-span-full">
+                                    <x-forms.select label="{{ trans('global.project.fields.directorate_id') }}"
+                                        name="directorate_id" id="directorate_id" :options="collect($directorates)
+                                            ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
+                                            ->values()
+                                            ->all()" :selected="old('directorate_id')"
+                                        placeholder="{{ trans('global.pleaseSelect') }}" :error="$errors->first('directorate_id')"
+                                        class="js-single-select" />
+                                </div>
+                            @else
+                                <!-- Non-Admins (Directorate/Dept/Project Users): Hidden input with their assigned directorate -->
+                                <div class="col-span-full">
+                                    <input type="hidden" name="directorate_id" id="directorate_id_hidden"
+                                        value="{{ $userDirectorateId }}">
+
+                                    <div class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        {{ trans('global.project.fields.directorate_id') }}
+                                    </div>
+                                    <div
+                                        class="w-full p-2 border border-gray-200 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                        {{ $directorates[$userDirectorateId] ?? 'N/A' }}
+                                    </div>
+                                    @error('directorate_id')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            @endif
 
                             <div class="col-span-full">
                                 <x-forms.select label="{{ trans('global.project.fields.departments') }}"
@@ -352,9 +384,14 @@
                     console.log(`Selected parsed for #${componentId}:`, currentSelectedValue);
                 });
 
-                // Handle directorate, department, and user selection
-                const directorateContainer = $('.js-single-select[data-name="directorate_id"]');
-                const directorateInput = directorateContainer.find("input.js-hidden-input");
+                // Logic for handling Directorates, Departments, and Users
+                // Check if the user is an admin (has the directorate select)
+                const isAdminUser = {{ $isAdmin ? 'true' : 'false' }};
+                const userDirectorateId = "{{ $userDirectorateId }}";
+
+                const directorateContainer = isAdminUser ? $('.js-single-select[data-name="directorate_id"]') : $();
+                const directorateInput = isAdminUser ? directorateContainer.find("input.js-hidden-input") : $();
+
                 const departmentSelectContainer = $('.js-single-select[data-name="department_id"]');
                 const userSelectContainer = $('.js-single-select[data-name="project_manager"]');
 
@@ -472,12 +509,29 @@
                     });
                 }
 
-                directorateInput.off("change").on("change", function() {
-                    const directorateId = $(this).val();
-                    console.log('Directorate changed:', directorateId);
-                    loadDepartments(directorateId);
-                    loadUsers(directorateId);
-                });
+                // Initial Load Logic
+                const initialDirectorateId = isAdminUser ? directorateInput.val() : userDirectorateId;
+                const initialDepartmentId = departmentSelectContainer.data('selected');
+                const initialProjectManagerId = userSelectContainer.data('selected');
+
+                // If user is admin, listen for changes on directorate dropdown
+                if (isAdminUser) {
+                    directorateInput.off("change").on("change", function() {
+                        const directorateId = $(this).val();
+                        console.log('Directorate changed:', directorateId);
+                        loadDepartments(directorateId);
+                        loadUsers(directorateId);
+                    });
+                }
+
+                // Initialize Dependencies immediately
+                if (initialDirectorateId) {
+                    loadDepartments(initialDirectorateId, initialDepartmentId);
+                    loadUsers(initialDirectorateId, initialProjectManagerId);
+                } else {
+                    updateSelectOptions(departmentSelectContainer, [], "");
+                    updateSelectOptions(userSelectContainer, [], "");
+                }
 
                 // Form submission handling
                 const $form = $('#project-form');
@@ -530,19 +584,6 @@
                         }
                     });
                 });
-
-                // Initialize with existing values
-                const initialDirectorateId = directorateInput.val();
-                const initialDepartmentId = departmentSelectContainer.data('selected');
-                const initialProjectManagerId = userSelectContainer.data('selected');
-
-                if (initialDirectorateId) {
-                    loadDepartments(initialDirectorateId, initialDepartmentId);
-                    loadUsers(initialDirectorateId, initialProjectManagerId);
-                } else {
-                    updateSelectOptions(departmentSelectContainer, [], "");
-                    updateSelectOptions(userSelectContainer, [], "");
-                }
 
                 $("#close-error").off("click").on("click", function() {
                     $("#error-message").addClass("hidden");

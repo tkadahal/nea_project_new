@@ -7,85 +7,173 @@ namespace App\Services;
 use Exception;
 use App\Models\Project;
 use App\Models\FiscalYear;
+use Illuminate\Support\Facades\DB;
 use App\Models\ProjectActivityPlan;
+use Illuminate\Support\Facades\Auth;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use App\Models\ProjectActivityDefinition;
 use App\Exports\Templates\ProjectActivityTemplateExport;
 use App\Exceptions\StructuralChangeRequiresConfirmationException;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProjectActivityExcelService
 {
     public function processUpload($file, bool $force = false): void
     {
         DB::transaction(function () use ($file, $force) {
+
             $spreadsheet = IOFactory::load($file->getRealPath());
 
+            // ✅ NEW: Read from Instructions sheet
             [$projectId, $fiscalYearId] = $this->extractMetadata($spreadsheet);
+
             $this->validateUserAccess($projectId);
 
-            Log::info("Excel Upload: Project {$projectId}, FY {$fiscalYearId}, Force: " . ($force ? 'Yes' : 'No'));
-
-            $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
+            $capitalSheet   = $spreadsheet->getSheetByName('पूँजीगत खर्च');
             $recurrentSheet = $spreadsheet->getSheetByName('चालू खर्च');
 
             if (!$capitalSheet) {
-                throw new Exception('Capital sheet "पूँजीगत खर्च" not found');
+                throw new Exception('Sheet "पूँजीगत खर्च" not found');
             }
 
-            $capitalData = $this->parseSheet($capitalSheet, 1);
+            $capitalData   = $this->parseSheet($capitalSheet, 1);
             $recurrentData = $recurrentSheet ? $this->parseSheet($recurrentSheet, 2) : [];
 
-            Log::info("Parsed data", [
-                'capital_rows' => count($capitalData),
-                'recurrent_rows' => count($recurrentData)
-            ]);
+            // ────────────────────────────────────────────────
+            // VALIDATION: Prevent completely useless / blank / unmodified-template uploads
+            // ────────────────────────────────────────────────
+            $hasMeaningfulActivity = false;
+
+            $allRows = array_merge($capitalData, $recurrentData);
+
+            foreach ($allRows as $row) {
+                $program = trim($row['program'] ?? '');
+
+                if (strlen($program) < 3) {
+                    continue;
+                }
+
+                // Expanded list of invalid / placeholder / total texts
+                if (preg_match(
+                    '/^(total|जम्मा|subtotal|कुल|sum|heading|शीर्षक|कुल जम्मा|grand total|जम्मा रकम|कुल लागत|sub-total|total budget|आंशिक जम्मा|अन्तिम जम्मा|योग|सब टोटल|partial total|' .
+                        'मुख्य कार्यक्रम उदाहरण|उप कार्यक्रम उदाहरण|कार्यक्रम उदाहरण|क्रियाकलाप उदाहरण|उदाहरण|example|demo|placeholder|test activity)$/ui',
+                    $program
+                )) {
+                    continue;
+                }
+
+                $hasPlanning = (
+                    ($row['planned_budget']   ?? 0) > 0 ||
+                    ($row['planned_quantity'] ?? 0) > 0 ||
+                    ($row['q1_amount']        ?? 0) > 0 ||
+                    ($row['q1_quantity']      ?? 0) > 0 ||
+                    ($row['q2_amount']        ?? 0) > 0 ||
+                    ($row['q2_quantity']      ?? 0) > 0 ||
+                    ($row['q3_amount']        ?? 0) > 0 ||
+                    ($row['q3_quantity']      ?? 0) > 0 ||
+                    ($row['q4_amount']        ?? 0) > 0 ||
+                    ($row['q4_quantity']      ?? 0) > 0
+                );
+
+                $hasProgress = (
+                    ($row['completed_quantity'] ?? 0) > 0 ||
+                    ($row['total_expense']      ?? 0) > 0
+                );
+
+                if ($hasPlanning || $hasProgress) {
+                    $hasMeaningfulActivity = true;
+                    break;
+                }
+            }
+
+            if (!$hasMeaningfulActivity) {
+                throw new Exception(
+                    'कुनै पनि वास्तविक क्रियाकलापमा उपयोगी जानकारी भेटिएन । ' .
+                        'टेम्प्लेटमा रहेका उदाहरणहरू (जस्तै: मुख्य कार्यक्रम उदाहरण) हटाई, वास्तविक क्रियाकलापको नाम, योजना वा प्रगति विवरण भर्नुहोस् ।'
+                );
+            }
+
+            $isPureFiscalYearChange = false;
 
             $this->checkPlanEditableOrStructuralChange(
                 $projectId,
                 $fiscalYearId,
                 count($capitalData),
                 count($recurrentData),
-                $force
+                $force,
+                $isPureFiscalYearChange
             );
 
-            // Get project-wide version
+            /**
+             * ======================================================
+             * CASE 1: PURE FISCAL YEAR CHANGE (same structure)
+             * ======================================================
+             */
+
+            if ($isPureFiscalYearChange) {
+                // Check if current definitions are in draft mode
+                $anyPlanInDraft = ProjectActivityPlan::join(
+                    'project_activity_definitions as def',
+                    'project_activity_plans.activity_definition_version_id',
+                    '=',
+                    'def.id'
+                )
+                    ->where('def.project_id', $projectId)
+                    ->where('def.is_current', true)
+                    ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+                    ->where('project_activity_plans.status', 'draft')
+                    ->exists();
+
+                $capitalDefIds = $this->updateDefinitionsIfDraft($projectId, 1, $capitalData, $anyPlanInDraft);
+                $recurrentDefIds = $this->updateDefinitionsIfDraft($projectId, 2, $recurrentData, $anyPlanInDraft);
+
+                $this->syncPlans($fiscalYearId, $capitalData, $capitalDefIds);
+                $this->syncPlans($fiscalYearId, $recurrentData, $recurrentDefIds);
+
+                return;
+            }
+
+            /**
+             * ======================================================
+             * CASE 2: STRUCTURAL CHANGE (new version)
+             * ======================================================
+             */
             $currentProjectVersion = $this->getCurrentProjectVersion($projectId);
             $newProjectVersion = $currentProjectVersion + 1;
             $previousVersion = $force ? $currentProjectVersion : null;
 
-            // On structural change: close ALL current definitions (both types)
             if ($force) {
-                $closed = ProjectActivityDefinition::where('project_id', $projectId)
+                ProjectActivityDefinition::where('project_id', $projectId)
                     ->where('is_current', true)
                     ->update(['is_current' => false]);
 
-                Log::info("Structural change confirmed: closed {$closed} definitions (version {$currentProjectVersion}) for project {$projectId}");
+                ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
+                    ->whereIn(
+                        'activity_definition_version_id',
+                        ProjectActivityDefinition::where('project_id', $projectId)->pluck('id')
+                    )
+                    ->delete();
             }
 
             $capitalDefIds = $this->syncDefinitions($projectId, 1, $capitalData, $force, $newProjectVersion, $previousVersion);
             $recurrentDefIds = $this->syncDefinitions($projectId, 2, $recurrentData, $force, $newProjectVersion, $previousVersion);
 
-            Log::info("Synced definitions (version {$newProjectVersion})", [
-                'capital_defs' => count($capitalDefIds),
-                'recurrent_defs' => count($recurrentDefIds)
-            ]);
-
             $this->syncPlans($fiscalYearId, $capitalData, $capitalDefIds);
             $this->syncPlans($fiscalYearId, $recurrentData, $recurrentDefIds);
-
-            Log::info("Excel upload completed successfully (version {$newProjectVersion})");
         });
     }
 
+    /**
+     * ======================================================
+     * STRUCTURE / VERSION CHECK
+     * ======================================================
+     */
     private function checkPlanEditableOrStructuralChange(
         int $projectId,
         int $fiscalYearId,
         int $capitalRowCount,
         int $recurrentRowCount,
-        bool $force
+        bool $force,
+        bool &$isPureFiscalYearChange = false
     ): void {
         $counts = ProjectActivityTemplateExport::getCurrentDefinitionCounts(Project::find($projectId));
 
@@ -95,22 +183,38 @@ class ProjectActivityExcelService
         $hasExistingData = ($currentCapitalCount + $currentRecurrentCount) > 0;
         $structureMatches = ($currentCapitalCount === $capitalRowCount) && ($currentRecurrentCount === $recurrentRowCount);
 
-        if ($structureMatches && $hasExistingData) {
-            $existingPlan = ProjectActivityPlan::join(
-                'project_activity_definitions',
-                'project_activity_plans.activity_definition_version_id',
-                '=',
-                'project_activity_definitions.id'
-            )
-                ->where('project_activity_definitions.project_id', $projectId)
-                ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
-                ->where('project_activity_definitions.is_current', true)
-                ->select('project_activity_plans.status')
-                ->first();
+        $plansExistForThisFY = ProjectActivityPlan::join(
+            'project_activity_definitions as def',
+            'project_activity_plans.activity_definition_version_id',
+            '=',
+            'def.id'
+        )
+            ->where('def.project_id', $projectId)
+            ->where('def.is_current', true)
+            ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+            ->exists();
 
-            if ($existingPlan && $existingPlan->status !== 'draft') {
-                throw new Exception('This annual program is already in review or approved mode so it cannot be edited.');
+        if ($structureMatches && $hasExistingData) {
+            if ($plansExistForThisFY) {
+                // Check if plans are in draft mode - if so, allow edit
+                $allPlansInDraft = ProjectActivityPlan::join(
+                    'project_activity_definitions as def',
+                    'project_activity_plans.activity_definition_version_id',
+                    '=',
+                    'def.id'
+                )
+                    ->where('def.project_id', $projectId)
+                    ->where('def.is_current', true)
+                    ->where('project_activity_plans.fiscal_year_id', $fiscalYearId)
+                    ->where('project_activity_plans.status', '!=', 'draft')
+                    ->doesntExist();
+
+                if (!$allPlansInDraft) {
+                    throw new Exception('Plans for this fiscal year already exist and are not in draft mode. Cannot edit.');
+                }
             }
+
+            $isPureFiscalYearChange = true;
             return;
         }
 
@@ -118,9 +222,59 @@ class ProjectActivityExcelService
             throw new StructuralChangeRequiresConfirmationException();
         }
 
-        Log::info($hasExistingData ? "Structural change confirmed" : "First-time upload");
+        $isPureFiscalYearChange = false;
     }
 
+    /**
+     * ======================================================
+     * UPDATE DEFINITIONS IF IN DRAFT MODE
+     * ======================================================
+     */
+    private function updateDefinitionsIfDraft(int $projectId, int $expenditureId, array $data, bool $isDraft): array
+    {
+        if (empty($data)) {
+            return [];
+        }
+
+        $hashToId = [];
+
+        foreach ($data as $hash => $row) {
+            $existing = ProjectActivityDefinition::where('project_id', $projectId)
+                ->where('expenditure_id', $expenditureId)
+                ->where('sort_index', $hash)
+                ->where('is_current', true)
+                ->first();
+
+            if (!$existing) {
+                throw new Exception("Definition not found for hash: {$hash}");
+            }
+
+            // Update definition fields if in draft mode
+            if ($isDraft) {
+                $parentId = $row['parent_hash'] && isset($hashToId[$row['parent_hash']])
+                    ? $hashToId[$row['parent_hash']]
+                    : null;
+
+                $existing->update([
+                    'parent_id' => $parentId,
+                    'depth' => $row['depth'],
+                    'program' => $row['program'],
+                    'total_quantity' => $row['total_quantity'],
+                    'total_budget' => $row['total_budget'],
+                ]);
+            }
+
+            $hashToId[$hash] = $existing->id;
+        }
+
+        return $hashToId;
+    }
+
+    /**
+     * ======================================================
+     * PARSE EXPENDITURE SHEET
+     * ======================================================
+     */
     private function parseSheet($sheet, int $expenditureId, int $startRow = 5): array
     {
         $data = [];
@@ -169,7 +323,12 @@ class ProjectActivityExcelService
         return $data;
     }
 
-    private function syncDefinitions(int $projectId, int $expenditureId, array $data, bool $force, int $newVersion, int $previousVersion = null): array
+    /**
+     * ======================================================
+     * SYNC DEFINITIONS (NEW VERSION)
+     * ======================================================
+     */
+    private function syncDefinitions(int $projectId, int $expenditureId, array $data, bool $force, int $newVersion, ?int $previousVersion = null): array
     {
         if (empty($data)) {
             return [];
@@ -220,6 +379,11 @@ class ProjectActivityExcelService
         return $hashToId;
     }
 
+    /**
+     * ======================================================
+     * SYNC PLANS
+     * ======================================================
+     */
     private function syncPlans(int $fiscalYearId, array $data, array $hashToIdMap): void
     {
         if (empty($data)) {
@@ -229,7 +393,6 @@ class ProjectActivityExcelService
         foreach ($data as $hash => $row) {
             $definitionId = $hashToIdMap[$hash] ?? null;
             if (!$definitionId) {
-                Log::warning("Skipping plan - no definition for hash: {$hash}");
                 continue;
             }
 
@@ -278,32 +441,38 @@ class ProjectActivityExcelService
         return $max ?? 0;
     }
 
-    private function extractMetadata($spreadsheet): array
-    {
-        $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
-
-        $projectName = trim((string) $capitalSheet->getCell('A1')->getValue());
-        $fiscalYearName = trim((string) $capitalSheet->getCell('H1')->getValue());
-
-        if (empty($projectName)) {
-            throw new Exception('Project title missing in cell A1');
-        }
-
-        if (empty($fiscalYearName)) {
-            throw new Exception('Fiscal year missing in cell H1');
-        }
-
-        $project = Project::where('title', $projectName)->firstOrFail();
-        $fiscalYear = FiscalYear::where('title', $fiscalYearName)->firstOrFail();
-
-        return [$project->id, $fiscalYear->id];
-    }
-
     private function validateUserAccess(int $projectId): void
     {
         $project = Project::findOrFail($projectId);
         if (!$project->users->contains(Auth::id())) {
             throw new Exception('You do not have access to this project');
         }
+    }
+
+    /**
+     * ======================================================
+     * READ METADATA FROM INSTRUCTIONS SHEET
+     * ======================================================
+     */
+    private function extractMetadata($spreadsheet): array
+    {
+        $sheet = $spreadsheet->getSheetByName('Instructions')
+            ?? $spreadsheet->getSheet(0);
+
+        if (!$sheet) {
+            throw new Exception('Instructions sheet not found');
+        }
+
+        $projectId = (int) $sheet->getCell('B1')->getValue();
+        $fiscalYearId = (int) $sheet->getCell('B2')->getValue();
+
+        if (empty($projectId) || empty($fiscalYearId)) {
+            throw new Exception('Invalid File Format: Project ID or Fiscal Year ID is missing. Please download a fresh template.');
+        }
+
+        $project = Project::findOrFail($projectId);
+        $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
+
+        return [$project->id, $fiscalYear->id];
     }
 }

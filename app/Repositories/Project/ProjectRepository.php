@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Repositories\Project;
 
-use App\Models\Role;
 use App\Models\User;
 use App\Models\Project;
 use App\Models\Directorate;
+use App\Trait\RoleBasedAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -39,18 +39,10 @@ class ProjectRepository
             ])
             ->orderBy('id', 'desc');
 
-        // Apply role-based filtering
-        $roleIds = $user->roles->pluck('id')->toArray();
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
 
-        if (!in_array(Role::SUPERADMIN, $roleIds) && !in_array(Role::ADMIN, $roleIds)) {
-            if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-                $query->where('directorate_id', $user->directorate_id ?? 0);
-            } else {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
-            }
-        }
+        $query->whereIn('id', $accessibleProjectIds);
 
-        // Eager load only necessary relationships
         if ($withRelations) {
             $query->with([
                 'directorate:id,title',
@@ -58,10 +50,9 @@ class ProjectRepository
                 'projectManager:id,name',
                 'status:id,title',
                 'budgetHeading:id,title',
-            ])->withCount('comments');
+            ])->withCount(['comments', 'contracts']);
         }
 
-        // Return paginated or all results
         return $paginate ? $query->paginate($paginate) : $query->get();
     }
 
@@ -92,16 +83,8 @@ class ProjectRepository
             ])
             ->orderBy('id', 'desc');
 
-        // Apply role-based filtering
-        $roleIds = $user->roles->pluck('id')->toArray();
-
-        if (!in_array(Role::SUPERADMIN, $roleIds) && !in_array(Role::ADMIN, $roleIds)) {
-            if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
-                $query->where('directorate_id', $user->directorate_id ?? 0);
-            } else {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
-            }
-        }
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $query->whereIn('id', $accessibleProjectIds);
 
         // Apply directorate filter
         if ($directorateId) {
@@ -133,7 +116,7 @@ class ProjectRepository
             'projectManager:id,name',
             'status:id,title',
             'budgetHeading:id,title',
-        ])->withCount('comments');
+        ])->withCount(['comments', 'contracts']);
 
         return $query->paginate($perPage);
     }

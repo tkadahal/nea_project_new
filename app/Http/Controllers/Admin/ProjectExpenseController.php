@@ -7,9 +7,13 @@ namespace App\Http\Controllers\Admin;
 use App\Models\Project;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
+use App\Models\Directorate;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use App\Trait\RoleBasedAccess;
 use App\Services\ProjectExpense\ProjectExpenseService;
 use App\Services\ProjectExpense\ExpenseQuarterService;
 use App\Services\ProjectExpense\ExpenseImportService;
@@ -21,6 +25,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class ProjectExpenseController extends Controller
 {
+    use RoleBasedAccess;
+
     public function __construct(
         private readonly ProjectExpenseService $expenseService,
         private readonly ExpenseQuarterService $quarterService,
@@ -28,23 +34,92 @@ class ProjectExpenseController extends Controller
         private readonly ExpenseExportService $exportService
     ) {}
 
-    public function index(): View
+    public function index(): View|JsonResponse
     {
         abort_if(Gate::denies('projectExpense_access'), Response::HTTP_FORBIDDEN);
 
-        $aggregated = $this->expenseService->getAggregatedExpenses();
+        $user = Auth::user();
+        $accessibleProjectIds = self::getAccessibleProjectIds($user);
 
-        return view('admin.projectExpenses.index', compact('aggregated'));
+        $filters = [
+            'directorate_filter' => null,
+            'project_filter' => null,
+            'fiscal_year_filter' => null,
+            'search' => null
+        ];
+
+        $defaultFiscalYearId = null;
+        $defaultProjectId = null;
+
+        if (!request()->wantsJson() && !request()->ajax()) {
+            $currentFiscalYear = \App\Models\FiscalYear::currentFiscalYear();
+            if ($currentFiscalYear) {
+                $filters['fiscal_year_filter'] = $currentFiscalYear->id;
+                $defaultFiscalYearId = $currentFiscalYear->id;
+            }
+        } else {
+            $filters['directorate_filter'] = request('directorate_filter');
+            $filters['project_filter'] = request('project_filter');
+            $filters['fiscal_year_filter'] = request('fiscal_year_filter');
+            $filters['search'] = request('search');
+        }
+
+        $perPage = (int) request('per_page', 20);
+
+        $aggregated = $this->expenseService->getAggregatedExpenses(
+            $accessibleProjectIds,
+            $perPage,
+            $filters
+        );
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json($aggregated);
+        }
+
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->orderBy('title')
+            ->get(['id', 'title']);
+
+        $defaultProjectId = null;
+
+        if ($projects->count() === 1) {
+            $defaultProjectId = $projects->first()->id;
+        }
+
+        $filtersData = $this->getFiltersData();
+
+        $filtersData['selectedFiscalYearId'] = $defaultFiscalYearId;
+        $filtersData['selectedProjectId'] = $defaultProjectId;
+
+        return view('admin.projectExpenses.index', [
+            'filters' => $filtersData,
+            'aggregated' => $aggregated
+        ]);
+    }
+
+    private function getFiltersData(): array
+    {
+        $user = Auth::user();
+        return [
+            'directorates' => Directorate::whereIn('id', self::getAccessibleDirectorateIds($user))->orderBy('title')->get(),
+            'projects' => Project::whereIn('id', self::getAccessibleProjectIds($user))->orderBy('title')->get(),
+            'fiscalYears' => FiscalYear::orderBy('id', 'desc')->get(),
+        ];
     }
 
     public function create(Request $request): View | RedirectResponse
     {
         abort_if(Gate::denies('projectExpense_create'), Response::HTTP_FORBIDDEN);
 
+        // FIX: Cast inputs to integer or null to match Service strict typing
+        $projectId = $request->filled('project_id') ? (int) $request->input('project_id') : null;
+        $fiscalYearId = $request->filled('fiscal_year_id') ? (int) $request->input('fiscal_year_id') : null;
+        $selectedQuarter = $request->input('selected_quarter');
+
         $viewData = $this->expenseService->prepareCreateView(
-            $request->input('project_id'),
-            $request->input('fiscal_year_id'),
-            $request->input('selected_quarter')
+            (int) $projectId,
+            (int) $fiscalYearId,
+            $selectedQuarter
         );
 
         if ($viewData['selectedProjectId'] && $viewData['selectedFiscalYearId']) {
@@ -78,16 +153,16 @@ class ProjectExpenseController extends Controller
         }
     }
 
-    public function show(int $projectId, int $fiscalYearId): View
+    public function show($projectId, $fiscalYearId): View
     {
         abort_if(Gate::denies('projectExpense_show'), Response::HTTP_FORBIDDEN);
 
-        $viewData = $this->expenseService->prepareShowView($projectId, $fiscalYearId);
+        $viewData = $this->expenseService->prepareShowView((int) $projectId, (int) $fiscalYearId);
 
         return view('admin.projectExpenses.show', $viewData);
     }
 
-    public function getForProject(int $projectId, int $fiscalYearId)
+    public function getForProject($projectId, $fiscalYearId)
     {
         try {
             $data = $this->expenseService->getProjectExpenseData($projectId, $fiscalYearId);

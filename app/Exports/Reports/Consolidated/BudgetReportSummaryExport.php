@@ -3,19 +3,10 @@
 namespace App\Exports\Reports\Consolidated;
 
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithCustomStartCell;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\{FromCollection, WithHeadings, WithCustomStartCell, WithStyles, WithColumnWidths, WithEvents, ShouldAutoSize};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill, Color};
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 class BudgetReportSummaryExport implements
@@ -46,106 +37,97 @@ class BudgetReportSummaryExport implements
         return 'A7';
     }
 
-    /**
-     * Build rows with grouping: First row per group is the heading (merged later), subsequent are directorates
-     */
     public function collection(): Collection
     {
-        if ($this->projects->isEmpty()) {
-            return collect([]);
-        }
+        if ($this->projects->isEmpty()) return collect([]);
 
-        $serial = 1;
         $rows = collect();
+        $serial = 1;
 
         $this->projects
-            ->groupBy('budget_heading')
+            ->groupBy('budget_heading') // Grouping by title
             ->sortKeys()
             ->each(function ($byHeading, $headingTitle) use (&$rows, &$serial) {
-                // Assume all projects in a heading have the same code (budget_heading_code)
-                $headingCode = $byHeading->first()['budget_heading_code'] ?? '';
+                $firstItem = $byHeading->first();
+                $headingCode = $firstItem['budget_heading_code'] ?? '';
 
+                // Accessing the 'description' field from your BudgetHeading model
+                // Make sure this is passed in your collection from the controller
+                $headingDescription = $firstItem['budget_heading_description']
+                    ?? $firstItem['description']
+                    ?? $headingTitle;
+
+                $groupTotal = $this->sumGroup($byHeading);
+
+                // 1. BUDGET HEADING ROW (Main Category)
+                $rows->push([
+                    $serial++,
+                    $headingCode . ' ' . $headingTitle,
+                    $headingDescription,                // Column C: Model Description
+                    $groupTotal['gov_share'],
+                    $groupTotal['gov_loan'],
+                    $groupTotal['foreign_loan'],
+                    '',
+                    $groupTotal['grant'],
+                    '',
+                    $groupTotal['total_lmbis'],
+                    $groupTotal['nea_budget'],
+                    $groupTotal['grand_total'],
+                ]);
+
+                // 2. DIRECTORATE ROWS (Breakdown)
                 $directorates = $byHeading->groupBy('directorate')->sortKeys();
-
-                $first = true;
-
-                $directorates->each(function ($group, $directorateTitle) use (&$rows, &$serial, $headingTitle, $headingCode, &$first) {
-                    $totals = $group->reduce(function ($carry, $item) {
-                        return [
-                            'gov_share'    => $carry['gov_share']    + $item['gov_share'],
-                            'gov_loan'     => $carry['gov_loan']     + $item['gov_loan'],
-                            'foreign_loan' => $carry['foreign_loan'] + $item['foreign_loan'],
-                            'grant'        => $carry['grant']        + $item['grant'],
-                            'total_lmbis'  => $carry['total_lmbis']  + $item['total_lmbis'],
-                            'nea_budget'   => $carry['nea_budget']   + $item['nea_budget'],
-                            'grand_total'  => $carry['grand_total']  + $item['grand_total'],
-                        ];
-                    }, array_fill_keys(['gov_share', 'gov_loan', 'foreign_loan', 'grant', 'total_lmbis', 'nea_budget', 'grand_total'], 0));
-
-                    if ($first) {
-                        // First row: Heading with code + full description in B, directorate in indented way if needed
-                        $rows->push([
-                            $serial++,
-                            $headingCode . ' ' . $headingTitle,  // e.g., "50108101 १३२ के.भी तथा अन्य..."
-                            $directorateTitle,
-                            $totals['gov_share'],
-                            $totals['gov_loan'],
-                            $totals['foreign_loan'],
-                            '',
-                            $totals['grant'],
-                            '',
-                            $totals['total_lmbis'],
-                            $totals['nea_budget'],
-                            $totals['grand_total'],
-                        ]);
-                        $first = false;
-                    } else {
-                        // Subsequent rows: Blank in B, directorate in C
-                        $rows->push([
-                            $serial++,
-                            '',  // Blank for heading
-                            $directorateTitle,
-                            $totals['gov_share'],
-                            $totals['gov_loan'],
-                            $totals['foreign_loan'],
-                            '',
-                            $totals['grant'],
-                            '',
-                            $totals['total_lmbis'],
-                            $totals['nea_budget'],
-                            $totals['grand_total'],
-                        ]);
-                    }
+                $directorates->each(function ($group, $directorateTitle) use (&$rows) {
+                    $totals = $this->sumGroup($group);
+                    $rows->push([
+                        '',
+                        '',
+                        $directorateTitle,   // Column C: Directorate Name
+                        $totals['gov_share'],
+                        $totals['gov_loan'],
+                        $totals['foreign_loan'],
+                        '',
+                        $totals['grant'],
+                        '',
+                        $totals['total_lmbis'],
+                        $totals['nea_budget'],
+                        $totals['grand_total'],
+                    ]);
                 });
             });
 
         return $rows;
     }
 
-    public function styles(Worksheet $sheet)
+    private function sumGroup($group)
     {
-        return [
-            1 => ['font' => ['bold' => true, 'size' => 16], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
-            2 => ['font' => ['bold' => true, 'size' => 14], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
-            4 => ['font' => ['bold' => true], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER]],
-            5 => ['font' => ['bold' => true], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER]],
-        ];
+        return $group->reduce(function ($carry, $item) {
+            return [
+                'gov_share'    => $carry['gov_share']    + ($item['gov_share'] ?? 0),
+                'gov_loan'     => $carry['gov_loan']     + ($item['gov_loan'] ?? 0),
+                'foreign_loan' => $carry['foreign_loan'] + ($item['foreign_loan'] ?? 0),
+                'grant'        => $carry['grant']        + ($item['grant'] ?? 0),
+                'total_lmbis'  => $carry['total_lmbis']  + ($item['total_lmbis'] ?? 0),
+                'nea_budget'   => $carry['nea_budget']   + ($item['nea_budget'] ?? 0),
+                'grand_total'  => $carry['grand_total']  + ($item['grand_total'] ?? 0),
+            ];
+        }, array_fill_keys(['gov_share', 'gov_loan', 'foreign_loan', 'grant', 'total_lmbis', 'nea_budget', 'grand_total'], 0));
     }
 
     public function columnWidths(): array
     {
         return [
             'A' => 8,
-            'B' => 70,
-            'C' => 40,
-            'D' => 16,
-            'E' => 16,
-            'F' => 16,
-            'G' => 20,
-            'H' => 16,
-            'I' => 20,
-            'J' => 18,
-            'K' => 16,
+            'B' => 60,
+            'C' => 45,
+            'D' => 15,
+            'E' => 15,
+            'F' => 15,
+            'G' => 12,
+            'H' => 15,
+            'I' => 12,
+            'J' => 16,
+            'K' => 15,
             'L' => 18,
         ];
     }
@@ -156,32 +138,26 @@ class BudgetReportSummaryExport implements
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $rowCount = $this->collection()->count();
-                $lastRow = $rowCount > 0 ? 6 + $rowCount : 7;
+                $lastRow = 6 + $rowCount;
 
-                /* PAGE SETUP */
-                $sheet->getPageSetup()
-                    ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
-                    ->setPaperSize(PageSetup::PAPERSIZE_A4);
-
-                /* TITLE - Same as detailed sheet */
+                /* TITLE & HEADERS */
                 $sheet->mergeCells('A1:L1');
                 $sheet->setCellValue('A1', 'नेपाल विद्युत प्राधिकरण');
-
                 $sheet->mergeCells('A2:L2');
-                $sheet->setCellValue('A2', "नेपाल सरकार तथा ने.वि.प्रा द्वारा संचालित आयोजनाहरूको आ.व. {$this->fiscalYear} को बजेट बोर्डफाईल");
+                $sheet->setCellValue('A2', "आयोजनाहरूको आ.व. {$this->fiscalYear} को बजेट सारांश (Summary)");
 
-                /* HEADER - EXACT SAME AS DETAILED SHEET */
-                $sheet->mergeCells('A4:A5');
-                $sheet->mergeCells('B4:B5');
-                $sheet->mergeCells('C4:C5');
-                $sheet->mergeCells('D4:I4');
-                $sheet->mergeCells('J4:J5');
-                $sheet->mergeCells('K4:K5');
-                $sheet->mergeCells('L4:L5');
+                // Realignment: C is now the Directorate column
+                $sheet->mergeCells('A4:A6'); // SN
+                $sheet->mergeCells('B4:B6'); // Budget Heading
+                $sheet->mergeCells('C4:C6'); // Directorate
+                $sheet->mergeCells('D4:I4'); // Annual Budget Group
+                $sheet->mergeCells('J4:J6'); // Total
+                $sheet->mergeCells('K4:K6'); // NEA
+                $sheet->mergeCells('L4:L6'); // Grand Total
 
                 $sheet->setCellValue('A4', 'क्र.सं.');
-                $sheet->setCellValue('B4', 'आयोजनाको नाम');
-                $sheet->setCellValue('C4', 'बजेट संकेत नं.');
+                $sheet->setCellValue('B4', 'बजेट शीर्षक');
+                $sheet->setCellValue('C4', 'निर्देशनालय');
                 $sheet->setCellValue('D4', 'वार्षिक बजेट (LMBIS)');
                 $sheet->setCellValue('J4', 'जम्मा');
                 $sheet->setCellValue('K4', 'ने.वि.प्रा.');
@@ -190,89 +166,55 @@ class BudgetReportSummaryExport implements
                 $sheet->mergeCells('D5:E5');
                 $sheet->mergeCells('F5:G5');
                 $sheet->mergeCells('H5:I5');
-
                 $sheet->setCellValue('D5', 'नेपाल सरकार');
                 $sheet->setCellValue('F5', 'वैदेशिक');
                 $sheet->setCellValue('H5', 'अनुदान');
-
                 $sheet->setCellValue('D6', 'शेयर');
                 $sheet->setCellValue('E6', 'ऋण');
                 $sheet->setCellValue('F6', 'ऋण');
-                $sheet->setCellValue('G6', 'source');
+                $sheet->setCellValue('G6', 'Source');
                 $sheet->setCellValue('H6', 'अनुदान');
-                $sheet->setCellValue('I6', 'source');
+                $sheet->setCellValue('I6', 'Source');
 
-                /* HEADER STYLING */
-                $sheet->getStyle('A4:L6')->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(Alignment::VERTICAL_CENTER)
-                    ->setWrapText(true);
+                /* STYLING HEADERS */
+                $sheet->getStyle('A4:L6')->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['argb' => Color::COLOR_WHITE]],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF4F81BD']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+                ]);
 
-                $sheet->getStyle('A4:L6')->getBorders()->getAllBorders()
-                    ->setBorderStyle(Border::BORDER_THIN);
+                /* DATA STYLING & HIGHLIGHTING */
+                for ($row = 7; $row <= $lastRow; $row++) {
+                    $sheet->getRowDimension($row)->setRowHeight(-1);
+                    $snValue = $sheet->getCell("A{$row}")->getValue();
 
-                $sheet->getStyle('A4:L6')->getFill()
-                    ->setFillType(Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB('FF4F81BD');
-
-                $sheet->getStyle('A4:L6')->getFont()
-                    ->setBold(true)
-                    ->setSize(11)
-                    ->getColor()->setARGB(Color::COLOR_WHITE);
-
-                /* DATA STYLING & GROUP MERGING */
-                if ($rowCount > 0) {
-                    $sheet->getStyle("A7:L{$lastRow}")->getBorders()->getAllBorders()
-                        ->setBorderStyle(Border::BORDER_THIN);
-
-                    $sheet->getStyle("D7:L{$lastRow}")->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-                    $sheet->getStyle("B7:C{$lastRow}")->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_LEFT)
-                        ->setVertical(Alignment::VERTICAL_CENTER)
-                        ->setWrapText(true);
-
-                    // Merge column B for each budget heading group (visual grouping)
-                    $currentRow = 7;
-                    $groupStartRow = 7;
-                    $previousHeading = $sheet->getCell('B7')->getValue();
-
-                    for ($row = 8; $row <= $lastRow; $row++) {
-                        $currentHeading = $sheet->getCell("B{$row}")->getValue();
-
-                        if ($currentHeading !== '' || $row > $lastRow) {
-                            // End of group
-                            if ($groupStartRow < $row - 1) {
-                                $sheet->mergeCells("B{$groupStartRow}:B" . ($row - 1));
-                                $sheet->getStyle("B{$groupStartRow}:B" . ($row - 1))
-                                    ->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-                            }
-                            $groupStartRow = $row;
-                            $previousHeading = $currentHeading;
-                        }
+                    // If SN is not empty, it's a "Budget Heading Total" row
+                    if (!empty($snValue)) {
+                        $sheet->getStyle("A{$row}:L{$row}")->applyFromArray([
+                            'font' => ['bold' => true],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE2EFDA']], // Light Green
+                            'borders' => [
+                                'top' => ['borderStyle' => Border::BORDER_MEDIUM],
+                                'bottom' => ['borderStyle' => Border::BORDER_THIN]
+                            ],
+                        ]);
                     }
 
-                    // Last group
-                    if ($groupStartRow <= $lastRow) {
-                        $sheet->mergeCells("B{$groupStartRow}:B{$lastRow}");
-                        $sheet->getStyle("B{$groupStartRow}:B{$lastRow}")
-                            ->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-                    }
-
-                    // Bold the heading text in merged cells
-                    for ($row = 7; $row <= $lastRow; $row++) {
-                        if ($sheet->getCell("B{$row}")->getValue() !== '') {
-                            $sheet->getStyle("B{$row}")->getFont()->setBold(true);
-                        }
-                    }
-
-                    // Auto row height
-                    for ($row = 7; $row <= $lastRow; $row++) {
-                        $sheet->getRowDimension($row)->setRowHeight(-1);
-                    }
+                    // Numeric alignment
+                    $sheet->getStyle("D{$row}:L{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                    // General borders
+                    $sheet->getStyle("A{$row}:L{$row}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
                 }
             },
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        return [
+            1 => ['font' => ['bold' => true, 'size' => 16], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
+            2 => ['font' => ['bold' => true, 'size' => 14], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
         ];
     }
 }

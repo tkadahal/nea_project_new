@@ -30,7 +30,7 @@
                         !Auth::user()->directorate_id)
                     <x-forms.select label="{{ trans('global.directorate.title') }} {{ trans('global.filter') }}"
                         name="directorate_id" id="directorate_id" :options="$directorates ?? []" :selected="old('directorate_id', request('directorate_id'))"
-                        placeholder="{{ trans('global.all_directorates') ?? 'All Directorates' }}" :error="$errors->first('directorate_id')"
+                        placeholder="{{ trans('All Direcotrates') ?? 'All Directorates' }}" :error="$errors->first('directorate_id')"
                         class="js-single-select" />
                 @endif
 
@@ -42,7 +42,7 @@
 
             <!-- Excel Actions -->
             <div class="mb-6 flex flex-wrap items-center gap-4">
-                <a href="#" id="download-template-link"
+                {{-- <a href="#" id="download-template-link"
                     class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -59,7 +59,7 @@
                         </path>
                     </svg>
                     {{ trans('global.budget.fields.upload_excel') }}
-                </a>
+                </a> --}}
 
                 @if (Auth::user()->hasRole(['Super_Admin', 'admin']))
                     <!-- Admin Only: Download Quarterly Template -->

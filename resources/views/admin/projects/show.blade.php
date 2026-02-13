@@ -12,20 +12,16 @@
             </p>
         </div>
         <div class="flex flex-wrap gap-3">
-            @can('budget_create')
-                <a href="{{ route('admin.budget.create') }}?project_id={{ $project->id }}"
-                    class="px-4 py-2 border border-blue-500 text-blue-500 rounded-md hover:bg-blue-500 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-500 dark:hover:text-white dark:focus:ring-offset-gray-900 text-sm"
-                    aria-label="{{ trans('global.add') }} {{ trans('global.budget.title_singular') }}">
-                    {{ trans('global.add') }} {{ trans('global.budget.title_singular') }}
+            <!-- New View Activities button -->
+            @canany(['project_access', 'activity_view'])
+                <!-- adjust permission as needed -->
+                <a href="{{ route('admin.projects.chart', $project) }}"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-700 dark:hover:bg-indigo-800 dark:focus:ring-offset-gray-900 text-sm font-medium"
+                    aria-label="View Programs">
+                    View Programs
                 </a>
-            @endcan
-            @can('expense_access')
-                <a href="{{ route('admin.expense.index') }}"
-                    class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm"
-                    aria-label="{{ trans('global.show') }} {{ trans('global.expense.title') }}">
-                    {{ trans('global.show') }} {{ trans('global.expense.title') }}
-                </a>
-            @endcan
+            @endcanany
+
             @can('project_access')
                 <a href="{{ route('admin.project.index') }}"
                     class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-offset-gray-900 text-sm"
@@ -263,7 +259,8 @@
                         {{ trans('global.project.fields.created_at') }}
                     </p>
                     <p class="mt-1 text-base sm:text-lg text-gray-900 dark:text-gray-100">
-                        {{ $project->created_at->format('M d, Y H:i A') }}</p>
+                        {{ $project->created_at->format('M d, Y H:i A') }}
+                    </p>
                 </div>
 
                 <div>
@@ -280,8 +277,8 @@
                 @can('project_edit')
                     <a href="{{ route('admin.project.edit', $project) }}"
                         class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600
-                      focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2
-                      dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-offset-gray-900">
+                             focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2
+                             dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-offset-gray-900">
                         {{ trans('global.edit') }} {{ trans('global.project.title_singular') }}
                     </a>
                 @endcan
@@ -293,8 +290,8 @@
                         @method('DELETE')
                         <button type="submit"
                             class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600
-                               focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2
-                               dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-offset-gray-900">
+                                      focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2
+                                      dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-offset-gray-900">
                             {{ trans('global.delete') }} {{ trans('global.project.title_singular') }}
                         </button>
                     </form>
@@ -316,7 +313,8 @@
             <div id="comments-section" class="flex-grow overflow-y-auto pr-2">
                 @if ($project->comments->isEmpty())
                     <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm">
-                        {{ __('No comments yet. Be the first to add one!') }}</p>
+                        {{ __('No comments yet. Be the first to add one!') }}
+                    </p>
                 @else
                     @foreach ($project->comments->whereNull('parent_id') as $comment)
                         @include('admin.comments.comment', [

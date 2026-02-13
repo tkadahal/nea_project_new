@@ -10,8 +10,8 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithCustomStartCell; // Added
-use Maatwebsite\Excel\Concerns\WithHeadings;       // Added (optional but recommended)
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -22,8 +22,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 class BudgetReportExport implements
     FromCollection,
-    WithHeadings,          // Prevents any automatic heading row
-    WithCustomStartCell,   // Allows data to start at A7
+    WithHeadings,
+    WithCustomStartCell,
     WithStyles,
     WithColumnWidths,
     WithEvents,
@@ -64,22 +64,57 @@ class BudgetReportExport implements
             return collect([]);
         }
 
-        return $this->projects->map(function ($project, $index) {
-            return [
-                $index + 1,                                            // A: क्र.सं. (S.N.) - starts from 1
-                $project['title'] ?? '',                               // B: आयोजनाको नाम
-                '',                                                    // C: बजेट संकेत नं.
-                $project['gov_share'] ?? 0,                             // D: नेपाल सरकार - शेयर
-                $project['gov_loan'] ?? 0,                              // E: नेपाल सरकार - ऋण
-                $project['foreign_loan'] ?? 0,                         // F: वैदेशिक ऋण
-                $project['foreign_loan_source'] ?? '',                 // G: source
-                $project['grant'] ?? 0,                                // H: अनुदान
-                $project['grant_source'] ?? '',                        // I: source
-                $project['total_lmbis'] ?? 0,                          // J: जम्मा (LMBIS total)
-                $project['nea_budget'] ?? 0,                           // K: ने.वि.प्रा.
-                $project['grand_total'] ?? 0,                          // L: कुल जम्मा
-            ];
-        });
+        $grouped = $this->projects->groupBy('directorate');
+        $data = collect();
+        $index = 1;
+
+        foreach ($grouped as $directorate => $groupProjects) {
+            // Calculate sums for the directorate
+            $sum_gov_share = $groupProjects->sum('gov_share');
+            $sum_gov_loan = $groupProjects->sum('gov_loan');
+            $sum_foreign_loan = $groupProjects->sum('foreign_loan');
+            $sum_grant = $groupProjects->sum('grant');
+            $sum_total_lmbis = $groupProjects->sum('total_lmbis');
+            $sum_nea_budget = $groupProjects->sum('nea_budget');
+            $sum_grand_total = $groupProjects->sum('grand_total');
+
+            // Add directorate row with title and sums
+            $data->push([
+                '',                                               // A: empty
+                $directorate,                                     // B: Directorate title
+                '',                                               // C: empty
+                $sum_gov_share,                                   // D: sum नेपाल सरकार - शेयर
+                $sum_gov_loan,                                    // E: sum नेपाल सरकार - ऋण
+                $sum_foreign_loan,                                // F: sum वैदेशिक ऋण
+                '',                                               // G: empty (source)
+                $sum_grant,                                       // H: sum अनुदान
+                '',                                               // I: empty (source)
+                $sum_total_lmbis,                                 // J: sum जम्मा (LMBIS total)
+                $sum_nea_budget,                                  // K: sum ने.वि.प्रा.
+                $sum_grand_total,                                 // L: sum कुल जम्मा
+            ]);
+
+            // Add project rows for this directorate
+            foreach ($groupProjects as $project) {
+                $data->push([
+                    $index,                                           // A: क्र.सं. (S.N.) - starts from 1
+                    $project['title'] ?? '',                          // B: आयोजनाको नाम
+                    '',                                               // C: बजेट संकेत नं.
+                    $project['gov_share'] ?? 0,                       // D: नेपाल सरकार - शेयर
+                    $project['gov_loan'] ?? 0,                        // E: नेपाल सरकार - ऋण
+                    $project['foreign_loan'] ?? 0,                    // F: वैदेशिक ऋण
+                    $project['foreign_loan_source'] ?? '',            // G: source
+                    $project['grant'] ?? 0,                           // H: अनुदान
+                    $project['grant_source'] ?? '',                   // I: source
+                    $project['total_lmbis'] ?? 0,                     // J: जम्मा (LMBIS total)
+                    $project['nea_budget'] ?? 0,                      // K: ने.वि.प्रा.
+                    $project['grand_total'] ?? 0,                     // L: कुल जम्मा
+                ]);
+                $index++;
+            }
+        }
+
+        return $data;
     }
 
     public function styles(Worksheet $sheet)
@@ -134,6 +169,8 @@ class BudgetReportExport implements
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $projects = $this->projects;
+                $grouped = $projects->groupBy('directorate');
+                $numGroups = $grouped->count();
 
                 /* ================= PAGE SETUP ================= */
                 $sheet->getPageSetup()
@@ -201,37 +238,53 @@ class BudgetReportExport implements
                     ->getColor()->setARGB(Color::COLOR_WHITE);
 
                 /* ================= DATA ROWS STYLING ================= */
+                /* ================= DATA ROWS STYLING ================= */
                 if ($projects->count() > 0) {
-                    $lastRow = 6 + $projects->count(); // Data ends at this row
+                    $lastRow = 6 + $projects->count() + $numGroups;
 
-                    // Borders for all data cells
+                    // Base styles for the whole data range
                     $sheet->getStyle("A7:L{$lastRow}")->getBorders()->getAllBorders()
                         ->setBorderStyle(Border::BORDER_THIN);
 
-                    // Right-align numeric columns
-                    $sheet->getStyle("D7:L{$lastRow}")->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-                    // Left-align text columns: Project title and source columns
-                    $sheet->getStyle("B7:B{$lastRow}")->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                    $sheet->getStyle("G7:G{$lastRow}")->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                    $sheet->getStyle("I7:I{$lastRow}")->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_LEFT);
-
-                    // === FIX FOR LONG PROJECT TITLES ===
-                    // Enable text wrapping in column B
-                    $sheet->getStyle("B7:B{$lastRow}")->getAlignment()
-                        ->setWrapText(true)
-                        ->setVertical(Alignment::VERTICAL_CENTER);
-
-                    // Set a generous fixed width for column B (Nepali text needs more space)
-                    $sheet->getColumnDimension('B')->setWidth(70);
-
-                    // Auto-fit row height so wrapped text is fully visible
                     for ($row = 7; $row <= $lastRow; $row++) {
-                        $sheet->getRowDimension($row)->setRowHeight(-1); // -1 means auto
+                        $sheet->getRowDimension($row)->setRowHeight(-1);
+                        $valueA = $sheet->getCell("A{$row}")->getValue();
+
+                        // Check if this is a Directorate (Summary) Row
+                        // In your collection, Directorate rows have an empty column A
+                        if (empty($valueA)) {
+                            $sheet->getStyle("A{$row}:L{$row}")->applyFromArray([
+                                'font' => [
+                                    'bold' => true,
+                                    'size' => 12,
+                                    'color' => ['argb' => Color::COLOR_BLACK],
+                                ],
+                                'fill' => [
+                                    'fillType' => Fill::FILL_SOLID,
+                                    'startColor' => ['argb' => 'FFE2EFDA'], // Soft Professional Green
+                                ],
+                                'alignment' => [
+                                    'horizontal' => Alignment::HORIZONTAL_LEFT,
+                                    'vertical' => Alignment::VERTICAL_CENTER,
+                                ],
+                                'borders' => [
+                                    'top' => ['borderStyle' => Border::BORDER_MEDIUM],
+                                    'bottom' => ['borderStyle' => Border::BORDER_MEDIUM],
+                                ],
+                            ]);
+
+                            // Right-align the sums in the directorate row
+                            $sheet->getStyle("D{$row}:L{$row}")->getAlignment()
+                                ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+                            // Indent the Directorate title slightly for better hierarchy
+                            $sheet->getStyle("B{$row}")->getAlignment()->setIndent(1);
+                        } else {
+                            // Regular Project Row Styling
+                            $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                            $sheet->getStyle("B{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                            $sheet->getStyle("D{$row}:L{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                        }
                     }
                 }
             },

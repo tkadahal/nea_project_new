@@ -212,6 +212,8 @@ class ProjectExpenseFundingAllocationController extends Controller
         $quarter = $data['quarter'];
         $quarterTotal = (float) $data['total_amount'];
         $activityDetailsJson = $data['activity_details'];
+        $remarks = $data['remarks'] ?? null;
+
         $activityDetails = json_decode($activityDetailsJson, true);
 
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($activityDetails)) {
@@ -269,6 +271,7 @@ class ProjectExpenseFundingAllocationController extends Controller
                 'government_loan' => $sourceAmounts['government_loan'],
                 'foreign_loan_budget' => $sourceAmounts['foreign_loan'],
                 'foreign_subsidy_budget' => $sourceAmounts['foreign_subsidy'],
+                'remarks'               => $remarks,
             ]);
 
             ProjectExpenseQuarter::where('quarter', $quarter)

@@ -20,6 +20,9 @@ return new class extends Migration
             $table->decimal('government_loan', 18, 2)->default(0);
             $table->decimal('foreign_loan_budget', 18, 2)->default(0);
             $table->decimal('foreign_subsidy_budget', 18, 2)->default(0);
+
+            $table->string('remarks')->nullable();
+
             $table->timestamps();
             $table->softDeletes();
         });

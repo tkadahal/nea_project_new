@@ -25,7 +25,8 @@ class DatabaseSeeder extends Seeder
             ProjectsTableSeeder::class,
             FiscalYearTableSeeder::class,
             // BudgetsTableSeeder::class,
-            // ContractsTableSeeder::class,
+            ContractsTableSeeder::class,
+            ProjectActivityScheduleSeeder::class,
             // TasksTableSeeder::class,
             // ProjectUserTableSeeder::class,
             // TaskUserTableSeeder::class

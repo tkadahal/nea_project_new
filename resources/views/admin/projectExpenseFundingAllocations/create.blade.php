@@ -183,6 +183,19 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <div
+                            class="mb-8 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <h3
+                                class="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4 pb-2 border-b border-gray-200 dark:border-gray-600">
+                                {{ __('Remarks') }}
+                            </h3>
+
+                            <div>
+                                <x-forms.text-area label="{{ __('Remarks (If Any)') }}" name="remarks"
+                                    :value="old('remarks')" :error="$errors->first('remarks')" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 

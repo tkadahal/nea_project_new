@@ -14,6 +14,7 @@ use App\Models\FiscalYear;
 use App\Models\Directorate;
 use App\Models\BudgetHeading;
 use Illuminate\Support\Facades\Auth;
+use App\Trait\RoleBasedAccess;
 
 /**
  * Service for preparing form data
@@ -35,15 +36,10 @@ class ProjectFormDataService
             'budgetHeadings' => BudgetHeading::pluck('title', 'id'),
         ];
 
-        // Load directorates based on role
-        if (in_array(Role::SUPERADMIN, $roleIds)) {
-            $data['directorates'] = Directorate::pluck('title', 'id');
-        } elseif (in_array(Role::DIRECTORATE_USER, $roleIds) || in_array(Role::PROJECT_USER, $roleIds)) {
-            $data['directorates'] = Directorate::where('id', $user->directorate_id)
-                ->pluck('title', 'id');
-        }
+        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+        $data['directorates'] = Directorate::whereIn('id', $accessibleDirectorateIds)
+            ->pluck('title', 'id');
 
-        // Load departments and users if project exists
         if ($project) {
             $data['project'] = $project;
 

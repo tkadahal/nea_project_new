@@ -16,7 +16,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 1,
-                'project_id' => 128,
+                'project_id' => 44,
                 'status_id' => 2,
                 'priority_id' => 3,
                 'title' => 'Constrution of 11 kV LIne',
@@ -37,7 +37,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 4,
+                'project_id' => 166,
                 'status_id' => 2,
                 'priority_id' => 2,
                 'title' => 'CONTRACT : ICB-PMD-MKTLP-076/077-02',
@@ -58,7 +58,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 2,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-01',
@@ -79,7 +79,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-02',
@@ -100,7 +100,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-02',
@@ -121,7 +121,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-02',
@@ -142,7 +142,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-02',
@@ -163,7 +163,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-02',
@@ -184,7 +184,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 37,
+                'project_id' => 161,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/EGMPAF/CPCUGTLP-079/80-02',
@@ -205,7 +205,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 19,
+                'project_id' => 149,
                 'status_id' => 2,
                 'priority_id' => 1,
                 'title' => 'PMD/PTDSSP/KVTCRPII-078/79-01',
@@ -226,7 +226,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 14,
+                'project_id' => 188,
                 'status_id' => 2,
                 'priority_id' => 2,
                 'title' => 'Enhancement of Distribution Network in Central Region of Kathmandu Valley',
@@ -247,7 +247,7 @@ class ContractsTableSeeder extends Seeder
             [
 
                 'directorate_id' => 4,
-                'project_id' => 18,
+                'project_id' => 201,
                 'status_id' => 2,
                 'priority_id' => 3,
                 'title' => 'PMD/PTDSSP/KBL-75/76-01',

@@ -8,12 +8,18 @@ use App\Models\ProjectExpense;
 use App\Models\ProjectActivityPlan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProjectExpenseRepository
 {
-    public function getAggregatedExpenses(): Collection
-    {
-        return DB::table('projects as p')
+    // Accept filters and perPage
+    public function getAggregatedExpenses(
+        array $accessibleProjectIds,
+        int $perPage = 20,
+        array $filters = []
+    ): LengthAwarePaginator {
+
+        $query = DB::table('projects as p')
             ->join('project_activity_definitions as pad', 'pad.project_id', '=', 'p.id')
             ->join('project_activity_plans as pap', 'pap.activity_definition_version_id', '=', 'pad.id')
             ->join('fiscal_years as fy', 'fy.id', '=', 'pap.fiscal_year_id')
@@ -33,10 +39,28 @@ class ProjectExpenseRepository
                 STRING_AGG(DISTINCT q.quarter::text, \', \' ORDER BY q.quarter::text) AS filled_quarters
             ')
             ->whereNull('pe.deleted_at')
-            ->groupBy('p.id', 'p.title', 'fy.id', 'fy.title')
+            // Apply Role Access
+            ->whereIn('p.id', $accessibleProjectIds);
+
+        // Apply Filters from AJAX Request
+        if (!empty($filters['directorate_filter'])) {
+            $query->where('p.directorate_id', (int)$filters['directorate_filter']);
+        }
+        if (!empty($filters['project_filter'])) {
+            $query->where('p.id', (int)$filters['project_filter']);
+        }
+        if (!empty($filters['fiscal_year_filter'])) {
+            $query->where('fy.id', (int)$filters['fiscal_year_filter']);
+        }
+        if (!empty($filters['search'])) {
+            $query->where('p.title', 'like', '%' . $filters['search'] . '%');
+        }
+
+        // IMPORTANT: Use paginate() instead of get()
+        return $query->groupBy('p.id', 'p.title', 'fy.id', 'fy.title')
             ->orderBy('p.title')
             ->orderByDesc('fy.title')
-            ->get();
+            ->paginate($perPage);
     }
 
     public function getAllHistoricalPlanIds(int $projectId, int $fiscalYearId): Collection

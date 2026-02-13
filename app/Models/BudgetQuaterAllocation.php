@@ -52,6 +52,18 @@ class BudgetQuaterAllocation extends Model
         return $this->belongsTo(Budget::class);
     }
 
+    protected static function booted()
+    {
+        static::saving(function ($allocation) {
+            $allocation->total_budget =
+                ($allocation->government_share ?? 0) +
+                ($allocation->government_loan ?? 0) +
+                ($allocation->foreign_loan ?? 0) +
+                ($allocation->foreign_subsidy ?? 0) +
+                ($allocation->internal_budget ?? 0);
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

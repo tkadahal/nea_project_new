@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Project;
 
+use App\Models\Role;
 use App\Models\Project;
 use App\DTOs\Project\ProjectDTO;
 use Illuminate\Support\Facades\DB;
@@ -25,8 +26,6 @@ class ProjectService
     public function getIndexData(): array
     {
         try {
-            // For initial page load, just return empty arrays
-            // Data will be loaded via AJAX
             return [
                 'data' => [],
                 'tableData' => [],
@@ -215,6 +214,14 @@ class ProjectService
 
     public function createProject(array $data, ?array $files = null): array
     {
+        $user = Auth::user();
+        $roleIds = $user->roles->pluck('id')->toArray();
+        $isAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
+
+        if (!$isAdmin) {
+            $data['directorate_id'] = $user->directorate_id;
+        }
+
         try {
             DB::beginTransaction();
 

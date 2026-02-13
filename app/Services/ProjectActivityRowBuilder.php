@@ -21,9 +21,6 @@ class ProjectActivityRowBuilder
         return array_map(fn($row) => (object) $row, $rows);
     }
 
-    // Remove buildFromPlans — we don't need it anymore
-    // All data comes from current version definitions + plans
-
     private function collectAllDefinitionIds(Collection $definitions): Collection
     {
         $ids = collect();
@@ -62,6 +59,8 @@ class ProjectActivityRowBuilder
 
     private function buildRowsRecursive($nodes, array &$rows, Collection $plans): void
     {
+        $nodes = $nodes->sortBy('sort_index', SORT_NATURAL);
+
         foreach ($nodes as $node) {
             $plan = $plans->get($node->id);
 

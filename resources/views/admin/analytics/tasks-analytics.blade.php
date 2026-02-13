@@ -1,726 +1,1047 @@
 <x-layouts.app>
-    <div class="mb-6 px-4 sm:px-6 lg:px-8">
-        <h1 class="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-800 dark:text-gray-200">
-            {{ trans('global.analytics.task.title') }}
+    {{-- Page Header --}}
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            📊 Task Analytics - Management Dashboard
         </h1>
-        <p class="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400 mt-1">
-            {{ trans('global.analytics.task.headerInfo') }}
+        <p class="text-gray-600 dark:text-gray-400 mt-1">
+            Strategic overview of task performance across all directorates and projects
         </p>
     </div>
 
-    {{-- Filters --}}
-    <div class="flex flex-col gap-4 mb-6 px-4 sm:px-6 lg:px-8">
-        <div class="w-full" style="z-index: 1001;">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                @php
-                    $roleIds = auth()->user()->roles->pluck('id')->toArray();
-                @endphp
-                @if (in_array(\App\Models\Role::SUPERADMIN, $roleIds) || in_array(\App\Models\Role::ADMIN, $roleIds))
-                    <div class="w-full">
-                        <label for="directorate_id"
-                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            {{ trans('global.directorate.title') }}
-                        </label>
-                        <select id="directorate_id" name="directorate_id"
-                            class="block w-full p-2 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
-                            <option value="">{{ trans('global.pleaseSelect') }}</option>
-                            @foreach ($directorates as $directorate)
-                                <option value="{{ $directorate->id }}"
-                                    {{ request()->input('directorate_id') == $directorate->id ? 'selected' : '' }}>
-                                    {{ $directorate->title }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                @endif
-                <div class="w-full">
-                    <label for="project_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {{ trans('global.project.title') }}
-                    </label>
-                    <select id="project_id" name="project_id"
-                        class="block w-full p-2 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
-                        <option value="">{{ trans('global.pleaseSelect') }}</option>
-                        @foreach ($projects as $project)
-                            <option value="{{ $project->id }}"
-                                {{ request()->input('project_id') == $project->id ? 'selected' : '' }}>
-                                {{ $project->title }}
-                            </option>
-                        @endforeach
-                    </select>
+    {{-- SECTION 1: Executive Summary --}}
+    <div class="mb-6">
+        <div
+            class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-6 border border-blue-200 dark:border-gray-600 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Overall Health Score
+                </h2>
+                <div class="text-3xl font-bold" id="health-score">
+                    {{ $executiveSummary['health_score'] }}%
                 </div>
-                <div class="w-full">
-                    <label for="status_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {{ trans('global.status.title') }}
-                    </label>
-                    <select id="status_id" name="status_id"
-                        class="block w-full p-2 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
-                        <option value="">{{ trans('global.pleaseSelect') }}</option>
-                        @foreach ($statuses as $status)
-                            <option value="{{ $status->id }}"
-                                {{ request()->input('status_id') == $status->id ? 'selected' : '' }}>
-                                {{ $status->title }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="w-full">
-                    <label for="priority_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {{ trans('global.priority.title') }}
-                    </label>
-                    <select id="priority_id" name="priority_id"
-                        class="block w-full p-2 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
-                        <option value="">{{ trans('global.pleaseSelect') }}</option>
-                        @foreach ($priorities as $priority)
-                            <option value="{{ $priority->id }}"
-                                {{ request()->input('priority_id') == $priority->id ? 'selected' : '' }}>
-                                {{ $priority->title }}
-                            </option>
-                        @endforeach
-                    </select>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
+                <div class="health-progress-bar h-3 rounded-full transition-all duration-500"
+                    style="width: {{ $executiveSummary['health_score'] }}%; background: linear-gradient(90deg, #10B981 0%, #3B82F6 100%);">
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Summary Cards --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 px-4 sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
-            <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200">
-                {{ trans('global.analytics.task.fields.total_task') }}
-            </h3>
-            <p class="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-400" id="total-tasks">
-                {{ $summary['total_tasks'] ?? 0 }}
-            </p>
+    {{-- Executive Summary Cards --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {{-- On Track --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">On Track</p>
+                    <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="on-track-count">
+                        {{ $executiveSummary['on_track'] }}
+                    </p>
+                    @if ($executiveSummary['trends']['on_track'] != 0)
+                        <p
+                            class="text-xs mt-2 {{ $executiveSummary['trends']['on_track'] > 0 ? 'text-green-600' : 'text-red-600' }}">
+                            {{ $executiveSummary['trends']['on_track'] > 0 ? '↑' : '↓' }}
+                            {{ abs($executiveSummary['trends']['on_track']) }} from last week
+                        </p>
+                    @endif
+                </div>
+                <div class="p-3 bg-green-100 dark:bg-green-900 rounded-full">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
-            <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200">
-                {{ trans('global.analytics.task.fields.completed_task') }}
-            </h3>
-            <p class="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-400" id="completed-tasks">
-                {{ $summary['completed_tasks'] ?? 0 }}
-            </p>
+
+        {{-- At Risk --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">At Risk</p>
+                    <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="at-risk-count">
+                        {{ $executiveSummary['at_risk'] }}
+                    </p>
+                    @if ($executiveSummary['trends']['at_risk'] != 0)
+                        <p
+                            class="text-xs mt-2 {{ $executiveSummary['trends']['at_risk'] > 0 ? 'text-red-600' : 'text-green-600' }}">
+                            {{ $executiveSummary['trends']['at_risk'] > 0 ? '↑' : '↓' }}
+                            {{ abs($executiveSummary['trends']['at_risk']) }} from last week
+                        </p>
+                    @endif
+                </div>
+                <div class="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-full">
+                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-300" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+            </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
-            <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200">
-                {{ trans('global.analytics.task.fields.overdue_task') }}
-            </h3>
-            <p class="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-400" id="overdue-tasks">
-                {{ $summary['overdue_tasks'] ?? 0 }}
-            </p>
+
+        {{-- Delayed --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Delayed</p>
+                    <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="delayed-count">
+                        {{ $executiveSummary['delayed'] }}
+                    </p>
+                    @if ($executiveSummary['trends']['delayed'] != 0)
+                        <p
+                            class="text-xs mt-2 {{ $executiveSummary['trends']['delayed'] > 0 ? 'text-red-600' : 'text-green-600' }}">
+                            {{ $executiveSummary['trends']['delayed'] > 0 ? '↑' : '↓' }}
+                            {{ abs($executiveSummary['trends']['delayed']) }} from last week
+                        </p>
+                    @endif
+                </div>
+                <div class="p-3 bg-red-100 dark:bg-red-900 rounded-full">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-300" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
-            <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200">
-                {{ trans('global.analytics.task.fields.avg_progress') }}
-            </h3>
-            <p class="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-400" id="average-progress">
-                {{ $summary['average_progress'] ?? 0 }}%
-            </p>
+
+        {{-- Completed --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Completed</p>
+                    <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="completed-count">
+                        {{ $executiveSummary['completed'] }}
+                    </p>
+                    @if ($executiveSummary['trends']['completed'] > 0)
+                        <p class="text-xs mt-2 text-blue-600">
+                            ↑ {{ $executiveSummary['trends']['completed'] }} this week
+                        </p>
+                    @endif
+                </div>
+                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
         </div>
     </div>
 
-    {{-- Charts and Task Table Layout --}}
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6 px-4 sm:px-6 lg:px-8">
-        <!-- Charts (col-lg-1) -->
+    {{-- Two Column Layout --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {{-- SECTION 2: Directorate Performance (2/3 width) --}}
+        <div class="lg:col-span-2">
+            <div
+                class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 h-full">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                        Directorate Performance
+                    </h3>
+                    <span class="text-sm text-gray-500">Ranked by Progress</span>
+                </div>
+                <div class="p-6 space-y-4 max-h-[500px] overflow-y-auto">
+                    @forelse($directoratePerformance as $dir)
+                        <div
+                            class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-800 dark:text-gray-100">{{ $dir['title'] }}</h4>
+                                    <div class="flex gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                        <span>Active: {{ $dir['total_tasks'] - $dir['completed_count'] }}</span>
+                                        <span>Completed: {{ $dir['completed_count'] }}</span>
+                                        <span>Avg: {{ $dir['avg_progress'] }}%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold text-white"
+                                        style="background-color: {{ $dir['health_color'] }}">
+                                        {{ $dir['health_status'] }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {{-- Progress Bar --}}
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                                <div class="h-2 rounded-full transition-all duration-500"
+                                    style="width: {{ $dir['avg_progress'] }}%; background-color: {{ $dir['health_color'] }}">
+                                </div>
+                            </div>
+
+                            {{-- Alert Message --}}
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                                {{ $dir['alert_message'] }}
+                            </p>
+                        </div>
+                    @empty
+                        <p class="text-center text-gray-500 py-8">No directorate data available</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        {{-- SECTION 6: Alerts & Action Items (1/3 width) --}}
         <div class="lg:col-span-1">
-            <div class="space-y-6">
-                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-                    <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
-                        {{ trans('global.analytics.task.fields.task_status_distribution') }}
+            <div
+                class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 h-full">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                        Requires Attention
                     </h3>
-                    <div class="relative w-full max-w-[160px] sm:max-w-[200px] lg:max-w-[240px] aspect-square mx-auto">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <div class="text-center">
-                                <p class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white"
-                                    id="statusPercentage">
-                                    {{ round(array_sum($charts['status']['data'] ?? []) ? (($charts['status']['data'][0] ?? 0) / array_sum($charts['status']['data'] ?? [])) * 100 : 0) }}%
-                                </p>
-                                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400" id="statusMainLabel">
-                                    {{ $charts['status']['labels'][0] ?? 'Main Status' }}
-                                </p>
-                            </div>
-                        </div>
-                        <canvas id="statusChart" class="w-full h-full"></canvas>
-                    </div>
-                    <div class="flex flex-wrap justify-around text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-4 gap-2"
-                        id="statusLegend">
-                        @foreach ($charts['status']['labels'] ?? [] as $index => $label)
-                            <div class="text-center mx-1 flex items-center">
-                                <div class="w-3 h-3 rounded-full inline-block mr-2"
-                                    style="background-color: {{ $charts['status']['colors'][$index] ?? '#6B7280' }}">
-                                </div>
-                                <span>{{ $label }}</span>
-                            </div>
-                        @endforeach
-                    </div>
                 </div>
-                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-                    <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
-                        {{ trans('global.analytics.task.fields.task_priority_distribution') }}
-                    </h3>
-                    <div class="relative w-full max-w-[160px] sm:max-w-[200px] lg:max-w-[240px] aspect-square mx-auto">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <div class="text-center">
-                                <p class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white"
-                                    id="priorityPercentage">
-                                    {{ round(array_sum($charts['priority']['data'] ?? []) ? (($charts['priority']['data'][0] ?? 0) / array_sum($charts['priority']['data'] ?? [])) * 100 : 0) }}%
-                                </p>
-                                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400" id="priorityMainLabel">
-                                    {{ $charts['priority']['labels'][0] ?? 'Main Priority' }}
-                                </p>
-                            </div>
-                        </div>
-                        <canvas id="priorityChart" class="w-full h-full"></canvas>
-                    </div>
-                    <div class="flex flex-wrap justify-around text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-4 gap-2"
-                        id="priorityLegend">
-                        @foreach ($charts['priority']['labels'] ?? [] as $index => $label)
-                            <div class="text-center mx-1 flex items-center">
-                                <div class="w-3 h-3 rounded-full inline-block mr-2"
-                                    style="background-color: {{ $charts['priority']['colors'][$index] ?? '#6B7280' }}">
-                                </div>
-                                <span>{{ $label }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Task Table (col-lg-3) -->
-        <div class="lg:col-span-3">
-            <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 dark:text-gray-200">
-                        {{ trans('global.analytics.task.fields.task_details') }}
-                    </h3>
-                    <a href="{{ route('admin.tasks.analytics.export') }}"
-                        class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-sm sm:text-base transition-colors">
-                        Export to CSV
-                    </a>
-                </div>
-                <!-- Horizontally scrollable table container -->
-                <div
-                    class="overflow-x-auto overflow-y-auto max-h-[500px] lg:max-h-[600px] scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
-                    <table class="min-w-[1000px] w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
-                            <tr>
-                                <th
-                                    class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ trans('global.task.fields.title') }}
-                                </th>
-                                <th
-                                    class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ trans('global.task.fields.entity') }}
-                                </th>
-                                <th
-                                    class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ trans('global.task.fields.status_id') }}
-                                </th>
-                                <th
-                                    class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ trans('global.task.fields.priority_id') }}
-                                </th>
-                                <th
-                                    class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ trans('global.task.fields.due_date') }}
-                                </th>
-                                <th
-                                    class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ trans('global.task.fields.user_id') }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
-                            id="taskTableBody">
-                            @if (isset($tableData) && is_array($tableData) && count($tableData) > 0)
-                                @foreach ($tableData as $row)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                        <td
-                                            class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px] sm:max-w-[200px]">
-                                            {{ $row['title'] ?? 'N/A' }}
-                                        </td>
-                                        <td
-                                            class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                            <span
-                                                class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-gray-200 text-black dark:bg-gray-700 dark:text-white text-xs">
-                                                {{ $row['entity'] ?? 'N/A' }}
-                                            </span>
-                                        </td>
-                                        <td
-                                            class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                            <span
-                                                class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs"
-                                                style="background-color: {{ $row['status']['color'] ?? 'gray' }}">{{ $row['status']['title'] ?? 'N/A' }}</span>
-                                        </td>
-                                        <td
-                                            class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                            <span
-                                                class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs"
-                                                style="background-color: {{ $row['priority']['color'] ?? 'gray' }}">{{ $row['priority']['title'] ?? 'N/A' }}</span>
-                                        </td>
-                                        <td
-                                            class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                            {{ $row['due_date'] ?? 'N/A' }}
-                                        </td>
-                                        <td
-                                            class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                            <div class="flex flex-wrap gap-2">
-                                                @if (isset($row['users']) && is_array($row['users']) && count($row['users']) > 0)
-                                                    @foreach ($row['users'] as $user)
-                                                        <span
-                                                            class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-gray-200 text-black dark:bg-gray-700 dark:text-white text-xs">
-                                                            {{ $user['initials'] ?? 'N/A' }}
-                                                        </span>
-                                                    @endforeach
-                                                @else
-                                                    <span class="text-gray-500 dark:text-gray-400 text-xs">No
-                                                        Users</span>
-                                                @endif
-                                            </div>
-                                        </td>
-                                    </tr>
+                <div class="p-6 space-y-4 max-h-[500px] overflow-y-auto">
+                    {{-- Critical Alerts --}}
+                    @if (count($alerts['critical']) > 0)
+                        <div>
+                            <h4
+                                class="text-sm font-semibold text-red-600 dark:text-red-400 mb-2 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-red-600 rounded-full"></span>
+                                CRITICAL ({{ count($alerts['critical']) }})
+                            </h4>
+                            <div class="space-y-2">
+                                @foreach ($alerts['critical'] as $alert)
+                                    <div
+                                        class="p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded text-sm">
+                                        <p class="font-medium text-gray-800 dark:text-gray-200">
+                                            {{ $alert['message'] }}</p>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                            {{ $alert['directorate'] }}</p>
+                                    </div>
                                 @endforeach
-                            @else
-                                <tr>
-                                    <td colspan="6"
-                                        class="px-4 sm:px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-300">
-                                        No tasks available
-                                    </td>
-                                </tr>
-                            @endif
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-4" id="pagination">
-                    @if (isset($tasks))
-                        {{ $tasks->links() }}
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Warning Alerts --}}
+                    @if (count($alerts['warning']) > 0)
+                        <div>
+                            <h4
+                                class="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-2 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-yellow-600 rounded-full"></span>
+                                WARNING ({{ count($alerts['warning']) }})
+                            </h4>
+                            <div class="space-y-2">
+                                @foreach ($alerts['warning'] as $alert)
+                                    <div
+                                        class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 rounded text-sm">
+                                        <p class="font-medium text-gray-800 dark:text-gray-200">
+                                            {{ $alert['message'] }}</p>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                            {{ $alert['directorate'] }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Notable Items --}}
+                    @if (count($alerts['notable']) > 0)
+                        <div>
+                            <h4
+                                class="text-sm font-semibold text-green-600 dark:text-green-400 mb-2 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-600 rounded-full"></span>
+                                NOTABLE ({{ count($alerts['notable']) }})
+                            </h4>
+                            <div class="space-y-2">
+                                @foreach ($alerts['notable'] as $alert)
+                                    <div
+                                        class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded text-sm">
+                                        <p class="font-medium text-gray-800 dark:text-gray-200">
+                                            {{ $alert['message'] }}</p>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                            {{ $alert['directorate'] }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    @if (count($alerts['critical']) == 0 && count($alerts['warning']) == 0 && count($alerts['notable']) == 0)
+                        <p class="text-center text-gray-500 py-8">All tasks are on track! 🎉</p>
                     @endif
                 </div>
             </div>
         </div>
     </div>
 
-    @push('styles')
-        <style>
-            /* Custom scrollbar styling for better visibility */
-            .scrollbar-thin {
-                scrollbar-width: thin;
-                scrollbar-color: #9CA3AF #F3F4F6;
+    {{-- Continue to Part 2... --}}
+    {{-- SECTION 3: Project Risk Matrix & SECTION 4: Trend Analysis --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {{-- Project Risk Matrix --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Project Risk Matrix
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">Priority vs Performance</p>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-4">
+                    {{-- Critical Quadrant --}}
+                    <div class="border-2 border-red-300 rounded-lg p-4 bg-red-50 dark:bg-red-900/10">
+                        <h4 class="text-sm font-semibold text-red-700 dark:text-red-400 mb-3">
+                            🔴 CRITICAL
+                        </h4>
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            @forelse($projectRisk['critical'] as $project)
+                                <div class="text-xs bg-white dark:bg-gray-800 p-2 rounded">
+                                    <p class="font-medium">{{ Str::limit($project['title'], 30) }}</p>
+                                    <p class="text-gray-600 dark:text-gray-400">{{ $project['progress'] }}%</p>
+                                </div>
+                            @empty
+                                <p class="text-xs text-gray-500">None</p>
+                            @endforelse
+                        </div>
+                    </div>
+
+                    {{-- Good Quadrant --}}
+                    <div class="border-2 border-green-300 rounded-lg p-4 bg-green-50 dark:bg-green-900/10">
+                        <h4 class="text-sm font-semibold text-green-700 dark:text-green-400 mb-3">
+                            🟢 GOOD
+                        </h4>
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            @forelse($projectRisk['good'] as $project)
+                                <div class="text-xs bg-white dark:bg-gray-800 p-2 rounded">
+                                    <p class="font-medium">{{ Str::limit($project['title'], 30) }}</p>
+                                    <p class="text-gray-600 dark:text-gray-400">{{ $project['progress'] }}%</p>
+                                </div>
+                            @empty
+                                <p class="text-xs text-gray-500">None</p>
+                            @endforelse
+                        </div>
+                    </div>
+
+                    {{-- Watch Quadrant --}}
+                    <div class="border-2 border-yellow-300 rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/10">
+                        <h4 class="text-sm font-semibold text-yellow-700 dark:text-yellow-400 mb-3">
+                            🟡 WATCH
+                        </h4>
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            @forelse($projectRisk['watch'] as $project)
+                                <div class="text-xs bg-white dark:bg-gray-800 p-2 rounded">
+                                    <p class="font-medium">{{ Str::limit($project['title'], 30) }}</p>
+                                    <p class="text-gray-600 dark:text-gray-400">{{ $project['progress'] }}%</p>
+                                </div>
+                            @empty
+                                <p class="text-xs text-gray-500">None</p>
+                            @endforelse
+                        </div>
+                    </div>
+
+                    {{-- OK Quadrant --}}
+                    <div class="border-2 border-gray-300 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/10">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-400 mb-3">
+                            ⚪ OK
+                        </h4>
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            @forelse($projectRisk['ok'] as $project)
+                                <div class="text-xs bg-white dark:bg-gray-800 p-2 rounded">
+                                    <p class="font-medium">{{ Str::limit($project['title'], 30) }}</p>
+                                    <p class="text-gray-600 dark:text-gray-400">{{ $project['progress'] }}%</p>
+                                </div>
+                            @empty
+                                <p class="text-xs text-gray-500">None</p>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Trend Analysis --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Completion Trend
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">Last 6 Months</p>
+            </div>
+            <div class="p-6">
+                <canvas id="trendChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {{-- SECTION 5: Distribution Data --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {{-- Priority Distribution --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    By Priority
+                </h3>
+            </div>
+            <div class="p-6">
+                <canvas id="priorityChart" height="200"></canvas>
+            </div>
+        </div>
+
+        {{-- Status Distribution --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    By Status
+                </h3>
+            </div>
+            <div class="p-6">
+                <canvas id="statusChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {{-- SECTION 7: Team Performance --}}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                Team Performance
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {{-- Top Performers --}}
+                <div>
+                    <h4 class="text-sm font-semibold text-green-600 dark:text-green-400 mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 13l4 4L19 7" />
+                        </svg>
+                        TOP PERFORMERS
+                    </h4>
+                    <div class="space-y-3">
+                        @forelse($teamPerformance['top_performers'] as $member)
+                            <div
+                                class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-800 dark:text-gray-100">{{ $member['name'] }}
+                                    </p>
+                                    <div class="flex gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                        <span>{{ $member['task_count'] }} tasks</span>
+                                        <span>{{ $member['avg_progress'] }}% avg</span>
+                                        <span class="text-green-600">0 overdue</span>
+                                    </div>
+                                </div>
+                                <div class="text-2xl">⭐</div>
+                            </div>
+                        @empty
+                            <p class="text-gray-500 text-sm">No data available</p>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- Needs Support --}}
+                <div>
+                    <h4
+                        class="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        NEEDS SUPPORT
+                    </h4>
+                    <div class="space-y-3">
+                        @forelse($teamPerformance['needs_support'] as $member)
+                            <div
+                                class="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-800 dark:text-gray-100">{{ $member['name'] }}
+                                    </p>
+                                    <div class="flex gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                        <span>{{ $member['task_count'] }} tasks</span>
+                                        <span>{{ $member['avg_progress'] }}% avg</span>
+                                        <span class="text-red-600">{{ $member['overdue_count'] }} overdue</span>
+                                    </div>
+                                </div>
+                                <div class="text-xs bg-yellow-500 text-white px-2 py-1 rounded">
+                                    Action Needed
+                                </div>
+                            </div>
+                        @empty
+                            <p class="text-gray-500 text-sm">Everyone is doing great! 🎉</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- SECTION 8: Detailed Task List (Expandable) --}}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <button id="toggle-details" class="w-full flex items-center justify-between text-left">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                        Detailed Task List
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">Click to expand and view all tasks</p>
+                </div>
+                <svg id="toggle-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+        </div>
+
+        <div id="details-section" class="hidden">
+            {{-- Filters --}}
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</h4>
+                    <div class="filter-loading-spinner" id="filter-spinner"></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    @php $roleIds = auth()->user()->roles->pluck('id')->toArray(); @endphp
+
+                    @if (in_array(\App\Models\Role::SUPERADMIN, $roleIds) || in_array(\App\Models\Role::ADMIN, $roleIds))
+                        <div>
+                            <label
+                                class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Directorate</label>
+                            <select id="directorate_id"
+                                class="filter-select w-full p-2 text-sm border-gray-300 rounded-lg dark:bg-gray-700 dark:text-gray-200">
+                                <option value="">All</option>
+                                @foreach ($filterOptions['directorates'] as $d)
+                                    <option value="{{ $d->id }}">{{ $d->title }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Project</label>
+                        <select id="project_id"
+                            class="filter-select w-full p-2 text-sm border-gray-300 rounded-lg dark:bg-gray-700 dark:text-gray-200">
+                            <option value="">All</option>
+                            @foreach ($filterOptions['projects'] as $p)
+                                <option value="{{ $p->id }}"
+                                    data-directorate-id="{{ $p->directorate_id ?? '' }}">
+                                    {{ $p->title }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+                        <select id="status_id"
+                            class="filter-select w-full p-2 text-sm border-gray-300 rounded-lg dark:bg-gray-700 dark:text-gray-200">
+                            <option value="">All</option>
+                            @foreach ($lookupData['statuses'] as $s)
+                                <option value="{{ $s->id }}">{{ $s->title }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Priority</label>
+                        <select id="priority_id"
+                            class="filter-select w-full p-2 text-sm border-gray-300 rounded-lg dark:bg-gray-700 dark:text-gray-200">
+                            <option value="">All</option>
+                            @foreach ($lookupData['priorities'] as $pr)
+                                <option value="{{ $pr->id }}">{{ $pr->title }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Task Table --}}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-900">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entity</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignees</th>
+                        </tr>
+                    </thead>
+                    <tbody id="taskTableBody"
+                        class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        @forelse($detailedTasks['tableData'] as $row)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <td class="px-6 py-4 text-sm">
+                                    <div class="max-w-xs truncate" title="{{ $row['title'] }}">{{ $row['title'] }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span
+                                        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">{{ $row['entity'] }}</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="px-2 py-1 rounded text-xs text-white"
+                                        style="background-color: {{ $row['status']['color'] }}">
+                                        {{ $row['status']['title'] }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="px-2 py-1 rounded text-xs text-white"
+                                        style="background-color: {{ $row['priority']['color'] }}">
+                                        {{ $row['priority']['title'] }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-16 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-600 h-2 rounded-full"
+                                                style="width: {{ $row['progress'] }}%"></div>
+                                        </div>
+                                        <span class="text-xs">{{ $row['progress'] }}%</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm whitespace-nowrap">{{ $row['due_date'] }}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <div class="flex gap-1">
+                                        @foreach ($row['users'] as $u)
+                                            <span
+                                                class="w-7 h-7 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs flex items-center justify-center font-bold"
+                                                title="{{ $u['name'] }}">
+                                                {{ $u['initials'] }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">No tasks found</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Pagination --}}
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:border-gray-900"
+                id="pagination-container">
+                {!! $detailedTasks['tasks']->links() !!}
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .filter-select {
+            transition: opacity 0.2s ease;
+        }
+
+        .filter-select.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        #taskTableBody {
+            transition: opacity 0.2s ease;
+        }
+
+        #taskTableBody.updating {
+            opacity: 0.6;
+        }
+
+        .filter-loading-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #E5E7EB;
+            border-top-color: #3B82F6;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .filter-loading-spinner.active {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
             }
-
-            .scrollbar-thin::-webkit-scrollbar {
-                height: 8px;
-                width: 8px;
-            }
-
-            .scrollbar-thin::-webkit-scrollbar-thumb {
-                background-color: #9CA3AF;
-                border-radius: 4px;
-            }
-
-            .scrollbar-thin::-webkit-scrollbar-track {
-                background-color: #F3F4F6;
-            }
-
-            .dark .scrollbar-thin {
-                scrollbar-color: #4B5563 #1F2937;
-            }
-
-            .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-                background-color: #4B5563;
-            }
-
-            .dark .scrollbar-thin::-webkit-scrollbar-track {
-                background-color: #1F2937;
-            }
-
-            /* Ensure table cells don't wrap unnecessarily */
-            table {
-                table-layout: auto;
-            }
-
-            td,
-            th {
-                min-width: 120px;
-                /* Ensure columns have a minimum width to force scrolling */
-            }
-
-            /* Adjust for smaller screens */
-            @media (max-width: 640px) {
-
-                td,
-                th {
-                    min-width: 100px;
-                    font-size: 0.75rem;
-                    /* Smaller text on mobile */
-                }
-
-                .max-w-[150px] {
-                    max-w: 120px;
-                }
-            }
-        </style>
-    @endpush
+        }
+    </style>
 
     @push('scripts')
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
-            // Store initial data globally
-            try {
-                window.initialData = @json($data ?? null);
-                console.log('Initial Data:', window.initialData);
-                if (window.initialData?.tableData) {
-                    console.log('Table Data Users:', window.initialData.tableData.map(row => row.users));
-                }
-            } catch (e) {
-                console.error('Error parsing initial data:', e);
-                window.initialData = null;
-            }
+            (() => {
+                'use strict';
 
-            let statusChartInstance = null;
-            let priorityChartInstance = null;
-
-            // Function to render pagination links
-            function renderPagination(links) {
-                if (!Array.isArray(links) || links.length === 0) {
-                    return '<span class="text-gray-500 dark:text-gray-400 text-sm">No pagination available</span>';
-                }
-
-                // Create Bootstrap-compatible pagination HTML
-                let html = '<nav aria-label="Page navigation"><ul class="pagination flex flex-wrap justify-center">';
-                links.forEach(link => {
-                    if (link.url === null) {
-                        html +=
-                            `<li class="page-item disabled"><span class="page-link px-3 py-2 mx-1 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">${link.label}</span></li>`;
-                    } else {
-                        html +=
-                            `<li class="page-item${link.active ? ' active' : ''}"><a class="page-link px-3 py-2 mx-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded" href="${link.url}">${link.label}</a></li>`;
+                // ============================================
+                // STATE
+                // ============================================
+                const State = {
+                    isLoading: false,
+                    charts: {
+                        trend: null,
+                        priority: null,
+                        status: null
                     }
-                });
-                html += '</ul></nav>';
-                return html;
-            }
+                };
 
-            function updateChartsAndTable(data) {
-                try {
-                    console.log('updateChartsAndTable called with:', data);
-
-                    // Update summary with fallbacks
-                    document.getElementById('total-tasks').textContent = data?.summary?.total_tasks ?? 0;
-                    document.getElementById('completed-tasks').textContent = data?.summary?.completed_tasks ?? 0;
-                    document.getElementById('overdue-tasks').textContent = data?.summary?.overdue_tasks ?? 0;
-                    document.getElementById('average-progress').textContent = (data?.summary?.average_progress ?? 0) + '%';
-
-                    // Prepare chart data with fallbacks
-                    const statusData = Array.isArray(data?.charts?.status?.data) ? data.charts.status.data : [0];
-                    const statusLabels = Array.isArray(data?.charts?.status?.labels) ? data.charts.status.labels : ['No Data'];
-                    const statusColors = Array.isArray(data?.charts?.status?.colors) ? data.charts.status.colors : ['#6B7280'];
-                    const priorityData = Array.isArray(data?.charts?.priority?.data) ? data.charts.priority.data : [0];
-                    const priorityLabels = Array.isArray(data?.charts?.priority?.labels) ? data.charts.priority.labels : [
-                        'No Data'
-                    ];
-                    const priorityColors = Array.isArray(data?.charts?.priority?.colors) ? data.charts.priority.colors : [
-                        '#6B7280'
-                    ];
-
-                    console.log('Status Chart Data:', {
-                        labels: statusLabels,
-                        data: statusData,
-                        colors: statusColors
-                    });
-                    console.log('Priority Chart Data:', {
-                        labels: priorityLabels,
-                        data: priorityData,
-                        colors: priorityColors
-                    });
-
-                    // Update status chart
-                    const statusCtx = document.getElementById('statusChart')?.getContext('2d');
-                    if (!statusCtx) {
-                        console.error('Status chart canvas not found');
-                    } else {
-                        if (statusChartInstance) statusChartInstance.destroy();
-                        statusChartInstance = new Chart(statusCtx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: statusLabels.length ? statusLabels : ['No Data'],
-                                datasets: [{
-                                    data: statusData.length ? statusData : [1],
-                                    backgroundColor: statusColors.length ? statusColors : ['#6B7280'],
-                                    borderWidth: 0,
-                                }],
-                            },
-                            options: {
-                                cutout: '70%',
-                                plugins: {
-                                    legend: {
-                                        display: false
-                                    },
-                                    tooltip: {
-                                        enabled: true
-                                    }
+                // ============================================
+                // INITIALIZE CHARTS
+                // ============================================
+                function initCharts() {
+                    // Trend Chart
+                    const trendCtx = document.getElementById('trendChart').getContext('2d');
+                    State.charts.trend = new Chart(trendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: @json($trendData['labels']),
+                            datasets: [{
+                                    label: 'Completed',
+                                    data: @json($trendData['completed']),
+                                    borderColor: '#10B981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
                                 },
-                                maintainAspectRatio: true,
-                                responsive: true,
+                                {
+                                    label: 'Created',
+                                    data: @json($trendData['created']),
+                                    borderColor: '#3B82F6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+
+                    // Priority Chart
+                    const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+                    const priorityData = @json($distributionData['priority']);
+                    State.charts.priority = new Chart(priorityCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: priorityData.map(d => d.label),
+                            datasets: [{
+                                data: priorityData.map(d => d.count),
+                                backgroundColor: priorityData.map(d => d.color)
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+
+                    // Status Chart
+                    const statusCtx = document.getElementById('statusChart').getContext('2d');
+                    const statusData = @json($distributionData['status']);
+                    State.charts.status = new Chart(statusCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: statusData.map(d => d.label),
+                            datasets: [{
+                                data: statusData.map(d => d.count),
+                                backgroundColor: statusData.map(d => d.color)
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // ============================================
+                // EXPANDABLE SECTION
+                // ============================================
+                function initToggleDetails() {
+                    const toggleBtn = document.getElementById('toggle-details');
+                    const detailsSection = document.getElementById('details-section');
+                    const toggleIcon = document.getElementById('toggle-icon');
+
+                    toggleBtn?.addEventListener('click', () => {
+                        const isHidden = detailsSection.classList.contains('hidden');
+
+                        if (isHidden) {
+                            detailsSection.classList.remove('hidden');
+                            toggleIcon.style.transform = 'rotate(180deg)';
+                        } else {
+                            detailsSection.classList.add('hidden');
+                            toggleIcon.style.transform = 'rotate(0deg)';
+                        }
+                    });
+                }
+
+                // ============================================
+                // FILTERS
+                // ============================================
+                function initFilters() {
+                    const filterSelects = document.querySelectorAll('.filter-select');
+                    const spinner = document.getElementById('filter-spinner');
+                    let filterTimeout;
+
+                    filterSelects.forEach(select => {
+                        select.addEventListener('change', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            // Handle cascading filters
+                            if (select.id === 'directorate_id') {
+                                handleDirectorateChange();
+                            }
+
+                            // Debounce
+                            clearTimeout(filterTimeout);
+                            filterTimeout = setTimeout(() => {
+                                applyFilters();
+                            }, 150);
+                        });
+                    });
+
+                    function handleDirectorateChange() {
+                        const directorateId = document.getElementById('directorate_id')?.value;
+                        const projectSelect = document.getElementById('project_id');
+
+                        if (!projectSelect) return;
+
+                        projectSelect.value = '';
+
+                        Array.from(projectSelect.options).forEach(option => {
+                            if (!option.value) return;
+
+                            const projectDirectorateId = option.getAttribute('data-directorate-id');
+                            if (directorateId && projectDirectorateId !== directorateId) {
+                                option.style.display = 'none';
+                            } else {
+                                option.style.display = '';
                             }
                         });
                     }
 
-                    // Update status legend
-                    const statusLegend = document.getElementById('statusLegend');
-                    statusLegend.innerHTML = statusLabels.length ? statusLabels.map((label, index) => `
-                        <div class="text-center mx-1 flex items-center">
-                            <div class="w-3 h-3 rounded-full inline-block mr-2" style="background-color: ${statusColors[index] || '#6B7280'}"></div>
-                            <span>${label || 'Unknown'}</span>
-                        </div>
-                    `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-xs">No status data</span>';
+                    async function applyFilters() {
+                        if (State.isLoading) return;
+                        State.isLoading = true;
 
-                    // Update status percentage
-                    const statusPercentage = document.getElementById('statusPercentage');
-                    const statusMainLabel = document.getElementById('statusMainLabel');
-                    const statusTotal = statusData.reduce((a, b) => a + b, 0);
-                    statusPercentage.textContent = statusTotal ? Math.round((statusData[0] || 0) / statusTotal * 100) + '%' :
-                        '0%';
-                    statusMainLabel.textContent = statusLabels[0] || 'No Status';
-
-                    // Update priority chart
-                    const priorityCtx = document.getElementById('priorityChart')?.getContext('2d');
-                    if (!priorityCtx) {
-                        console.error('Priority chart canvas not found');
-                    } else {
-                        if (priorityChartInstance) priorityChartInstance.destroy();
-                        priorityChartInstance = new Chart(priorityCtx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: priorityLabels.length ? priorityLabels : ['No Data'],
-                                datasets: [{
-                                    data: priorityData.length ? priorityData : [1],
-                                    backgroundColor: priorityColors.length ? priorityColors : ['#6B7280'],
-                                    borderWidth: 0,
-                                }],
-                            },
-                            options: {
-                                cutout: '70%',
-                                plugins: {
-                                    legend: {
-                                        display: false
-                                    },
-                                    tooltip: {
-                                        enabled: true
-                                    }
-                                },
-                                maintainAspectRatio: true,
-                                responsive: true,
-                            }
+                        // Show loading
+                        spinner?.classList.add('active');
+                        filterSelects.forEach(s => {
+                            s.classList.add('loading');
+                            s.disabled = true;
                         });
+                        document.getElementById('taskTableBody')?.classList.add('updating');
+
+                        try {
+                            const url = buildFilterURL();
+                            window.history.replaceState({}, '', url.toString());
+
+                            const response = await fetch(url.toString(), {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json'
+                                }
+                            });
+
+                            if (!response.ok) throw new Error('Failed to fetch');
+
+                            const data = await response.json();
+
+                            // Update all sections
+                            updateExecutiveSummary(data.executiveSummary);
+                            updateDirectoratePerformance(data.directoratePerformance);
+                            updateAlerts(data.alerts);
+                            updateCharts(data);
+                            updateTaskTable(data.detailedTasks.tableData);
+                            updatePagination(data.detailedTasks.tasks.links_html);
+
+                        } catch (error) {
+                            console.error('Filter Error:', error);
+                        } finally {
+                            State.isLoading = false;
+                            spinner?.classList.remove('active');
+                            setTimeout(() => {
+                                filterSelects.forEach(s => {
+                                    s.classList.remove('loading');
+                                    s.disabled = false;
+                                });
+                                document.getElementById('taskTableBody')?.classList.remove('updating');
+                            }, 100);
+                        }
                     }
 
-                    // Update priority legend
-                    const priorityLegend = document.getElementById('priorityLegend');
-                    priorityLegend.innerHTML = priorityLabels.length ? priorityLabels.map((label, index) => `
-                        <div class="text-center mx-1 flex items-center">
-                            <div class="w-3 h-3 rounded-full inline-block mr-2" style="background-color: ${priorityColors[index] || '#6B7280'}"></div>
-                            <span>${label || 'Unknown'}</span>
-                        </div>
-                    `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-xs">No priority data</span>';
+                    function buildFilterURL() {
+                        const url = new URL(window.location.href);
+                        ['directorate_id', 'project_id', 'status_id', 'priority_id'].forEach(id => {
+                            url.searchParams.delete(id);
+                        });
 
-                    // Update priority percentage
-                    const priorityPercentage = document.getElementById('priorityPercentage');
-                    const priorityMainLabel = document.getElementById('priorityMainLabel');
-                    const priorityTotal = priorityData.reduce((a, b) => a + b, 0);
-                    priorityPercentage.textContent = priorityTotal ? Math.round((priorityData[0] || 0) / priorityTotal * 100) +
-                        '%' : '0%';
-                    priorityMainLabel.textContent = priorityLabels[0] || 'No Priority';
+                        ['directorate_id', 'project_id', 'status_id', 'priority_id'].forEach(id => {
+                            const value = document.getElementById(id)?.value;
+                            if (value) url.searchParams.set(id, value);
+                        });
 
-                    // Update table
-                    const taskTableBody = document.getElementById('taskTableBody');
-                    taskTableBody.innerHTML = (data?.tableData?.length ?? 0) ? data.tableData.map(row => {
-                        const users = Array.isArray(row.users) ? row.users : [];
-                        return `
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px] sm:max-w-[200px]">${row.title || 'N/A'}</td>
-                            <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-gray-200 text-black dark:bg-gray-700 dark:text-white text-xs">${row.entity || 'N/A'}</span>
-                            </td>
-                            <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs" style="background-color: ${row.status?.color || 'gray'}">${row.status?.title || 'N/A'}</span>
-                            </td>
-                            <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs" style="background-color: ${row.priority?.color || 'gray'}">${row.priority?.title || 'N/A'}</span>
-                            </td>
-                            <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">${row.due_date || 'N/A'}</td>
-                            <td class="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                                <div class="flex flex-wrap gap-2">
-                                    ${users.length ? users.map(user => `
-                                                                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-gray-200 text-black dark:bg-gray-700 dark:text-white text-xs">${user.initials || 'N/A'}</span>
-                                                            `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-xs">No Users</span>'}
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                    }).join('') : `
-                        <tr>
-                            <td colspan="6" class="px-4 sm:px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-300">
-                                No tasks available
-                            </td>
-                        </tr>
-                    `;
-
-                    // Update pagination
-                    const pagination = document.getElementById('pagination');
-                    pagination.innerHTML = renderPagination(data?.tasks?.links || []);
-                } catch (error) {
-                    console.error('Error in updateChartsAndTable:', error);
-                    console.warn('Preserving existing table content due to error');
-                }
-            }
-
-            document.addEventListener('DOMContentLoaded', function() {
-                if (typeof Chart === 'undefined') {
-                    console.error('Chart.js not loaded');
-                    document.getElementById('statusLegend').innerHTML =
-                        '<span class="text-gray-500 dark:text-gray-400 text-xs">Chart.js failed to load</span>';
-                    document.getElementById('priorityLegend').innerHTML =
-                        '<span class="text-gray-500 dark:text-gray-400 text-xs">Chart.js failed to load</span>';
-                    return;
+                        url.searchParams.delete('page');
+                        return url;
+                    }
                 }
 
-                // Initialize charts and table
-                if (window.initialData && window.initialData.summary && window.initialData.charts && window.initialData
-                    .tableData) {
-                    console.log('Initializing with data:', window.initialData);
-                    updateChartsAndTable(window.initialData);
-                } else {
-                    console.error('Initial data invalid or incomplete:', window.initialData);
-                    updateChartsAndTable({
-                        summary: {
-                            total_tasks: {{ $summary['total_tasks'] ?? 0 }},
-                            completed_tasks: {{ $summary['completed_tasks'] ?? 0 }},
-                            overdue_tasks: {{ $summary['overdue_tasks'] ?? 0 }},
-                            average_progress: {{ $summary['average_progress'] ?? 0 }}
-                        },
-                        charts: {
-                            status: {
-                                data: @json($charts['status']['data'] ?? []),
-                                labels: @json($charts['status']['labels'] ?? []),
-                                colors: @json($charts['status']['colors'] ?? [])
-                            },
-                            priority: {
-                                data: @json($charts['priority']['data'] ?? []),
-                                labels: @json($charts['priority']['labels'] ?? []),
-                                colors: @json($charts['priority']['colors'] ?? [])
-                            }
-                        },
-                        tableData: @json($tableData ?? [])
-                    });
+                // ============================================
+                // UPDATE FUNCTIONS
+                // ============================================
+                function updateExecutiveSummary(summary) {
+                    if (!summary) return;
+
+                    document.getElementById('health-score').textContent = summary.health_score + '%';
+                    document.querySelector('.health-progress-bar').style.width = summary.health_score + '%';
+
+                    animateNumber('on-track-count', summary.on_track);
+                    animateNumber('at-risk-count', summary.at_risk);
+                    animateNumber('delayed-count', summary.delayed);
+                    animateNumber('completed-count', summary.completed);
                 }
 
-                // Filter handling with AJAX
-                document.addEventListener('change', function(event) {
-                    const target = event.target;
-                    if (target.matches(
-                            'select[name="directorate_id"], select[name="project_id"], select[name="status_id"], select[name="priority_id"]'
-                        )) {
-                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute(
-                            'content');
-                        if (!csrfToken) {
-                            console.error('CSRF token not found');
-                            alert('CSRF token missing. Please refresh the page.');
-                            return;
+                function animateNumber(elementId, newValue) {
+                    const element = document.getElementById(elementId);
+                    if (!element) return;
+
+                    const current = parseInt(element.textContent) || 0;
+                    if (current === newValue) return;
+
+                    const duration = 500;
+                    const steps = 20;
+                    const increment = (newValue - current) / steps;
+                    let step = 0;
+
+                    const timer = setInterval(() => {
+                        step++;
+                        const value = Math.round(current + (increment * step));
+                        element.textContent = value;
+
+                        if (step >= steps) {
+                            element.textContent = newValue;
+                            clearInterval(timer);
+                        }
+                    }, duration / steps);
+                }
+
+                function updateDirectoratePerformance(directorates) {
+                    // Would need to rebuild the HTML - simplified for now
+                    console.log('Directorate performance updated', directorates);
+                }
+
+                function updateAlerts(alerts) {
+                    // Would need to rebuild the HTML - simplified for now
+                    console.log('Alerts updated', alerts);
+                }
+
+                function updateCharts(data) {
+                    if (data.distributionData) {
+                        // Update Priority Chart
+                        const priorityData = data.distributionData.priority;
+                        if (State.charts.priority) {
+                            State.charts.priority.data.labels = priorityData.map(d => d.label);
+                            State.charts.priority.data.datasets[0].data = priorityData.map(d => d.count);
+                            State.charts.priority.update('none');
                         }
 
-                        const directorateId = document.querySelector('select[name="directorate_id"]')?.value ||
-                            '';
-                        const projectId = document.querySelector('select[name="project_id"]')?.value || '';
-                        const statusId = document.querySelector('select[name="status_id"]')?.value || '';
-                        const priorityId = document.querySelector('select[name="priority_id"]')?.value || '';
-
-                        const url = new URL('{{ route('admin.analytics.task') }}', window.location.origin);
-                        if (directorateId) url.searchParams.set('directorate_id', directorateId);
-                        if (projectId) url.searchParams.set('project_id', projectId);
-                        if (statusId) url.searchParams.set('status_id', statusId);
-                        if (priorityId) url.searchParams.set('priority_id', priorityId);
-
-                        console.log('Filter Request URL:', url.toString());
-                        window.history.pushState({}, '', url.toString());
-
-                        fetch(url.toString(), {
-                                method: 'GET',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'X-CSRF-TOKEN': csrfToken,
-                                },
-                            })
-                            .then(response => {
-                                console.log('Filter Response Status:', response.status);
-                                if (!response.ok) {
-                                    return response.text().then(text => {
-                                        throw new Error(
-                                            `HTTP error! Status: ${response.status}, Body: ${text.substring(0, 200)}...`
-                                        );
-                                    });
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                console.log('Filter Data Loaded:', data);
-                                updateChartsAndTable(data);
-                            })
-                            .catch(error => {
-                                console.error('Filter request failed:', error);
-                                alert('Failed to apply filters: ' + error.message);
-                                console.warn('Preserving existing table content due to filter error');
-                            });
+                        // Update Status Chart
+                        const statusData = data.distributionData.status;
+                        if (State.charts.status) {
+                            State.charts.status.data.labels = statusData.map(d => d.label);
+                            State.charts.status.data.datasets[0].data = statusData.map(d => d.count);
+                            State.charts.status.update('none');
+                        }
                     }
-                }, true);
+                }
 
-                // Handle pagination clicks
-                document.getElementById('pagination').addEventListener('click', function(event) {
-                    event.preventDefault();
-                    const target = event.target.closest('.page-link');
-                    if (!target || target.parentElement.classList.contains('disabled')) return;
+                function updateTaskTable(rows) {
+                    const tbody = document.getElementById('taskTableBody');
+                    if (!tbody || !rows) return;
 
-                    const url = target.getAttribute('href');
-                    if (!url) return;
-
-                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute(
-                        'content');
-                    if (!csrfToken) {
-                        console.error('CSRF token not found');
-                        alert('CSRF token missing. Please refresh the page.');
+                    if (rows.length === 0) {
+                        tbody.innerHTML =
+                            '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">No tasks found</td></tr>';
                         return;
                     }
 
-                    fetch(url, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'X-CSRF-TOKEN': csrfToken,
-                            },
-                        })
-                        .then(response => {
-                            if (!response.ok) {
-                                return response.text().then(text => {
-                                    throw new Error(
-                                        `HTTP error! Status: ${response.status}, Body: ${text.substring(0, 200)}...`
-                                    );
-                                });
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            console.log('Pagination Data Loaded:', data);
-                            updateChartsAndTable(data);
-                            window.history.pushState({}, '', url);
-                        })
-                        .catch(error => {
-                            console.error('Pagination request failed:', error);
-                            alert('Failed to load page: ' + error.message);
-                        });
+                    tbody.innerHTML = rows.map(row => `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td class="px-6 py-4 text-sm">
+                                <div class="max-w-xs truncate" title="${row.title}">${row.title}</div>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">${row.entity}</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="px-2 py-1 rounded text-xs text-white" style="background-color: ${row.status.color}">
+                                    ${row.status.title}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="px-2 py-1 rounded text-xs text-white" style="background-color: ${row.priority.color}">
+                                    ${row.priority.title}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-16 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${row.progress}%"></div>
+                                    </div>
+                                    <span class="text-xs">${row.progress}%</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm whitespace-nowrap">${row.due_date}</td>
+                            <td class="px-6 py-4 text-sm">
+                                <div class="flex gap-1">
+                                    ${row.users.map(u => `
+                                                <span class="w-7 h-7 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs flex items-center justify-center font-bold" title="${u.name}">
+                                                    ${u.initials}
+                                                </span>
+                                            `).join('')}
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                function updatePagination(html) {
+                    const container = document.getElementById('pagination-container');
+                    if (container && html) {
+                        container.innerHTML = html;
+                    }
+                }
+
+                // ============================================
+                // INITIALIZATION
+                // ============================================
+                document.addEventListener('DOMContentLoaded', () => {
+                    initCharts();
+                    initToggleDetails();
+                    initFilters();
+                    console.log('✅ Management Analytics Dashboard initialized');
                 });
-            });
+            })();
         </script>
     @endpush
 </x-layouts.app>

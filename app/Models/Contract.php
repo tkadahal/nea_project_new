@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Support\Carbon;
 use App\Models\Builders\ModelBuilder;
+use App\Trait\RoleBasedAccess;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 class Contract extends Model
 {
     use HasFactory, SoftDeletes, LogsActivity;
+    use RoleBasedAccess;
 
     protected $fillable = [
         'directorate_id',

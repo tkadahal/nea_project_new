@@ -11,3 +11,8 @@
 [] Make task mobile responsive - task board
 [] Sidebar - Mobile Responsive (Toggle)
 [] same task for multiple project => refine task controller and view
+
+[] schedule for activities
+[] gantt chart
+[] progress in bar (physical, financial)
+[] if not schedule (file upload from premevira)

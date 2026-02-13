@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\{
     ProjectController,
     ContractController,
     ProjectActivityController,
+    ProjectActivityScheduleController,
     ProjectExpenseController,
     ContractExtensionController,
 
@@ -42,7 +43,8 @@ use App\Http\Controllers\Admin\{
     ExpenseController,
     FileController,
     ReportController,
-    NotificationController
+    NotificationController,
+    ChartController,
 };
 
 use App\Http\Controllers\Settings\{
@@ -50,6 +52,8 @@ use App\Http\Controllers\Settings\{
     PasswordController,
     AppearanceController
 };
+
+use App\Http\Controllers\Admin\Charts\ProjectChartController;
 
 
 /*
@@ -113,6 +117,17 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('permission', PermissionController::class);
         Route::resource('role', RoleController::class);
 
+        Route::prefix('analytics')->name('analytics.')->group(function () {
+
+            // Main charts dashboard (portfolio view)
+            Route::get('/project-charts', [ProjectChartController::class, 'index'])
+                ->name('project-charts');
+
+            // Single project detail view with all charts
+            Route::get('/project-charts/{project}', [ProjectChartController::class, 'show'])
+                ->name('project-charts.show');
+        });
+
         // Analytics & Summary
         Route::controller(AnalyticalDashboardController::class)->group(function () {
             Route::get('summary', 'summary')->name('summary');
@@ -143,6 +158,10 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
         Route::resource('user', UserController::class);
 
+        Route::get('/online-users', function () {
+            return view('admin.users.online-users');
+        })->name('online-users.index');
+
         // Master Data
         Route::resource('directorate', DirectorateController::class);
         Route::resource('department', DepartmentController::class);
@@ -158,16 +177,53 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::get('departments/{directorate_id}', 'getDepartments')->name('departments');
             Route::get('budget/create', 'createBudget')->name('budget.create');
             Route::get('{project}/progress/chart', 'progressChart')->name('progress.chart');
+
+            Route::get('{project}/chart', [ChartController::class, 'activityTree'])->name('chart');
+
+            /*
+            |--------------------------------------------------------------------------
+            | PROJECT ACTIVITY SCHEDULES (NEW)
+            |--------------------------------------------------------------------------
+            */
+            // Main schedule management page
+            Route::get('{project}/schedules', [ProjectActivityScheduleController::class, 'index'])
+                ->name('schedules.index');
+
+            // Schedule tree view
+            Route::get('{project}/schedules/tree', [ProjectActivityScheduleController::class, 'tree'])
+                ->name('schedules.tree');
+
+            // Progress dashboard
+            Route::get('{project}/schedules/dashboard', [ProjectActivityScheduleController::class, 'dashboard'])
+                ->name('schedules.dashboard');
+
+            // Quick update page (for leaf schedules only)
+            Route::get('{project}/schedules/quick-update', [ProjectActivityScheduleController::class, 'quickUpdate'])
+                ->name('schedules.quick-update');
+
+            // Assign schedules form
+            Route::get('{project}/schedules/assign', [ProjectActivityScheduleController::class, 'assignForm'])
+                ->name('schedules.assign-form');
+
+            // Assign schedules (POST)
+            Route::post('{project}/schedules/assign', [ProjectActivityScheduleController::class, 'assign'])
+                ->name('schedules.assign');
+
+            // Edit single schedule
+            Route::get('{project}/schedules/{schedule}/edit', [ProjectActivityScheduleController::class, 'edit'])
+                ->name('schedules.edit');
+
+            // Update single schedule
+            Route::put('{project}/schedules/{schedule}', [ProjectActivityScheduleController::class, 'update'])
+                ->name('schedules.update');
+
+            // Bulk update schedules
+            Route::post('{project}/schedules/bulk-update', [ProjectActivityScheduleController::class, 'bulkUpdate'])
+                ->name('schedules.bulk-update');
         });
         Route::resource('project', ProjectController::class);
 
         // Project Activities
-        // Route::controller(ProjectActivityController::class)->prefix('project-activities')->name('projectActivity.')->group(function () {
-        //     Route::get('template', 'downloadTemplate')->name('template');
-        //     Route::get('upload', 'showUploadForm')->name('uploadForm');
-        //     Route::post('upload', 'uploadExcel')->name('upload');
-        //     Route::get('{projectId}/{fiscalYearId}/download-activities', 'downloadActivities')->name('download-activities');
-        // });
         Route::prefix('projectActivity')->name('projectActivity.')->group(function () {
 
             // Standard CRUD
@@ -225,6 +281,8 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         // Contracts
         Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
             Route::get('projects/{directorate_id}', 'getProjects')->name('projects');
+            Route::get('get-project-budget/{projectId}', [ContractController::class, 'getProjectBudget'])
+                ->name('get-project-budget');
         });
         Route::resource('contract', ContractController::class);
 
@@ -307,7 +365,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         // Project Expense Funding Allocations
         Route::post('project-expense-funding-allocations/load-data', [ProjectExpenseFundingAllocationController::class, 'loadData'])->name('projectExpenseFundingAllocations.loadData');
         Route::resource('project-expense-funding-allocation', ProjectExpenseFundingAllocationController::class)
-            ->names('projectExpenseFundingAllocation') // Custom name prefix
+            ->names('projectExpenseFundingAllocation')
             ->only(['index', 'create', 'store']);
 
         // Expenses
@@ -344,7 +402,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::delete('files/{file}', 'destroy')->name('files.destroy');
         });
 
-        // Reprots
+        // Reports
         Route::prefix('reports')->name('reports.')->group(function () {
             // Show progress report generation view
             Route::get('consolidated-annual', [ReportController::class, 'showConsolidatedAnnualReport'])
@@ -353,7 +411,6 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             // Generate and download progress report
             Route::get('consolidated-annual/download', [ReportController::class, 'consolidatedAnnualReport'])
                 ->name('consolidatedAnnual');
-
 
             // Show budget report generation view
             Route::get('budgetReport', [ReportController::class, 'showBudgetReportView'])

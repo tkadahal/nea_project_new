@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Directorate\StoreDirectorateRequest;
-use App\Http\Requests\Directorate\UpdateDirectorateRequest;
+use Illuminate\View\View;
 use App\Models\Department;
 use App\Models\Directorate;
-use Illuminate\Http\RedirectResponse;
+use App\Trait\RoleBasedAccess;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
+use App\Http\Requests\Directorate\StoreDirectorateRequest;
+use App\Http\Requests\Directorate\UpdateDirectorateRequest;
 
 class DirectorateController extends Controller
 {
@@ -20,8 +21,11 @@ class DirectorateController extends Controller
     {
         abort_if(Gate::denies('directorate_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
+        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds();
+
         $directorates = Directorate::with('departments:id,title')
             ->latest()
+            ->whereIn('id', $accessibleDirectorateIds)
             ->get();
 
         $headers = [trans('global.directorate.fields.id'), trans('global.directorate.fields.title'), trans('global.directorate.fields.departments')];
@@ -104,6 +108,11 @@ class DirectorateController extends Controller
     public function destroy(Directorate $directorate): RedirectResponse
     {
         abort_if(Gate::denies('directorate_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
+        if ($directorate->departments()->exists()) {
+            return back()
+                ->with('error', 'Cannot delete this directorate because it has one or more departments attached.');
+        }
 
         $directorate->delete();
 
