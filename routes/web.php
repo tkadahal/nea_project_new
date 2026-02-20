@@ -182,9 +182,10 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
             /*
             |--------------------------------------------------------------------------
-            | PROJECT ACTIVITY SCHEDULES (NEW)
+            | PROJECT ACTIVITY SCHEDULES - Complete Routes
             |--------------------------------------------------------------------------
             */
+
             // Main schedule management page
             Route::get('{project}/schedules', [ProjectActivityScheduleController::class, 'index'])
                 ->name('schedules.index');
@@ -201,6 +202,40 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::get('{project}/schedules/quick-update', [ProjectActivityScheduleController::class, 'quickUpdate'])
                 ->name('schedules.quick-update');
 
+            // ══════════════════════════════════════════════════════════
+            // CHARTS - View Analytics (NEW)
+            // ══════════════════════════════════════════════════════════
+
+            // Charts page (Burn Chart, S-Curve, Activity Chart)
+            Route::get('{project}/schedules/charts', [ProjectActivityScheduleController::class, 'charts'])
+                ->name('schedules.charts');
+
+            // ══════════════════════════════════════════════════════════
+            // SCHEDULE CRUD - Create, Edit, Delete (NEW)
+            // ══════════════════════════════════════════════════════════
+
+            // Create custom schedule
+            Route::get('{project}/schedules/create-schedule', [ProjectActivityScheduleController::class, 'createSchedule'])
+                ->name('schedules.create-schedule');
+
+            Route::post('{project}/schedules/store-schedule', [ProjectActivityScheduleController::class, 'storeSchedule'])
+                ->name('schedules.store-schedule');
+
+            // Edit schedule definition
+            Route::get('{project}/schedules/{schedule}/edit-schedule', [ProjectActivityScheduleController::class, 'editSchedule'])
+                ->name('schedules.edit-schedule');
+
+            Route::put('{project}/schedules/{schedule}/update-schedule', [ProjectActivityScheduleController::class, 'updateSchedule'])
+                ->name('schedules.update-schedule');
+
+            // Delete schedule
+            Route::delete('{project}/schedules/{schedule}/destroy-schedule', [ProjectActivityScheduleController::class, 'destroySchedule'])
+                ->name('schedules.destroy-schedule');
+
+            // ══════════════════════════════════════════════════════════
+            // ASSIGNMENT - Assign Schedules to Project
+            // ══════════════════════════════════════════════════════════
+
             // Assign schedules form
             Route::get('{project}/schedules/assign', [ProjectActivityScheduleController::class, 'assignForm'])
                 ->name('schedules.assign-form');
@@ -209,17 +244,54 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::post('{project}/schedules/assign', [ProjectActivityScheduleController::class, 'assign'])
                 ->name('schedules.assign');
 
-            // Edit single schedule
+            // ══════════════════════════════════════════════════════════
+            // PROGRESS UPDATE - Edit & Update Progress
+            // ══════════════════════════════════════════════════════════
+
+            // Edit single schedule progress
             Route::get('{project}/schedules/{schedule}/edit', [ProjectActivityScheduleController::class, 'edit'])
                 ->name('schedules.edit');
 
-            // Update single schedule
+            // Update single schedule progress
             Route::put('{project}/schedules/{schedule}', [ProjectActivityScheduleController::class, 'update'])
                 ->name('schedules.update');
 
             // Bulk update schedules
             Route::post('{project}/schedules/bulk-update', [ProjectActivityScheduleController::class, 'bulkUpdate'])
                 ->name('schedules.bulk-update');
+
+            // ══════════════════════════════════════════════════════════
+            // DATE REVISIONS - Track Multiple Actual Dates (NEW)
+            // ══════════════════════════════════════════════════════════
+
+            // Add date revision
+            Route::post('{project}/schedules/{schedule}/date-revision', [ProjectActivityScheduleController::class, 'addDateRevision'])
+                ->name('schedules.add-date-revision');
+
+            // Delete date revision
+            Route::delete('{project}/schedules/date-revision/{revision}', [ProjectActivityScheduleController::class, 'deleteDateRevision'])
+                ->name('schedules.delete-date-revision');
+
+
+            // ══════════════════════════════════════════════════════════
+            // REFERENCE FILES - Separate Page for File Management (NEW)
+            // ══════════════════════════════════════════════════════════
+
+            // Files management page
+            Route::get('{project}/schedules/files', [ProjectActivityScheduleController::class, 'filesPage'])
+                ->name('schedules.files');
+
+            // Upload file (from files page)
+            Route::post('{project}/schedules/upload-file', [ProjectActivityScheduleController::class, 'uploadFile'])
+                ->name('schedules.upload-file');
+
+            // Download file
+            Route::get('{project}/schedules/files/{file}/download', [ProjectActivityScheduleController::class, 'downloadFile'])
+                ->name('schedules.download-file');
+
+            // Delete file
+            Route::delete('{project}/schedules/files/{file}', [ProjectActivityScheduleController::class, 'deleteFile'])
+                ->name('schedules.delete-file');
         });
         Route::resource('project', ProjectController::class);
 

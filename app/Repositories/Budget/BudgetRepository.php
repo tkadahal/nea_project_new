@@ -109,10 +109,10 @@ class BudgetRepository
         return $query->paginate($perPage);
     }
 
-    public function findByProjectAndFiscalYear(int $projectId, int $fiscalYearId): ?Budget
+    public function findByProjectAndFiscalYear(int $projectId, $fiscalYearId): ?Budget
     {
         return Budget::where('project_id', $projectId)
-            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('fiscal_year_id', (int)$fiscalYearId)
             ->first();
     }
 

@@ -30,13 +30,13 @@
             <div class="flex gap-2 ml-4 items-center">
                 <select id="quarter-select"
                     class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="1">Quarter 1</option>
-                    <option value="2">Quarter 2</option>
-                    <option value="3">Quarter 3</option>
-                    <option value="4">Quarter 4</option>
+                    <option value="q1">Quarter 1</option>
+                    <option value="q2">Quarter 2</option>
+                    <option value="q3">Quarter 3</option>
+                    <option value="q4">Quarter 4</option>
                 </select>
                 <a id="download-link"
-                    href="{{ route('admin.projectExpense.excel.download', [$project->id, $fiscalYear->id]) }}?quarter=1"
+                    href="{{ route('admin.projectExpense.excel.download', [$project->id, $fiscalYear->id]) }}?quarter=q1"
                     class="px-3 py-1.5 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 whitespace-nowrap">
                     Download Excel
                 </a>

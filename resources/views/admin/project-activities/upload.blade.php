@@ -8,6 +8,14 @@
         </p>
     </div>
 
+    @if (session('error'))
+        <div
+            class="mt-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200">
+            <p class="font-semibold">Error:</p>
+            <p class="mt-2 text-sm">{{ session('error') }}</p>
+        </div>
+    @endif
+
     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
         <p class="font-semibold text-blue-900 dark:text-blue-100">Instructions:</p>
         <ul class="list-disc list-inside mt-2 text-sm text-blue-800 dark:text-blue-200 space-y-1">

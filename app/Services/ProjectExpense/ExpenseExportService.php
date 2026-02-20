@@ -58,10 +58,8 @@ class ExpenseExportService
 
         return Excel::download(
             new ProgramExpenseReportExport(
-                $project->title,
-                $fiscalYear->title,
-                $project->id,
-                $fiscalYear->id,
+                $project,
+                $fiscalYear,
                 $quarterNumber
             ),
             $filename

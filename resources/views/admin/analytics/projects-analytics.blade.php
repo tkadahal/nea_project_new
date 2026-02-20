@@ -211,32 +211,38 @@
                 <div class="p-6 space-y-4 max-h-[500px] overflow-y-auto">
                     @forelse($directorateProjectPerformance as $dir)
                         <div
-                            class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition">
-                            <div class="flex justify-between items-start mb-2">
-                                <div class="flex-1">
-                                    <h4 class="font-semibold text-gray-800 dark:text-gray-100">{{ $dir['title'] }}</h4>
-                                    <div class="flex gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                        <span>{{ $dir['total_projects'] }} projects</span>
-                                        <span>{{ $dir['avg_progress'] }}% avg prog</span>
-                                        <span>{{ $dir['budget_utilization'] }}% budget</span>
+                            class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition overflow-hidden">
+                            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-semibold text-gray-800 dark:text-gray-100 truncate"
+                                        title="{{ $dir['title'] }}">
+                                        {{ Str::limit($dir['title'], 45) }}
+                                    </h4>
+                                    <div
+                                        class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="whitespace-nowrap">{{ $dir['total_projects'] }} projects</span>
+                                        <span class="whitespace-nowrap">{{ $dir['avg_progress'] }}% avg prog</span>
+                                        <span class="whitespace-nowrap">{{ $dir['budget_utilization'] }}% budget</span>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-3 py-1 rounded-full text-xs font-semibold text-white"
+
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span
+                                        class="px-3 py-1 rounded-full text-xs font-semibold text-white whitespace-nowrap"
                                         style="background-color: {{ $dir['budget_color'] }}">
                                         {{ $dir['budget_health'] }}
                                     </span>
                                 </div>
                             </div>
 
-                            {{-- Progress Bar --}}
-                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
-                                <div class="h-2 rounded-full transition-all duration-500"
-                                    style="width: {{ $dir['budget_utilization'] }}%; background-color: {{ $dir['budget_color'] }}">
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-500"
+                                    style="width: {{ min($dir['budget_utilization'], 100) }}%; background-color: {{ $dir['budget_color'] }}">
                                 </div>
                             </div>
 
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
                                 {{ $dir['alert_message'] }}
                             </p>
                         </div>
