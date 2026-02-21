@@ -155,11 +155,64 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Critical Path / Gantt Chart -->
+            <div
+                class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mt-6 ring-1 ring-gray-900/5 dark:ring-gray-700">
+                <div class="px-6 py-4 bg-indigo-600 border-b border-indigo-700 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2">
+                            </path>
+                        </svg>
+                        <div>
+                            <h3 class="text-lg leading-6 font-medium text-white">Critical Path Analysis (Gantt)</h3>
+                            <p class="text-indigo-100 text-sm">
+                                <span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-1"></span> Critical
+                                (Delayed by Predecessor)
+                                <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mx-1"></span> Warning
+                                (Started Late)
+                                <span class="inline-block w-3 h-3 bg-indigo-500 rounded-full mx-1"></span> Normal
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div class="gantt-container" style="height: 500px; width: 100%;">
+                        <svg id="gantt"></svg>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <style>
+        /* Frappe Gantt Custom Styles for Critical Path */
+        .gantt .bar-wrapper.critical .bar {
+            fill: #ef4444 !important;
+            /* Red-500 */
+            stroke: #b91c1c !important;
+            /* Red-700 */
+        }
+
+        .gantt .bar-wrapper.warning .bar {
+            fill: #f59e0b !important;
+            /* Amber-500 */
+            stroke: #d97706 !important;
+            /* Amber-700 */
+        }
+
+        .gantt-container {
+            overflow-x: auto;
+        }
+    </style>
+
     @push('scripts')
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://unpkg.com/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+        <script src="https://unpkg.com/frappe-gantt@0.6.1/dist/frappe-gantt.css"></script>
         <script>
             // Helper to get chart colors based on Dark Mode
             function getChartColors() {
@@ -490,6 +543,47 @@
                     console.error('Error loading activity chart:', err);
                     document.getElementById('activityChart').innerHTML =
                         '<div class="p-4 text-center text-red-500">Error loading activity data</div>';
+                });
+
+
+            // =======================================================
+            // 4. CRITICAL PATH GANTT CHART
+            // =======================================================
+            fetch('{{ route('admin.projects.schedules.api.gantt-data', $project) }}')
+                .then(res => res.json())
+                .then(tasks => {
+                    if (tasks.length === 0) {
+                        document.querySelector('.gantt-container').innerHTML =
+                            '<div class="p-8 text-center text-gray-500">No schedule data available for Gantt chart</div>';
+                        return;
+                    }
+
+                    var gantt = new Gantt("#gantt", tasks, {
+                        header_height: 50,
+                        column_width: 30,
+                        step: 24,
+                        view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
+                        bar_height: 20,
+                        bar_corner_radius: 3,
+                        arrow_curve: 5,
+                        padding: 18,
+                        view_mode: 'Day', // Default view
+                        date_format: 'YYYY-MM-DD',
+                        custom_popup_html: function(task) {
+                            // Custom tooltip content
+                            return `
+                        <div class="details-container">
+                            <h5>${task.name}</h5>
+                            <p>Start: ${task.start}</p>
+                            <p>End: ${task.end}</p>
+                            <p>Progress: ${task.progress}%</p>
+                        </div>
+                    `;
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error('Error loading Gantt chart:', err);
                 });
         </script>
     @endpush

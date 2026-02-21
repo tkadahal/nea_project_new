@@ -170,6 +170,8 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('fiscalYear', FiscalYearController::class);
         Route::resource('budgetHeading', BudgetHeadingController::class);
 
+        Route::get('schedules/overview', [ProjectActivityScheduleController::class, 'overview'])->name('schedules.overview');
+
         // Projects
         Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
             Route::get('analytics', 'analytics')->name('analytics');
@@ -209,6 +211,24 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             // Charts page (Burn Chart, S-Curve, Activity Chart)
             Route::get('{project}/schedules/charts', [ProjectActivityScheduleController::class, 'charts'])
                 ->name('schedules.charts');
+
+            // ─── CHARTS DATA ENDPOINTS (JSON) ───
+
+            // Burn Chart Data
+            Route::get('{project}/schedules/api/burn-chart', [ProjectActivityScheduleController::class, 'burnChartData'])
+                ->name('schedules.api.burn-chart');
+
+            // S-Curve Data
+            Route::get('{project}/schedules/api/s-curve', [ProjectActivityScheduleController::class, 'sCurveData'])
+                ->name('schedules.api.s-curve');
+
+            // Activity Chart Data
+            Route::get('{project}/schedules/api/activity-chart', [ProjectActivityScheduleController::class, 'activityChartData'])
+                ->name('schedules.api.activity-chart');
+
+            // Gantt Chart Data (Critical Path Analysis)
+            Route::get('{project}/schedules/api/gantt-data', [ProjectActivityScheduleController::class, 'ganttData'])
+                ->name('schedules.api.gantt-data');
 
             // ══════════════════════════════════════════════════════════
             // SCHEDULE CRUD - Create, Edit, Delete (NEW)

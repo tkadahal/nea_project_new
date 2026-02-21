@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectActivitySchedule;
 use App\Models\ProjectScheduleDateRevision;
-use App\Models\ProjectScheduleFile;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 
 class ProjectActivityScheduleController extends Controller
 {
@@ -580,9 +578,10 @@ class ProjectActivityScheduleController extends Controller
      */
     public function activityChartData(Project $project)
     {
-        $schedules = $project->leafSchedules()->with(['parent', 'dateRevisions'])->get();
+        $schedules = $project->leafSchedules()->with(['parent', 'dateRevisions.revisedBy'])->get();
 
         $data = $schedules->map(function ($schedule) use ($project) {
+            // This manual query is safer and ensures data is fetched correctly
             $revisions = ProjectScheduleDateRevision::where('project_id', $project->id)
                 ->where('schedule_id', $schedule->id)
                 ->orderBy('created_at')
@@ -600,7 +599,8 @@ class ProjectActivityScheduleController extends Controller
                         'start' => $rev->actual_start_date,
                         'end' => $rev->actual_end_date,
                         'reason' => $rev->revision_reason,
-                        'revised_by' => $rev->revisedBy?->name,
+                        // Ensure the 'revisedBy' relationship exists in your ProjectScheduleDateRevision model
+                        'revised_by' => $rev->revisedBy ? $rev->revisedBy->name : 'System',
                     ];
                 }),
                 'progress' => $schedule->pivot->progress,
@@ -608,6 +608,91 @@ class ProjectActivityScheduleController extends Controller
         });
 
         return response()->json($data);
+    }
+
+    /**
+     * Get Gantt Chart data (API)
+     * Calculates critical path based on predecessor delays
+     */
+    public function ganttData(Project $project)
+    {
+        // Fallback dates for tasks without schedules
+        $fallbackStart = \Carbon\Carbon::now()->format('Y-m-d');
+        $fallbackEnd = \Carbon\Carbon::now()->addDay()->format('Y-m-d');
+
+        // Get leaf schedules, ordered by code
+        $schedules = $project->leafSchedules()->orderBy('code')->get();
+
+        $tasks = [];
+        $previousTask = null;
+
+        foreach ($schedules as $schedule) {
+            // Try to get Actual dates, if not, Planned dates
+            $start = $schedule->pivot->actual_start_date ?? $schedule->pivot->start_date;
+            $end = $schedule->pivot->actual_end_date ?? $schedule->pivot->end_date;
+
+            // CHECK: Are dates missing?
+            $hasDates = ($schedule->pivot->start_date || $schedule->pivot->actual_start_date);
+
+            // If missing, use fallback so the chart renders
+            if (!$start) $start = $fallbackStart;
+            if (!$end) $end = $fallbackEnd;
+
+            // Format for Gantt
+            $startFormatted = $start instanceof \Carbon\Carbon ? $start->format('Y-m-d') : $start;
+            $endFormatted = $end instanceof \Carbon\Carbon ? $end->format('Y-m-d') : $end;
+
+            // Status Logic (Same as before)
+            $status = 'normal';
+            $dependencies = [];
+
+            if ($previousTask) {
+                if (substr($schedule->code, 0, 1) === substr($previousTask['code'], 0, 1)) {
+                    $dependencies[] = $previousTask['id'];
+
+                    // Check Critical Path
+                    if (
+                        $previousTask['actual_end'] &&
+                        $schedule->pivot->start_date &&
+                        $previousTask['actual_end'] > $schedule->pivot->start_date
+                    ) {
+                        $status = 'critical';
+                    }
+                    // Check Warning
+                    elseif (
+                        $schedule->pivot->actual_start_date &&
+                        $schedule->pivot->start_date &&
+                        $schedule->pivot->actual_start_date > $schedule->pivot->start_date
+                    ) {
+                        $status = 'warning';
+                    }
+                }
+            }
+
+            // Build Name
+            $name = $schedule->code . ': ' . $schedule->name;
+            if (!$hasDates) {
+                $name .= ' ⚠️ (No Dates)';
+            }
+
+            $tasks[] = [
+                'id' => str_replace('.', '-', $schedule->code),
+                'name' => $name,
+                'start' => $startFormatted,
+                'end' => $endFormatted,
+                'progress' => $schedule->pivot->progress,
+                'dependencies' => $dependencies,
+                'custom_class' => $status
+            ];
+
+            $previousTask = [
+                'id' => str_replace('.', '-', $schedule->code),
+                'code' => $schedule->code,
+                'actual_end' => $schedule->pivot->actual_end_date,
+            ];
+        }
+
+        return response()->json($tasks);
     }
 
     // ════════════════════════════════════════════════════════════
@@ -683,98 +768,5 @@ class ProjectActivityScheduleController extends Controller
         }
 
         return round($progressSum / $totalWeight, 2);
-    }
-
-    /**
-     * Show dedicated files management page
-     */
-    public function filesPage(Project $project)
-    {
-        $schedules = $project->activitySchedules()
-            ->orderBy('sort_order')
-            ->get();
-
-        $files = ProjectScheduleFile::where('project_id', $project->id)
-            ->with(['schedule', 'uploadedBy'])
-            ->latest()
-            ->get();
-
-        return view('admin.schedules.file', compact('project', 'schedules', 'files'));
-    }
-
-    /**
-     * Upload file (from dedicated files page)
-     */
-    public function uploadFile(Request $request, Project $project)
-    {
-        $request->validate([
-            'schedule_id' => 'required|exists:project_activity_schedules,id',
-            // Removed 'mimes:pdf,xer,mpp' to allow all file types
-            'file' => 'required|file|max:51200', // Max 50MB
-            'description' => 'nullable|string|max:500',
-        ]);
-        // $request->validate([
-        //     'schedule_id' => 'required|exists:project_activity_schedules,id',
-        //     'file' => 'required|file|mimes:pdf,xer,mpp|max:51200', // Max 50MB
-        //     'description' => 'nullable|string|max:500',
-        // ]);
-
-        try {
-            $file = $request->file('file');
-            $originalName = $file->getClientOriginalName();
-            $extension = $file->getClientOriginalExtension();
-
-            // Generate unique filename
-            $fileName = time() . '_' . $request->schedule_id . '_' . str_replace(' ', '_', pathinfo($originalName, PATHINFO_FILENAME)) . '.' . $extension;
-
-            // Store file
-            $path = $file->storeAs('project_schedules/' . $project->id, $fileName, 'public');
-
-            // Create database record
-            ProjectScheduleFile::create([
-                'project_id' => $project->id,
-                'schedule_id' => $request->schedule_id,
-                'file_name' => $fileName,
-                'file_path' => $path,
-                'file_type' => strtolower($extension),
-                'original_name' => $originalName,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'description' => $request->description,
-                'uploaded_by' => Auth::id(),
-            ]);
-
-            return back()->with('success', 'File uploaded successfully');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Failed to upload file: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Download file
-     */
-    public function downloadFile(Project $project, ProjectScheduleFile $file)
-    {
-        if (!$file->fileExists()) {
-            abort(404, 'File not found');
-        }
-
-        /** @var \Illuminate\Contracts\Filesystem\Filesystem $storage */
-        $storage = Storage::disk('public');
-
-        return $storage->download($file->file_path, $file->original_name);
-    }
-
-    /**
-     * Delete file
-     */
-    public function deleteFile(Project $project, ProjectScheduleFile $file)
-    {
-        try {
-            $file->delete(); // Will auto-delete file from storage
-            return back()->with('success', 'File deleted successfully');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Failed to delete file: ' . $e->getMessage());
-        }
     }
 }

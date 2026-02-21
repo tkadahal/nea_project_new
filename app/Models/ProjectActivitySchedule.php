@@ -143,7 +143,7 @@ class ProjectActivitySchedule extends Model
 
     /**
      * Calculate progress for this schedule based on its children
-     * 
+     *
      * @param int $projectId
      * @return float
      */
@@ -207,5 +207,10 @@ class ProjectActivitySchedule extends Model
     public function scopeOrdered(Builder $query): Builder
     {
         return $query->orderBy('sort_order')->orderBy('code');
+    }
+
+    public function dateRevisions()
+    {
+        return $this->hasMany(ProjectScheduleDateRevision::class, 'schedule_id');
     }
 }

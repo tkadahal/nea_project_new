@@ -362,7 +362,7 @@
                                 </tr>
 
                                 <!-- All child rows under this phase (sorted by code) -->
-                                @foreach ($group->where('level', '>', 1)->sortBy('code') as $schedule)
+                                @foreach ($group->where('level', '>', 1)->sortBy('code', SORT_NATURAL) as $schedule)
                                     @php $colors = getPhaseColor($schedule->code, $phaseColors); @endphp
 
                                     <tr
