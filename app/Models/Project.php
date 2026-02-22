@@ -206,7 +206,11 @@ class Project extends Model
     public function calculatePhysicalProgress(): float
     {
         // Try schedule-based progress calculation first
-        $topLevelSchedules = $this->topLevelSchedules()->get();
+        $topLevelSchedules = $this->relationLoaded('activitySchedules')
+            ? $this->activitySchedules
+            ->where('level', 1)
+            ->whereNotNull('weightage')
+            : $this->topLevelSchedules()->get();
 
         if ($topLevelSchedules->isNotEmpty()) {
             $totalWeightedProgress = 0.0;
@@ -227,7 +231,7 @@ class Project extends Model
         }
 
         // Fallback to existing task-based calculation
-        $tasks = $this->tasks()->get();
+        $tasks = $this->tasks;
 
         if ($tasks->isNotEmpty()) {
             $totalWeight = $tasks->sum('estimated_hours') ?: $tasks->count();
@@ -239,7 +243,7 @@ class Project extends Model
         }
 
         // Fallback to contract-based calculation
-        $contracts = $this->contracts()->get();
+        $contracts = $this->contracts;
 
         if ($contracts->isNotEmpty()) {
             $totalWeight = $contracts->sum('contract_amount') ?: $contracts->count();

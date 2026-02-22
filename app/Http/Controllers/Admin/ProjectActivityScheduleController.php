@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
+use App\Models\Directorate;
 use App\Models\Project;
 use App\Models\ProjectActivitySchedule;
 use App\Models\ProjectScheduleDateRevision;
+use App\Models\ProjectScheduleFile;
+use App\Models\Role;
+use App\Trait\RoleBasedAccess;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ProjectActivityScheduleController extends Controller
 {
@@ -70,7 +74,7 @@ class ProjectActivityScheduleController extends Controller
         $breakdown = $project->getScheduleProgressBreakdown();
         $overallProgress = $project->calculatePhysicalProgress();
 
-        $leafSchedules = $project->leafSchedules()->get();
+        $leafSchedules = $project->leafSchedules;
         $completed = $leafSchedules->filter(fn($s) => $s->pivot->progress >= 100)->count();
         $inProgress = $leafSchedules->filter(fn($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
         $notStarted = $leafSchedules->filter(fn($s) => $s->pivot->progress == 0)->count();
@@ -768,5 +772,455 @@ class ProjectActivityScheduleController extends Controller
         }
 
         return round($progressSum / $totalWeight, 2);
+    }
+
+    /**
+     * Consolidated Analytics Dashboard (OPTIMIZED)
+     * Eager loads all relationships to prevent N+1 queries
+     */
+    public function analyticsDashboard(Request $request)
+    {
+        $user = Auth::user();
+
+        // 1. Get cached role IDs (using your custom instructions: be precise/professional)
+        $roleIds = cache()->remember("user_{$user->id}_roles_ids", 3600, function () use ($user) {
+            return $user->roles->pluck('id')->toArray();
+        });
+
+        // 2. Get accessible IDs (Note: Use property 'roles' not method 'roles()' to avoid duplicates)
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+
+        if (empty($accessibleProjectIds)) {
+            return view('admin.schedules.analytics', [
+                'projects' => collect([]),
+                'statistics' => $this->getEmptyStatistics(),
+                'projectProgress' => [],
+                'phaseBreakdown' => collect([]),
+                'directoratePerformance' => [],
+                'recentFiles' => collect([]),
+                'viewLevel' => $this->getUserViewLevel($roleIds),
+                'userDirectorate' => $user->directorate,
+            ]);
+        }
+
+        // 3. Global Statistics (Aggregated queries are faster than processing collections)
+        $statistics = [
+            'total_projects' => count($accessibleProjectIds),
+            'total_schedules' => ProjectActivitySchedule::whereHas('projects', function ($query) use ($accessibleProjectIds) {
+                $query->whereIn('projects.id', $accessibleProjectIds);
+            })->count(),
+            'total_files' => ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)->count(),
+            // Average progress is calculated after the loop below
+        ];
+
+        // 4. PAGINATED Projects (The Table Data)
+        // We only eager-load relationships for the 10-15 projects visible on the current page
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->with([
+                'directorate',
+                'status',
+                'activitySchedules' => function ($query) {
+                    // Single nested eager load for efficiency
+                    $query->with(['childrenRecursive', 'projects']);
+                }
+            ])
+            ->paginate(10);
+
+        // 5. Processing Paginated Results for the Table
+        $projectProgress = [];
+        $pageTotalProgress = 0;
+
+        foreach ($projects as $project) {
+            $progress = $project->calculatePhysicalProgress();
+            $pageTotalProgress += $progress;
+
+            // Efficiently filter the in-memory collection for completed schedules
+            $completedCount = $project->activitySchedules->filter(function ($schedule) {
+                // Check recursive relation to avoid lazy-loading 'children'
+                $children = $schedule->relationLoaded('childrenRecursive')
+                    ? $schedule->childrenRecursive
+                    : $schedule->children;
+
+                return $children->isNotEmpty() && (float)$schedule->pivot->progress >= 100;
+            })->count();
+
+            $projectProgress[] = [
+                'id' => $project->id,
+                'title' => $project->title,
+                'directorate' => $project->directorate?->title ?? 'N/A',
+                'progress' => $progress,
+                'status' => $project->status?->name ?? 'N/A',
+                'total_schedules' => $project->activitySchedules->count(),
+                'completed_schedules' => $completedCount,
+            ];
+        }
+
+        // 6. Calculate Average Progress (For the cards, usually we want global average)
+        // To be precise, calculate the global average without hydration
+        $statistics['average_progress'] = DB::table('project_schedule_assignments')
+            ->whereIn('project_id', $accessibleProjectIds)
+            ->avg('progress') ?? 0;
+
+        // 7. Phase Breakdown (Optimized)
+        // We pass the PAGINATED projects to keep this fast, or the full collection if global view is required
+        $phaseBreakdown = $this->calculateGlobalPhaseBreakdown($accessibleProjectIds);
+
+        // 8. Recent Files
+        $recentFiles = ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
+            ->with(['project', 'uploadedBy'])
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $viewLevel = $this->getUserViewLevel($roleIds);
+
+        $directoratePerformance = [];
+
+        if ($viewLevel === 'admin' || $viewLevel === 'directorate') {
+            // Get directorates based on access
+            $directorates = \App\Models\Directorate::whereIn('id', $accessibleDirectorateIds)->get();
+
+            foreach ($directorates as $dir) {
+                // Query progress for projects only in this specific directorate
+                $dirProjectIds = Project::where('directorate_id', $dir->id)
+                    ->whereIn('id', $accessibleProjectIds)
+                    ->pluck('id');
+
+                if ($dirProjectIds->isNotEmpty()) {
+                    $avgProgress = DB::table('project_schedule_assignments')
+                        ->whereIn('project_id', $dirProjectIds)
+                        ->avg('progress') ?? 0;
+
+                    $directoratePerformance[] = [
+                        'title' => $dir->title,
+                        'total_projects' => $dirProjectIds->count(),
+                        'average_progress' => $avgProgress
+                    ];
+                }
+            }
+        }
+
+        // Add 'directoratePerformance' to your compact() or $viewData array
+        $viewData['directoratePerformance'] = $directoratePerformance;
+
+        $viewData = [
+            'projects' => $projects, // The Paginator
+            'statistics' => $statistics,
+            'projectProgress' => $projectProgress,
+            'phaseBreakdown' => $phaseBreakdown,
+            'recentFiles' => $recentFiles,
+            'viewLevel' => $viewLevel,
+            'userDirectorate' => $user->directorate,
+            'directoratePerformance' => $directoratePerformance,
+        ];
+
+        // Handle AJAX Pagination
+        if ($request->ajax()) {
+            return view('admin.schedules.partials._projects_table', $viewData)->render();
+        }
+
+        return view('admin.schedules.analytics', $viewData);
+    }
+
+    /**
+     * All accessible schedule files (OPTIMIZED)
+     */
+    public function allFiles(Request $request)
+    {
+        $user = Auth::user();
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+
+        if (empty($accessibleProjectIds)) {
+            return view('admin.schedules.all-files', [
+                'files' => collect([]),
+                'projects' => collect([]),
+            ]);
+        }
+
+        $query = ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
+            ->with(['project.directorate', 'schedule', 'uploadedBy']);
+
+        // Filter by project
+        if ($request->filled('project_id') && in_array($request->project_id, $accessibleProjectIds)) {
+            $query->where('project_id', $request->project_id);
+        }
+
+        // Filter by file type
+        if ($request->filled('file_type')) {
+            $query->where('file_type', $request->file_type);
+        }
+
+        $files = $query->latest()->paginate(20);
+
+        // Single query for all projects
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->with('directorate')
+            ->orderBy('title')
+            ->get();
+
+        return view('admin.schedules.all-files', compact('files', 'projects'));
+    }
+
+    /**
+     * Multi-project charts (OPTIMIZED)
+     */
+    public function analyticsCharts(Request $request)
+    {
+        $user = Auth::user();
+
+        // Cache role IDs
+        $roleIds = cache()->remember("user_{$user->id}_roles", 3600, function () use ($user) {
+            return $user->roles()->pluck('id')->toArray();
+        });
+
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+
+        if (empty($accessibleProjectIds)) {
+            return view('admin.schedules.analytics-charts', [
+                'projects' => collect([]),
+                'directorates' => collect([]),
+                'viewLevel' => $this->getUserViewLevel($roleIds),
+            ]);
+        }
+
+        // Eager load relationships
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->with(['directorate', 'activitySchedules'])
+            ->get();
+
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)->get();
+
+        $viewLevel = $this->getUserViewLevel($roleIds);
+
+        return view('admin.schedules.analytics-charts', compact(
+            'projects',
+            'directorates',
+            'viewLevel'
+        ));
+    }
+
+    /**
+     * Overview page (OPTIMIZED)
+     */
+    public function overview(Request $request)
+    {
+        $user = Auth::user();
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+
+        if (empty($accessibleProjectIds)) {
+            return view('admin.schedules.overview', [
+                'projects' => collect([]),
+                'statistics' => $this->getEmptyStatistics(),
+            ]);
+        }
+
+        // Eager load all relationships
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->with(['directorate', 'activitySchedules', 'status'])
+            ->get();
+
+        // Pre-calculate progress
+        $progressValues = [];
+        foreach ($projects as $project) {
+            $progressValues[] = $project->calculatePhysicalProgress();
+        }
+
+        $statistics = [
+            'total_projects' => $projects->count(),
+            'total_schedules' => $projects->sum(fn($p) => $p->activitySchedules->count()),
+            'average_progress' => count($progressValues) > 0 ? round(array_sum($progressValues) / count($progressValues), 2) : 0,
+        ];
+
+        return view('admin.schedules.overview', compact('projects', 'statistics'));
+    }
+
+    /**
+     * API: Projects comparison data (OPTIMIZED)
+     */
+    public function apiProjectsComparison(Request $request)
+    {
+        $user = Auth::user();
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+
+        // Eager load schedules
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->with(['directorate', 'topLevelSchedules.children'])
+            ->get();
+
+        $data = $projects->map(function ($project) {
+            $breakdown = $project->getScheduleProgressBreakdown();
+
+            return [
+                'project' => $project->title,
+                'directorate' => $project->directorate?->title ?? 'N/A',
+                'overall_progress' => $project->calculatePhysicalProgress(),
+                'phases' => $breakdown
+            ];
+        });
+
+        return response()->json($data);
+    }
+
+    /**
+     * API: Directorate comparison data (OPTIMIZED)
+     */
+    public function apiDirectoratesComparison(Request $request)
+    {
+        $user = Auth::user();
+
+        // Cache roles
+        $roleIds = cache()->remember("user_{$user->id}_roles", 3600, function () use ($user) {
+            return $user->roles()->pluck('id')->toArray();
+        });
+
+        if (
+            !in_array(Role::SUPERADMIN, $roleIds) &&
+            !in_array(Role::ADMIN, $roleIds) &&
+            !in_array(Role::DIRECTORATE_USER, $roleIds)
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+
+        // Eager load projects with schedules
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
+            ->with(['projects.activitySchedules'])
+            ->get();
+
+        $data = $directorates->map(function ($directorate) {
+            $projects = $directorate->projects;
+            $count = $projects->count();
+
+            if ($count === 0) {
+                return [
+                    'directorate' => $directorate->title,
+                    'total_projects' => 0,
+                    'average_progress' => 0,
+                ];
+            }
+
+            $totalProgress = $projects->sum(fn($p) => $p->calculatePhysicalProgress());
+
+            return [
+                'directorate' => $directorate->title,
+                'total_projects' => $count,
+                'average_progress' => round($totalProgress / $count, 2),
+            ];
+        });
+
+        return response()->json($data);
+    }
+
+    /**
+     * API: Top performing projects (OPTIMIZED)
+     */
+    public function apiTopProjects(Request $request)
+    {
+        $user = Auth::user();
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+
+        // Eager load relationships
+        $projects = Project::whereIn('id', $accessibleProjectIds)
+            ->with(['directorate', 'activitySchedules'])
+            ->get();
+
+        $projectData = $projects->map(function ($project) {
+            return [
+                'id' => $project->id,
+                'title' => $project->title,
+                'directorate' => $project->directorate?->title ?? 'N/A',
+                'progress' => $project->calculatePhysicalProgress(),
+            ];
+        });
+
+        return response()->json(
+            $projectData->sortByDesc('progress')->take(10)->values()
+        );
+    }
+
+    /**
+     * OPTIMIZED: Calculate phase breakdown
+     * Avoids repeated getScheduleProgressBreakdown() calls
+     */
+    private function calculateGlobalPhaseBreakdown(array $projectIds)
+    {
+        // Fetch all Level 1 phases and pre-load all recursive children + pivots
+        $phases = ProjectActivitySchedule::where('level', 1)
+            ->with(['childrenRecursive.projects' => function ($q) use ($projectIds) {
+                $q->whereIn('projects.id', $projectIds)->withPivot('progress');
+            }])
+            ->get();
+
+        return $phases->groupBy('code')
+            ->map(function ($groupedSchedules, $code) use ($projectIds) {
+                $firstName = $groupedSchedules->first()->name;
+                $totalPhaseProgress = 0;
+                $activeProjectCount = 0;
+
+                foreach ($projectIds as $projectId) {
+                    $projectTotal = 0;
+                    $leafCount = 0;
+
+                    // Sum up leaves across all schedules sharing this code (e.g., all Phase A's)
+                    foreach ($groupedSchedules as $schedule) {
+                        $leaves = $schedule->getLeafSchedules();
+                        foreach ($leaves as $leaf) {
+                            $assignment = $leaf->projects->firstWhere('id', $projectId);
+                            if ($assignment) {
+                                $projectTotal += (float)$assignment->pivot->progress;
+                                $leafCount++;
+                            }
+                        }
+                    }
+
+                    if ($leafCount > 0) {
+                        $totalPhaseProgress += ($projectTotal / $leafCount);
+                        $activeProjectCount++;
+                    }
+                }
+
+                return [
+                    'code' => $code,
+                    'name' => $firstName,
+                    'average_progress' => $activeProjectCount > 0
+                        ? round($totalPhaseProgress / $activeProjectCount, 1)
+                        : 0
+                ];
+            })
+            ->sortBy('code')
+            ->values();
+    }
+
+    /**
+     * Helper: Determine user's view level
+     */
+    private function getUserViewLevel($roleIds): string
+    {
+        if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
+            return 'admin';
+        }
+
+        if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
+            return 'directorate';
+        }
+
+        return 'project';
+    }
+
+    /**
+     * Helper: Get empty statistics structure
+     */
+    private function getEmptyStatistics(): array
+    {
+        return [
+            'total_projects' => 0,
+            'total_schedules' => 0,
+            'average_progress' => 0,
+            'completed_projects' => 0,
+            'total_files' => 0,
+        ];
     }
 }

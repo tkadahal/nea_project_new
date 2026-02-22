@@ -172,6 +172,28 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
         Route::get('schedules/overview', [ProjectActivityScheduleController::class, 'overview'])->name('schedules.overview');
 
+        // Multi-level Schedule Analytics (ALL accessible projects)
+        Route::get('schedules/analytics', [ProjectActivityScheduleController::class, 'analyticsDashboard'])
+            ->name('schedules.analytics');
+
+        // All accessible files
+        Route::get('schedules/all-files', [ProjectActivityScheduleController::class, 'allFiles'])
+            ->name('schedules.all-files');
+
+        // Analytics Charts
+        Route::get('schedules/analytics-charts', [ProjectActivityScheduleController::class, 'analyticsCharts'])
+            ->name('schedules.analytics-charts');
+
+        // API Endpoints for Charts
+        Route::get('schedules/api/projects-comparison', [ProjectActivityScheduleController::class, 'apiProjectsComparison'])
+            ->name('schedules.api.projects-comparison');
+
+        Route::get('schedules/api/directorates-comparison', [ProjectActivityScheduleController::class, 'apiDirectoratesComparison'])
+            ->name('schedules.api.directorates-comparison');
+
+        Route::get('schedules/api/top-projects', [ProjectActivityScheduleController::class, 'apiTopProjects'])
+            ->name('schedules.api.top-projects');
+
         // Projects
         Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
             Route::get('analytics', 'analytics')->name('analytics');

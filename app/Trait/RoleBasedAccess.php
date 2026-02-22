@@ -255,7 +255,7 @@ trait RoleBasedAccess
             return [];
         }
 
-        $roleIds = Auth::user()->roles()->pluck('id')->toArray();
+        $roleIds = $user->roles->pluck('id')->toArray();
 
         // SuperAdmin and Admin can see all projects
         if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
@@ -288,7 +288,7 @@ trait RoleBasedAccess
             return [];
         }
 
-        $roleIds = Auth::user()->roles()->pluck('id')->toArray();
+        $roleIds = $user->roles->pluck('id')->toArray();
 
         // SuperAdmin and Admin can see all directorates
         if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
