@@ -51,8 +51,8 @@ class FileController extends Controller
 
         // Handle AJAX request
         if ($request->ajax() || $request->input('ajax')) {
-            $html = view('admin.files.partials.files-grid', compact('groupedFiles'))->render();
-            $paginationHtml = $files->links('admin.files.partials.pagination')->render();
+            $html = view('admin.files.components.files-grid', compact('groupedFiles'))->render();
+            $paginationHtml = $files->links('admin.files.components.pagination')->render();
 
             return response()->json([
                 'html' => $html,

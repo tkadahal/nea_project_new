@@ -233,7 +233,7 @@ class ProjectActivityController extends Controller
         [$capitalPlans, $recurrentPlans, $capitalSums, $recurrentSums] =
             $this->repository->getPlansWithSums($projectId, $fiscalYearId, $selectedVersion);
 
-        return view('admin.project-activities.show', compact(
+        return view('admin.projectActivities.show', compact(
             'project',
             'fiscalYear',
             'capitalPlans',

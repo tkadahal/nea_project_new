@@ -6,6 +6,10 @@ namespace App\Exports\Reports\Consolidated;
 
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Illuminate\Support\Collection;
+use App\Exports\Reports\Consolidated\BudgetSheets\BudgetSummaryReportExport;
+use App\Exports\Reports\Consolidated\BudgetSheets\BudgetReportSummaryExport;
+use App\Exports\Reports\Consolidated\BudgetSheets\BudgetProjectWiseReport;
+use App\Exports\Reports\Consolidated\BudgetSheets\BudgetReportExport;
 
 class BudgetReportMultiSheetExport implements WithMultipleSheets
 {
@@ -21,8 +25,10 @@ class BudgetReportMultiSheetExport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            new BudgetReportExport($this->projects, $this->fiscalYear),         // Sheet 1: Detailed
-            new BudgetReportSummaryExport($this->projects, $this->fiscalYear),  // Sheet 2: Summary
+            new BudgetSummaryReportExport($this->projects, $this->fiscalYear), // Sheet 1: Summary
+            new BudgetReportSummaryExport($this->projects, $this->fiscalYear), // Sheet 1: Summary
+            new BudgetProjectWiseReport($this->projects, $this->fiscalYear),   // Sheet 2: Project Wise
+            new BudgetReportExport($this->projects, $this->fiscalYear),        // Sheet 3: Detailed
         ];
     }
 }

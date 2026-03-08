@@ -1,218 +1,266 @@
 <x-layouts.app>
     <div class="container-fluid px-4 sm:px-6 lg:px-8 py-6">
-
-        <!-- Breadcrumb & Header -->
-        <div class="mb-6">
-            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Schedule Analytics & Charts
-            </h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">
-                Visualize project progress, S-Curves, and activity timelines.
-            </p>
-
-            <nav class="flex mt-4" aria-label="Breadcrumb">
-                <ol class="inline-flex items-center space-x-1 md:space-x-3">
-                    <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
-                            class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            Projects
-                        </a>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <svg class="w-3 h-3 text-gray-400 mx-1" aria-hidden="true"
-                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2" d="m1 9 4-4-4-4" />
-                            </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
-                                class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                {{ Str::limit($project->title, 30) }}
-                            </a>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <svg class="w-3 h-3 text-gray-400 mx-1" aria-hidden="true"
-                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2" d="m1 9 4-4-4-4" />
-                            </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
-                                class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                Schedules
-                            </a>
-                        </div>
-                    </li>
-                    <li aria-current="page">
-                        <div class="flex items-center">
-                            <svg class="w-3 h-3 text-gray-400 mx-1" aria-hidden="true"
-                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2" d="m1 9 4-4-4-4" />
-                            </svg>
-                            <span
-                                class="ml-1 text-sm font-medium text-gray-500 md:ml-2 dark:text-gray-400">Charts</span>
-                        </div>
-                    </li>
-                </ol>
-            </nav>
-
-            <div class="flex items-center justify-between mt-4">
-                <div class="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
-                    </svg>
-                    <span class="text-sm font-medium">Analytics</span>
-                </div>
-                <a href="{{ route('admin.projects.schedules.dashboard', $project) }}"
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
-                    <svg class="mr-2 -ml-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
-                    </svg>
-                    Back to Dashboard
-                </a>
-            </div>
-        </div>
-
-        <!-- Burn Chart -->
-        <div
-            class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6 ring-1 ring-gray-900/5 dark:ring-gray-700">
-            <div class="px-6 py-4 bg-red-600 border-b border-red-700 flex items-center justify-between">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
-                        </path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path>
-                    </svg>
-                    <div>
-                        <h3 class="text-lg leading-6 font-medium text-white">Burn Chart</h3>
-                        <p class="text-red-100 text-sm">Compares planned progress vs actual progress day by day</p>
-                    </div>
-                </div>
-            </div>
-            <div class="p-6">
-                <div class="relative h-80 w-full">
-                    <canvas id="burnChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- S-Curve -->
-        <div
-            class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6 ring-1 ring-gray-900/5 dark:ring-gray-700">
-            <div class="px-6 py-4 bg-emerald-600 border-b border-emerald-700 flex items-center justify-between">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                    </svg>
-                    <div>
-                        <h3 class="text-lg leading-6 font-medium text-white">S-Curve</h3>
-                        <p class="text-emerald-100 text-sm">Shows cumulative progress curve (planned vs actual)</p>
-                    </div>
-                </div>
-            </div>
-            <div class="p-6">
-                <div class="relative h-80 w-full">
-                    <canvas id="sCurve"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Activity Chart (Gantt-style) -->
-        <div
-            class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden ring-1 ring-gray-900/5 dark:ring-gray-700">
-            <div class="px-6 py-4 bg-blue-600 border-b border-blue-700 flex items-center justify-between">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
-                        </path>
-                    </svg>
-                    <div>
-                        <h3 class="text-lg leading-6 font-medium text-white">Activity Timeline</h3>
-                        <p class="text-blue-100 text-sm">Shows all activities with planned and actual dates</p>
-                    </div>
-                </div>
-            </div>
-            <div class="p-0 overflow-hidden">
-                <div class="overflow-x-auto max-h-[600px] overflow-y-auto" id="activityChart">
-                    <div class="flex items-center justify-center h-32 text-gray-500 dark:text-gray-400">
-                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg"
-                            fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                            </path>
-                        </svg>
-                        <span>Loading activity data...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Critical Path / Gantt Chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div
-                class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mt-6 ring-1 ring-gray-900/5 dark:ring-gray-700">
-                <div class="px-6 py-4 bg-indigo-600 border-b border-indigo-700 flex items-center justify-between">
-                    <div class="flex items-center">
-                        <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2">
-                            </path>
-                        </svg>
-                        <div>
-                            <h3 class="text-lg leading-6 font-medium text-white">Critical Path Analysis (Gantt)</h3>
-                            <p class="text-indigo-100 text-sm">
-                                <span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-1"></span> Critical
-                                (Delayed by Predecessor)
-                                <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mx-1"></span> Warning
-                                (Started Late)
-                                <span class="inline-block w-3 h-3 bg-indigo-500 rounded-full mx-1"></span> Normal
-                            </p>
-                        </div>
-                    </div>
+                class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden ring-1 ring-gray-900/5 dark:ring-gray-700">
+                <div class="px-6 py-4 bg-red-600 border-b border-red-700 flex items-center">
+                    <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-white">Burn Chart</h3>
                 </div>
                 <div class="p-6">
-                    <div class="gantt-container" style="height: 500px; width: 100%;">
-                        <svg id="gantt"></svg>
+                    <div class="relative h-72 w-full">
+                        <canvas id="burnChart"></canvas>
                     </div>
+                </div>
+            </div>
+
+            <div
+                class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden ring-1 ring-gray-900/5 dark:ring-gray-700">
+                <div class="px-6 py-4 bg-emerald-600 border-b border-emerald-700 flex items-center">
+                    <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-white">S-Curve</h3>
+                </div>
+                <div class="p-6">
+                    <div class="relative h-72 w-full">
+                        <canvas id="sCurve"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6 ring-1 ring-gray-900/5 dark:ring-gray-700">
+            <div class="px-6 py-4 bg-blue-600 border-b border-blue-700 flex items-center">
+                <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <h3 class="text-lg font-medium text-white">Activity Timeline</h3>
+            </div>
+            <div class="p-0 overflow-hidden">
+                <div class="overflow-x-auto max-h-[400px]" id="activityChart">
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden ring-1 ring-gray-900/5 dark:ring-gray-700">
+            <div class="px-6 py-4 bg-indigo-600 border-b border-indigo-700 flex items-center justify-between">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-white mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-white">Critical Path Analysis (Gantt)</h3>
+                </div>
+                <select id="ganttViewMode" class="rounded-md border-indigo-300 bg-indigo-500 text-white text-sm">
+                    <option value="Day">Day</option>
+                    <option value="Week">Week</option>
+                    <option value="Month">Month</option>
+                </select>
+            </div>
+            <div class="p-6">
+                <div id="ganttContainer" class="gantt-container"
+                    style="min-height: 500px; width: 100%; overflow-x: auto;">
+                    <svg id="gantt"></svg>
                 </div>
             </div>
         </div>
     </div>
 
     <style>
-        /* Frappe Gantt Custom Styles for Critical Path */
+        /* ========================================
+       GANTT CHART - ADAPTIVE LIGHT/DARK MODE
+       Ultra-clean dark mode with minimal grid
+       ======================================== */
+
+        /* ===== LIGHT MODE (Default) ===== */
+        .gantt-container,
+        #gantt {
+            background-color: #ffffff !important;
+        }
+
+        .gantt .grid-row {
+            fill: #ffffff !important;
+        }
+
+        .gantt .grid-header {
+            fill: #f9fafb !important;
+            /* Gray-50 */
+            stroke: #e5e7eb !important;
+        }
+
+        .gantt .grid-line {
+            stroke: #f3f4f6 !important;
+            /* Gray-100 */
+        }
+
+        .gantt text,
+        .gantt .lower-text,
+        .gantt .upper-text {
+            fill: #374151 !important;
+            /* Gray-700 */
+        }
+
+        .gantt .bar-label {
+            fill: #1f2937 !important;
+            /* Gray-800 */
+            font-weight: 600 !important;
+        }
+
+        /* ===== DARK MODE (When .dark class is present) ===== */
+        .dark .gantt-container,
+        .dark #gantt {
+            background-color: #111827 !important;
+            /* Gray-900 */
+        }
+
+        .dark .gantt .grid-row {
+            fill: #1f2937 !important;
+            /* Gray-800 */
+            stroke: #1f2937 !important;
+            /* Match background */
+            stroke-opacity: 0 !important;
+            stroke-width: 0 !important;
+        }
+
+        .dark .gantt .grid-header {
+            fill: #111827 !important;
+            /* Gray-900 */
+            stroke: #374151 !important;
+            /* Gray-700 */
+            stroke-opacity: 0.03 !important;
+            /* Very faint */
+        }
+
+        /* ULTRA-DIM GRID LINES IN DARK MODE */
+        .dark .gantt .grid-line {
+            stroke: #374151 !important;
+            /* Gray-700 */
+            opacity: 0.05 !important;
+            /* Almost invisible */
+        }
+
+        .dark .gantt .tick {
+            stroke: #374151 !important;
+            opacity: 0.05 !important;
+        }
+
+        .dark .gantt line {
+            stroke: #374151 !important;
+            opacity: 0.05 !important;
+        }
+
+        .dark .gantt text,
+        .dark .gantt .lower-text,
+        .dark .gantt .upper-text {
+            fill: #9ca3af !important;
+            /* Gray-400 */
+        }
+
+        .dark .gantt .bar-label {
+            fill: #e5e7eb !important;
+            /* Gray-200 */
+            font-weight: 600 !important;
+        }
+
+        /* ===== TASK BARS (Same in both modes) ===== */
+
+        /* Normal tasks - Blue */
+        .gantt .bar-wrapper.normal .bar,
+        .gantt .bar-wrapper .bar {
+            fill: #93c5fd !important;
+            /* Blue-300 */
+            stroke: #3b82f6 !important;
+            /* Blue-500 */
+            stroke-width: 2 !important;
+        }
+
+        .gantt .bar-wrapper.normal .bar-progress,
+        .gantt .bar-wrapper .bar-progress {
+            fill: #3b82f6 !important;
+            /* Blue-500 */
+        }
+
+        /* Critical tasks - Red */
         .gantt .bar-wrapper.critical .bar {
-            fill: #ef4444 !important;
+            fill: #fca5a5 !important;
+            /* Red-300 */
+            stroke: #ef4444 !important;
             /* Red-500 */
-            stroke: #b91c1c !important;
-            /* Red-700 */
+            stroke-width: 2 !important;
         }
 
+        .gantt .bar-wrapper.critical .bar-progress {
+            fill: #dc2626 !important;
+            /* Red-600 */
+        }
+
+        /* Warning tasks - Yellow */
         .gantt .bar-wrapper.warning .bar {
-            fill: #f59e0b !important;
-            /* Amber-500 */
-            stroke: #d97706 !important;
-            /* Amber-700 */
+            fill: #fde047 !important;
+            /* Yellow-300 */
+            stroke: #eab308 !important;
+            /* Yellow-500 */
+            stroke-width: 2 !important;
         }
 
-        .gantt-container {
-            overflow-x: auto;
+        .gantt .bar-wrapper.warning .bar-progress {
+            fill: #ca8a04 !important;
+            /* Yellow-600 */
+        }
+
+        /* ===== HIDE UNWANTED HIGHLIGHTS ===== */
+        .gantt .today-highlight,
+        .gantt .weekend-highlight,
+        .gantt .holiday-highlight,
+        .gantt .holiday-back {
+            fill: transparent !important;
+            opacity: 0 !important;
+        }
+
+        /* ===== DEPENDENCY ARROWS ===== */
+        .gantt .arrow {
+            stroke: #6b7280 !important;
+            /* Gray-500 */
+            stroke-width: 1.5 !important;
+        }
+
+        .dark .gantt .arrow {
+            stroke: #9ca3af !important;
+            /* Gray-400 */
+            stroke-width: 1.5 !important;
+        }
+
+        /* ===== ENSURE BARS ARE VISIBLE ===== */
+        .gantt .bar-wrapper,
+        .gantt .bar,
+        .gantt .bar-progress {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        /* ===== LAYERING ===== */
+        .gantt .grid-row,
+        .gantt .grid-line {
+            z-index: 1 !important;
+        }
+
+        .gantt .bar-wrapper {
+            z-index: 10 !important;
         }
     </style>
 
     @push('scripts')
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://unpkg.com/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
-        <script src="https://unpkg.com/frappe-gantt@0.6.1/dist/frappe-gantt.css"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
         <script>
             // Helper to get chart colors based on Dark Mode
             function getChartColors() {
@@ -547,44 +595,152 @@
 
 
             // =======================================================
-            // 4. CRITICAL PATH GANTT CHART
+            // 4. GANTT CHART WITH ROBUST ERROR HANDLING
             // =======================================================
-            fetch('{{ route('admin.projects.schedules.api.gantt-data', $project) }}')
-                .then(res => res.json())
-                .then(tasks => {
-                    if (tasks.length === 0) {
-                        document.querySelector('.gantt-container').innerHTML =
-                            '<div class="p-8 text-center text-gray-500">No schedule data available for Gantt chart</div>';
-                        return;
-                    }
+            let ganttInstance = null;
 
-                    var gantt = new Gantt("#gantt", tasks, {
-                        header_height: 50,
-                        column_width: 30,
-                        step: 24,
-                        view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
-                        bar_height: 20,
-                        bar_corner_radius: 3,
-                        arrow_curve: 5,
-                        padding: 18,
-                        view_mode: 'Day', // Default view
-                        date_format: 'YYYY-MM-DD',
-                        custom_popup_html: function(task) {
-                            // Custom tooltip content
-                            return `
-                        <div class="details-container">
-                            <h5>${task.name}</h5>
-                            <p>Start: ${task.start}</p>
-                            <p>End: ${task.end}</p>
-                            <p>Progress: ${task.progress}%</p>
-                        </div>
-                    `;
+            function initGantt() {
+                const loadingEl = document.getElementById('ganttLoading');
+                const wrapper = document.getElementById('ganttContainer');
+                const ganttSvg = document.getElementById('gantt');
+                const viewModeSelect = document.getElementById('ganttViewMode');
+                const viewMode = viewModeSelect ? viewModeSelect.value : 'Day';
+
+                if (loadingEl) loadingEl.classList.remove('hidden');
+
+                console.log('🚀 Fetching Gantt data...');
+
+                fetch('{{ route('admin.projects.schedules.api.gantt-data', $project) }}')
+                    .then(res => {
+                        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        return res.json();
+                    })
+                    .then(rawTasks => {
+                        if (loadingEl) loadingEl.classList.add('hidden');
+
+                        console.log(`📦 Received ${rawTasks.length} raw tasks`);
+
+                        if (!rawTasks || rawTasks.length === 0) {
+                            wrapper.innerHTML =
+                                '<div class="p-12 text-center text-gray-500 dark:text-gray-400 italic">No activity data found.</div>';
+                            return;
                         }
+
+                        // Validate tasks
+                        const tasks = rawTasks.map((task, index) => {
+                            return {
+                                id: task.id || `task_${index}`,
+                                name: task.name || `Task ${index + 1}`,
+                                start: task.start || new Date().toISOString().split('T')[0],
+                                end: task.end || new Date(Date.now() + 86400000).toISOString().split('T')[0],
+                                progress: Math.max(0, Math.min(100, task.progress || 0)),
+                                dependencies: task.dependencies || '',
+                                custom_class: task.custom_class || 'normal'
+                            };
+                        });
+
+                        // Clean dependencies
+                        const taskIds = new Set(tasks.map(t => t.id));
+                        tasks.forEach(task => {
+                            if (task.dependencies && task.dependencies.trim()) {
+                                const deps = task.dependencies.split(',')
+                                    .map(d => d.trim())
+                                    .filter(d => d && taskIds.has(d));
+                                task.dependencies = deps.join(',') || '';
+                            }
+                        });
+
+                        console.log(`✅ Validated ${tasks.length} tasks`);
+                        console.log('📋 Sample task:', tasks[0]);
+
+                        if (ganttSvg) ganttSvg.innerHTML = '';
+
+                        try {
+                            // MINIMAL CONFIGURATION - Less likely to crash
+                            ganttInstance = new Gantt("#gantt", tasks, {
+                                // Don't specify view_modes - use defaults
+                                view_mode: viewMode,
+                                // Minimal required config
+                                bar_height: 25,
+                                padding: 18,
+                                // Custom popup
+                                custom_popup_html: function(task) {
+                                    const start = task._start ? task._start.toLocaleDateString() : 'N/A';
+                                    const end = task._end ? task._end.toLocaleDateString() : 'N/A';
+
+                                    let badge = 'bg-indigo-100 text-indigo-800';
+                                    let status = 'Normal';
+                                    if (task.custom_class === 'critical') {
+                                        badge = 'bg-red-100 text-red-800';
+                                        status = 'Critical';
+                                    }
+
+                                    return `
+                            <div class="p-3 bg-white dark:bg-gray-800 shadow-xl rounded-lg" style="min-width: 200px;">
+                                <p class="font-bold text-sm mb-2">${task.name}</p>
+                                <p class="text-xs mb-1"><strong>Start:</strong> ${start}</p>
+                                <p class="text-xs mb-1"><strong>End:</strong> ${end}</p>
+                                <p class="text-xs mb-2"><strong>Progress:</strong> ${task.progress}%</p>
+                                <span class="text-xs px-2 py-1 rounded ${badge}">${status}</span>
+                            </div>
+                        `;
+                                }
+                            });
+
+                            console.log('✅ Gantt chart rendered!');
+                        } catch (err) {
+                            console.error('❌ Render error:', err);
+                            console.error('Stack:', err.stack);
+
+                            wrapper.innerHTML = `
+                    <div class="p-8 text-center">
+                        <p class="text-red-500 font-medium mb-2">Failed to render chart</p>
+                        <p class="text-sm text-gray-600 mb-4">${err.message}</p>
+                        <button onclick="initGantt()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Retry
+                        </button>
+                    </div>
+                `;
+                        }
+                    })
+                    .catch(err => {
+                        if (loadingEl) loadingEl.classList.add('hidden');
+                        console.error('❌ Fetch error:', err);
+                        wrapper.innerHTML = `
+                <div class="p-8 text-center">
+                    <p class="text-red-500 font-medium mb-2">Failed to load data</p>
+                    <p class="text-sm text-gray-600 mb-4">${err.message}</p>
+                    <button onclick="initGantt()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        Retry
+                    </button>
+                </div>
+            `;
                     });
-                })
-                .catch(err => {
-                    console.error('Error loading Gantt chart:', err);
-                });
+            }
+
+            // View mode change - safe version
+            document.getElementById('ganttViewMode')?.addEventListener('change', function(e) {
+                console.log('🔄 View mode changed to:', e.target.value);
+
+                // Instead of trying to change view mode on existing instance,
+                // just re-initialize the whole chart (safer)
+                initGantt();
+            });
+
+            // Styles
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .gantt .bar-wrapper.critical .bar { fill: #fca5a5 !important; stroke: #ef4444 !important; }
+                .gantt .bar-wrapper.warning .bar { fill: #fde047 !important; stroke: #eab308 !important; }
+                .gantt .bar-wrapper.normal .bar { fill: #93c5fd !important; stroke: #3b82f6 !important; }
+            `;
+            document.head.appendChild(style);
+
+            // Init
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('🚀 DOM loaded, initializing...');
+                setTimeout(initGantt, 100);
+            });
         </script>
     @endpush
 </x-layouts.app>

@@ -617,10 +617,17 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
         // ── Footer / signature rows ───────────────────────────────────────────
         $dataRows[] = array_fill(0, 23, ''); // spacer
 
-        $progressRow    = array_fill(0, 23, '');
-        $progressRow[0] = $this->reportingPeriod
+        $physicalProgress = ($grandSums['annual_qty'] ?? 0.0) > 0
+            ? (($grandSums['period_qty_actual'] ?? 0.0) / $grandSums['annual_qty'] * 100)
+            : 0.0;
+
+        $progressRow        = array_fill(0, 23, '');
+        $progressRow[0]     = $this->reportingPeriod
             . ' प्रगति प्रतिशत : '
             . $this->formatPercent($quarterly_financial_progress);
+        $progressRow[11]    = $this->reportingPeriod
+            . ' भौतिक प्रगति प्रतिशत : '
+            . $this->formatPercent($physicalProgress);
         $dataRows[] = $progressRow;
 
         // Signature header row — labels at col 2 (A:H), col 10 (I:P), col 18 (Q:W)
@@ -889,13 +896,23 @@ class ProgramExpenseReportExport implements FromCollection, WithTitle, WithStyle
                 $dateRowNum   = $lastRow;
 
                 // Progress percentage row — full width, bold, left-aligned
-                $sheet->mergeCells("A{$progressRow}:W{$progressRow}");
+                // Two halves side by side
+                $sheet->mergeCells("A{$progressRow}:K{$progressRow}");
+                $sheet->mergeCells("L{$progressRow}:W{$progressRow}");
+
                 $sheet->getStyle("A{$progressRow}:W{$progressRow}")->applyFromArray([
                     'font'      => ['bold' => true, 'size' => 11],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
                     'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_NONE]],
                 ]);
                 $sheet->getRowDimension($progressRow)->setRowHeight(30);
+                //$sheet->mergeCells("A{$progressRow}:W{$progressRow}");
+                // $sheet->getStyle("A{$progressRow}:W{$progressRow}")->applyFromArray([
+                //     'font'      => ['bold' => true, 'size' => 11],
+                //     'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
+                //     'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_NONE]],
+                // ]);
+                // $sheet->getRowDimension($progressRow)->setRowHeight(30);
 
                 // Signature titles row — three equal thirds, LEFT aligned
                 foreach (

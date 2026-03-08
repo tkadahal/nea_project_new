@@ -374,7 +374,7 @@
                                             <div class="flex items-center">
                                                 <span
                                                     class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $schedule->code }}</span>
-                                                @if ($schedule->hasChildren())
+                                                @if ($schedule->children_count > 0)
                                                     <svg class="ml-2 h-4 w-4 text-yellow-500" fill="none"
                                                         stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -412,7 +412,7 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            @if (!$schedule->hasChildren())
+                                            @if (!$schedule->children_count > 0)
                                                 <div
                                                     class="w-full min-w-[120px] bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                                                     <div class="h-2.5 rounded-full text-xs font-medium text-white text-center leading-2.5 shadow-sm
@@ -437,7 +437,7 @@
                                             {{ $schedule->pivot->end_date ? \Carbon\Carbon::parse($schedule->pivot->end_date)->format('M d, Y') : '—' }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            @if (!$schedule->hasChildren())
+                                            @if (!$schedule->children_count > 0)
                                                 <a href="{{ route('admin.projects.schedules.edit', [$project, $schedule]) }}"
                                                     class="{{ $colors['text'] }} hover:opacity-80 dark:{{ $colors['text_dark'] }} hover:{{ $colors['text_dark'] }}/80">
                                                     <svg class="h-5 w-5" fill="none" stroke="currentColor"

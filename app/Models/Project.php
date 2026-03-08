@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
+// ✨ ADD THIS NEW IMPORT
+use App\Models\ProjectActivitySchedule;
+
 class Project extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;
@@ -48,7 +51,7 @@ class Project extends Model
     ];
 
     // ────────────────────────────────────────────────
-    // Relationships
+    // Relationships (YOUR EXISTING RELATIONSHIPS - KEEP ALL OF THESE)
     // ────────────────────────────────────────────────
 
     public function directorate(): BelongsTo
@@ -121,9 +124,6 @@ class Project extends Model
         );
     }
 
-    /**
-     * All activity plans (regardless of version)
-     */
     public function allProjectExpensesQuery(): Builder
     {
         return ProjectExpense::query()
@@ -132,9 +132,6 @@ class Project extends Model
             });
     }
 
-    /**
-     * Only expenses linked to CURRENT (latest active) versions of definitions
-     */
     public function currentProjectExpensesQuery(): Builder
     {
         return ProjectExpense::query()
@@ -165,6 +162,13 @@ class Project extends Model
         return $this->morphMany(File::class, 'fileable');
     }
 
+    // ────────────────────────────────────────────────
+    // ✨ NEW RELATIONSHIPS - ADD THESE 3 METHODS HERE
+    // ────────────────────────────────────────────────
+
+    /**
+     * Activity schedules assigned to this project
+     */
     public function activitySchedules(): BelongsToMany
     {
         return $this->belongsToMany(ProjectActivitySchedule::class, 'project_schedule_assignments', 'project_id', 'schedule_id')
@@ -203,14 +207,13 @@ class Project extends Model
     // Progress & Financial Calculations
     // ────────────────────────────────────────────────
 
+    /**
+     * ✨ REPLACE YOUR EXISTING calculatePhysicalProgress() WITH THIS VERSION
+     */
     public function calculatePhysicalProgress(): float
     {
         // Try schedule-based progress calculation first
-        $topLevelSchedules = $this->relationLoaded('activitySchedules')
-            ? $this->activitySchedules
-            ->where('level', 1)
-            ->whereNotNull('weightage')
-            : $this->topLevelSchedules()->get();
+        $topLevelSchedules = $this->topLevelSchedules()->get();
 
         if ($topLevelSchedules->isNotEmpty()) {
             $totalWeightedProgress = 0.0;
@@ -231,7 +234,7 @@ class Project extends Model
         }
 
         // Fallback to existing task-based calculation
-        $tasks = $this->tasks;
+        $tasks = $this->tasks()->get();
 
         if ($tasks->isNotEmpty()) {
             $totalWeight = $tasks->sum('estimated_hours') ?: $tasks->count();
@@ -243,7 +246,7 @@ class Project extends Model
         }
 
         // Fallback to contract-based calculation
-        $contracts = $this->contracts;
+        $contracts = $this->contracts()->get();
 
         if ($contracts->isNotEmpty()) {
             $totalWeight = $contracts->sum('contract_amount') ?: $contracts->count();
@@ -257,11 +260,13 @@ class Project extends Model
         return 0.0;
     }
 
+    // KEEP YOUR EXISTING updatePhysicalProgress() - NO CHANGES
     public function updatePhysicalProgress(): void
     {
         $this->updateQuietly(['progress' => $this->calculatePhysicalProgress()]);
     }
 
+    // KEEP YOUR EXISTING getTotalBudgetAttribute() - NO CHANGES
     public function getTotalBudgetAttribute(): float
     {
         if (!array_key_exists('total_budget', $this->attributes)) {
@@ -275,9 +280,7 @@ class Project extends Model
         return (float) $this->attributes['total_budget'];
     }
 
-    /**
-     * Total finalized quarterly amounts — only from CURRENT activity definition versions
-     */
+    // KEEP YOUR EXISTING getTotalApprovedExpenseAttribute() - NO CHANGES
     public function getTotalApprovedExpenseAttribute(): float
     {
         if (!array_key_exists('total_approved_expense', $this->attributes)) {
@@ -292,6 +295,7 @@ class Project extends Model
         return $this->attributes['total_approved_expense'];
     }
 
+    // KEEP YOUR EXISTING getFinancialProgressAttribute() - NO CHANGES
     public function getFinancialProgressAttribute(): float
     {
         if (!array_key_exists('financial_progress', $this->attributes)) {
@@ -305,6 +309,10 @@ class Project extends Model
 
         return $this->attributes['financial_progress'];
     }
+
+    // ────────────────────────────────────────────────
+    // ✨ NEW SCHEDULE HELPERS - ADD THESE 3 METHODS HERE
+    // ────────────────────────────────────────────────
 
     /**
      * Get detailed progress breakdown by phase
@@ -358,7 +366,7 @@ class Project extends Model
     }
 
     // ────────────────────────────────────────────────
-    // Logging & Scopes
+    // Logging & Scopes (KEEP YOUR EXISTING CODE - NO CHANGES)
     // ────────────────────────────────────────────────
 
     public function getActivitylogOptions(): LogOptions

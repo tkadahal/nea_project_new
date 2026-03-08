@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\Role;
 use App\Models\Project;
+use App\Models\PreBudget;
 use Illuminate\View\View;
 use App\Models\FiscalYear;
 use App\Models\Directorate;
@@ -441,6 +442,108 @@ class ReportController extends Controller
         return Excel::download(
             new BudgetReportMultiSheetExport($projects->collect(), $fiscalYearTitle),
             'budget_report_full_' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    /**
+     * Show the Pre-Budget report view
+     */
+    public function showPreBudgetReportView(Request $request): View
+    {
+        return view(
+            'admin.reports.preBudgets', // Ensure you create this view file
+            $this->reportViewData($request)
+        );
+    }
+
+    /**
+     * Generate Pre-Budget report (Mirrors the Budget Report logic)
+     */
+    public function preBudgetReport(Request $request): BinaryFileResponse
+    {
+        $validated = $request->validate([
+            'fiscal_year_id'     => 'required|integer|exists:fiscal_years,id',
+            'directorate_ids'    => 'nullable|array',
+            'directorate_ids.*'  => 'integer|exists:directorates,id',
+            'budget_heading_ids' => 'nullable|array',
+            'budget_heading_ids.*' => 'integer|exists:budget_headings,id',
+        ]);
+
+        $fiscalYear = FiscalYear::findOrFail($validated['fiscal_year_id']);
+
+        // Query projects with PreBudget relationship instead of Budget
+        $query = Project::with(['preBudgets', 'directorate', 'budgetHeading'])
+            ->orderBy('directorate_id')
+            ->orderBy('title');
+
+        // Apply filters (Directorate and Budget Heading)
+        if (!empty($validated['directorate_ids'] ?? [])) {
+            $query->whereIn('directorate_id', $validated['directorate_ids']);
+        }
+
+        if (!empty($validated['budget_heading_ids'] ?? [])) {
+            $query->whereIn('budget_heading_id', $validated['budget_heading_ids']);
+        }
+
+        // Map data to match the structure of the Budget Report
+        $projects = $query->get()->map(function ($project) use ($fiscalYear) {
+            // Retrieve the PreBudget for the specific fiscal year
+            $preBudget = $project->preBudgets()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->first();
+
+            $data = [
+                'title'                  => $project->title,
+                'directorate'            => $project->directorate?->title ?? 'अन्य',
+                'budget_heading'         => $project->budgetHeading?->title ?? 'अन्य',
+                'budget_heading_code'    => $project->budgetHeading?->code ?? '',
+                'budget_heading_description' => $project->budgetHeading?->description ?? '',
+
+                // Initialize with 0
+                'gov_share'              => 0,
+                'gov_loan'               => 0,
+                'foreign_loan'           => 0,
+                'foreign_loan_source'    => '',
+                'grant'                  => 0,
+                'grant_source'           => '',
+                'total_lmbis'            => 0,
+                'nea_budget'             => 0,
+                'grand_total'            => 0,
+            ];
+
+            if ($preBudget) {
+                // Map PreBudget fields to the Report columns
+                $data['gov_share']           = $preBudget->government_share ?? 0;
+                $data['gov_loan']            = $preBudget->government_loan ?? 0;
+                $data['foreign_loan']        = $preBudget->foreign_loan_budget ?? 0;
+                $data['foreign_loan_source'] = $preBudget->foreign_loan_source ?? '';
+                $data['grant']               = $preBudget->foreign_subsidy_budget ?? 0;
+                $data['grant_source']        = $preBudget->foreign_subsidy_source ?? '';
+
+                // Calculate Total LMBIS (Gov Share + Gov Loan + Foreign Loan + Grant)
+                $data['total_lmbis']         = ($preBudget->government_share ?? 0)
+                    + ($preBudget->government_loan ?? 0)
+                    + ($preBudget->foreign_loan_budget ?? 0)
+                    + ($preBudget->foreign_subsidy_budget ?? 0);
+
+                // Map Internal Budget to NEA Budget (or use company_budget if that is the intended equivalent)
+                $data['nea_budget']          = $preBudget->internal_budget ?? 0;
+
+                // Grand Total
+                $data['grand_total']         = $preBudget->total_budget ?? ($data['total_lmbis'] + $data['nea_budget']);
+            }
+
+            return $data;
+        });
+
+        $fiscalYearTitle = $fiscalYear->title ?? '२०८१/८२';
+
+        // Note: You may need to create a specific Export class for PreBudgets (e.g., PreBudgetReportMultiSheetExport)
+        // if the columns or titles differ. If the structure is identical, you might reuse the existing one.
+        // Here I assume a dedicated export class or a generic one:
+        return Excel::download(
+            new \App\Exports\Reports\Consolidated\PreBudgetReportMultiSheetExport($projects->collect(), $fiscalYearTitle),
+            'prebudget_report_' . date('Ymd') . '.xlsx'
         );
     }
 }

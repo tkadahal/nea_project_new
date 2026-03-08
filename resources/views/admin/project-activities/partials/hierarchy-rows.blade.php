@@ -28,26 +28,26 @@
             <span class="{{ $fontClass }} text-gray-900 dark:text-gray-100">{{ $activity->program ?? '' }}</span>
         </td>
         <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
-            {{ number_format($totalQuantity, 0) }}
+            {{ number_format($totalQuantity, 2) }}
         </td>
         <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
             {{ number_format($totalBudget, 2) }}
         </td>
         <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
-            {{ number_format($completedQuantity, 0) }}
+            {{ number_format($completedQuantity, 2) }}
         </td>
         <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
             {{ number_format($totalExpense, 2) }}
         </td>
         <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
-            {{ number_format($plannedQuantity, 0) }}
+            {{ number_format($plannedQuantity, 2) }}
         </td>
         <td class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
             {{ number_format($planned, 2) }}
         </td>
         <td
             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/20">
-            {{ number_format($qQuantity, 0) }}
+            {{ number_format($qQuantity, 2) }}
         </td>
         <td
             class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/20">

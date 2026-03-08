@@ -12,24 +12,22 @@ use App\Models\ProjectScheduleDateRevision;
 use App\Models\ProjectScheduleFile;
 use App\Models\Role;
 use App\Trait\RoleBasedAccess;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProjectActivityScheduleController extends Controller
 {
-    /**
-     * Display the schedule management page for a project
-     *
-     * @param Project $project
-     * @return \Illuminate\View\View
-     */
-    public function index(Project $project)
+    public function index(Project $project): View
     {
         $project->load(['topLevelSchedules', 'activitySchedules.parent']);
 
         $schedules = $project->activitySchedules()
-            ->with(['parent', 'children'])
+            ->withCount('children')
+            ->withPivot(['progress', 'start_date', 'end_date'])
             ->ordered()
             ->get();
 
@@ -44,13 +42,7 @@ class ProjectActivityScheduleController extends Controller
         ));
     }
 
-    /**
-     * Display the schedule tree view
-     *
-     * @param Project $project
-     * @return \Illuminate\View\View
-     */
-    public function tree(Project $project)
+    public function tree(Project $project): View
     {
         $topLevelSchedules = $project->topLevelSchedules()
             ->with(['descendants' => function ($query) use ($project) {
@@ -63,13 +55,7 @@ class ProjectActivityScheduleController extends Controller
         return view('admin.schedules.tree', compact('project', 'topLevelSchedules'));
     }
 
-    /**
-     * Display the progress dashboard
-     *
-     * @param Project $project
-     * @return \Illuminate\View\View
-     */
-    public function dashboard(Project $project)
+    public function dashboard(Project $project): View
     {
         $breakdown = $project->getScheduleProgressBreakdown();
         $overallProgress = $project->calculatePhysicalProgress();
@@ -98,27 +84,14 @@ class ProjectActivityScheduleController extends Controller
         ));
     }
 
-    /**
-     * Show the form for assigning schedules to project
-     *
-     * @param Project $project
-     * @return \Illuminate\View\View
-     */
-    public function assignForm(Project $project)
+    public function assignForm(Project $project): View
     {
         $hasSchedules = $project->activitySchedules()->exists();
 
         return view('admin.schedules.assign', compact('project', 'hasSchedules'));
     }
 
-    /**
-     * Assign schedules to a project
-     *
-     * @param Request $request
-     * @param Project $project
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function assign(Request $request, Project $project)
+    public function assign(Request $request, Project $project): RedirectResponse
     {
         $request->validate([
             'project_type' => 'required|in:transmission_line,substation',
@@ -130,10 +103,8 @@ class ProjectActivityScheduleController extends Controller
                 ->ordered()
                 ->get();
 
-            // Detach existing schedules if any
             $project->activitySchedules()->detach();
 
-            // Attach all schedules with default values
             $syncData = [];
             foreach ($schedules as $schedule) {
                 $syncData[$schedule->id] = [
@@ -161,16 +132,9 @@ class ProjectActivityScheduleController extends Controller
         }
     }
 
-    /**
-     * Show the form for editing a schedule
-     *
-     * @param Project $project
-     * @param ProjectActivitySchedule $schedule
-     * @return \Illuminate\View\View
-     */
-    public function edit(Project $project, ProjectActivitySchedule $schedule)
+
+    public function edit(Project $project, ProjectActivitySchedule $schedule): View
     {
-        // Check if schedule is assigned to project
         $assignment = $project->activitySchedules()
             ->where('schedule_id', $schedule->id)
             ->first();
@@ -182,16 +146,27 @@ class ProjectActivityScheduleController extends Controller
         return view('admin.schedules.edit', compact('project', 'schedule', 'assignment'));
     }
 
-    /**
-     * Update a schedule's progress
-     *
-     * @param Request $request
-     * @param Project $project
-     * @param ProjectActivitySchedule $schedule
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function update(Request $request, Project $project, ProjectActivitySchedule $schedule)
+    public function update(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
+        dd($request->all());
+        if (!$project->activitySchedules->contains($schedule->id)) {
+            return redirect()->back()->with('error', 'Schedule not found in this project.');
+        }
+
+        $pivotData = $project->activitySchedules()->where('schedule_id', $schedule->id)->first()->pivot;
+
+        if (
+            $request->filled('progress') &&
+            (
+                (is_null($pivotData->start_date) || is_null($pivotData->end_date)) &&
+                (!$request->filled('start_date') || !$request->filled('end_date'))
+            )
+        ) {
+            return redirect()->back()
+                ->withErrors(['progress' => 'Please set planned start and end dates before updating progress.'])
+                ->withInput();
+        }
+
         $request->validate([
             'progress' => 'required|numeric|min:0|max:100',
             'start_date' => 'nullable|date',
@@ -238,14 +213,7 @@ class ProjectActivityScheduleController extends Controller
         }
     }
 
-    /**
-     * Bulk update schedules
-     *
-     * @param Request $request
-     * @param Project $project
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function bulkUpdate(Request $request, Project $project)
+    public function bulkUpdate(Request $request, Project $project): RedirectResponse
     {
         $request->validate([
             'schedules' => 'required|array',
@@ -280,13 +248,7 @@ class ProjectActivityScheduleController extends Controller
         }
     }
 
-    /**
-     * Display leaf schedules for quick update
-     *
-     * @param Project $project
-     * @return \Illuminate\View\View
-     */
-    public function quickUpdate(Project $project)
+    public function quickUpdate(Project $project): View
     {
         $leafSchedules = $project->leafSchedules()
             ->with('parent')
@@ -301,12 +263,8 @@ class ProjectActivityScheduleController extends Controller
         return view('admin.schedules.quick-update', compact('project', 'leafSchedules'));
     }
 
-    /**
-     * Show form to create a new custom schedule
-     */
-    public function createSchedule(Project $project)
+    public function createSchedule(Project $project): View
     {
-        // Get potential parent schedules (for hierarchical structure)
         $parentSchedules = $project->activitySchedules()
             ->orderBy('sort_order')
             ->get();
@@ -314,10 +272,7 @@ class ProjectActivityScheduleController extends Controller
         return view('admin.schedules.create', compact('project', 'parentSchedules'));
     }
 
-    /**
-     * Store a new custom schedule
-     */
-    public function storeSchedule(Request $request, Project $project)
+    public function storeSchedule(Request $request, Project $project): RedirectResponse
     {
         $request->validate([
             'code' => 'required|string|max:50|unique:project_activity_schedules,code',
@@ -331,14 +286,12 @@ class ProjectActivityScheduleController extends Controller
 
         DB::beginTransaction();
         try {
-            // Calculate level based on parent
             $level = 1;
             if ($request->parent_id) {
                 $parent = ProjectActivitySchedule::find($request->parent_id);
                 $level = $parent->level + 1;
             }
 
-            // Create schedule
             $schedule = ProjectActivitySchedule::create([
                 'code' => $request->code,
                 'name' => $request->name,
@@ -350,7 +303,6 @@ class ProjectActivityScheduleController extends Controller
                 'sort_order' => $request->sort_order ?? 999,
             ]);
 
-            // Attach to project
             $project->activitySchedules()->attach($schedule->id, [
                 'progress' => 0.00,
                 'created_at' => now(),
@@ -370,10 +322,7 @@ class ProjectActivityScheduleController extends Controller
         }
     }
 
-    /**
-     * Show form to edit a schedule
-     */
-    public function editSchedule(Project $project, ProjectActivitySchedule $schedule)
+    public function editSchedule(Project $project, ProjectActivitySchedule $schedule): View
     {
         $assignment = $project->activitySchedules()
             ->where('schedule_id', $schedule->id)
@@ -391,10 +340,7 @@ class ProjectActivityScheduleController extends Controller
         return view('admin.schedules.edit-schedule', compact('project', 'schedule', 'assignment', 'parentSchedules'));
     }
 
-    /**
-     * Update a schedule
-     */
-    public function updateSchedule(Request $request, Project $project, ProjectActivitySchedule $schedule)
+    public function updateSchedule(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
         $request->validate([
             'code' => 'required|string|max:50|unique:project_activity_schedules,code,' . $schedule->id,
@@ -407,7 +353,6 @@ class ProjectActivityScheduleController extends Controller
 
         DB::beginTransaction();
         try {
-            // Calculate level based on parent
             $level = 1;
             if ($request->parent_id) {
                 $parent = ProjectActivitySchedule::find($request->parent_id);
@@ -437,17 +382,12 @@ class ProjectActivityScheduleController extends Controller
         }
     }
 
-    /**
-     * Delete a schedule
-     */
-    public function destroySchedule(Project $project, ProjectActivitySchedule $schedule)
+    public function destroySchedule(Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
         DB::beginTransaction();
         try {
-            // Detach from project first
             $project->activitySchedules()->detach($schedule->id);
 
-            // Delete the schedule (will cascade to children if configured)
             $schedule->delete();
 
             DB::commit();
@@ -467,10 +407,7 @@ class ProjectActivityScheduleController extends Controller
     // DATE REVISIONS
     // ════════════════════════════════════════════════════════════
 
-    /**
-     * Add a new date revision
-     */
-    public function addDateRevision(Request $request, Project $project, ProjectActivitySchedule $schedule)
+    public function addDateRevision(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
         $request->validate([
             'actual_start_date' => 'nullable|date',
@@ -500,10 +437,7 @@ class ProjectActivityScheduleController extends Controller
         return back()->with('success', 'Date revision added successfully');
     }
 
-    /**
-     * Delete a date revision
-     */
-    public function deleteDateRevision(Project $project, ProjectScheduleDateRevision $revision)
+    public function deleteDateRevision(Project $project, ProjectScheduleDateRevision $revision): RedirectResponse
     {
         $revision->delete();
         return back()->with('success', 'Date revision deleted successfully');
@@ -513,18 +447,12 @@ class ProjectActivityScheduleController extends Controller
     // CHARTS
     // ════════════════════════════════════════════════════════════
 
-    /**
-     * Show charts page
-     */
-    public function charts(Project $project)
+    public function charts(Project $project): View
     {
         return view('admin.schedules.charts', compact('project'));
     }
 
-    /**
-     * Get burn chart data (API)
-     */
-    public function burnChartData(Project $project)
+    public function burnChartData(Project $project): JsonResponse
     {
         $schedules = $project->leafSchedules()->get();
 
@@ -532,7 +460,6 @@ class ProjectActivityScheduleController extends Controller
         $plannedProgress = [];
         $actualProgress = [];
 
-        // Get date range
         $startDate = $schedules->min('pivot.start_date');
         $endDate = $schedules->max('pivot.end_date');
 
@@ -550,11 +477,9 @@ class ProjectActivityScheduleController extends Controller
         while ($currentDate->lte($endDate)) {
             $dates[] = $currentDate->format('Y-m-d');
 
-            // Calculate planned progress up to this date
             $plannedAtDate = $this->calculatePlannedProgressAtDate($project, $currentDate);
             $plannedProgress[] = $plannedAtDate;
 
-            // Calculate actual progress up to this date
             $actualAtDate = $this->calculateActualProgressAtDate($project, $currentDate);
             $actualProgress[] = $actualAtDate;
 
@@ -568,135 +493,152 @@ class ProjectActivityScheduleController extends Controller
         ]);
     }
 
-    /**
-     * Get S-curve data (API)
-     */
     public function sCurveData(Project $project)
     {
-        // Similar to burn chart but cumulative
         return $this->burnChartData($project);
     }
 
-    /**
-     * Get activity (Gantt) chart data (API)
-     */
     public function activityChartData(Project $project)
     {
-        $schedules = $project->leafSchedules()->with(['parent', 'dateRevisions.revisedBy'])->get();
-
-        $data = $schedules->map(function ($schedule) use ($project) {
-            // This manual query is safer and ensures data is fetched correctly
-            $revisions = ProjectScheduleDateRevision::where('project_id', $project->id)
-                ->where('schedule_id', $schedule->id)
-                ->orderBy('created_at')
+        try {
+            $allSchedules = $project->activitySchedules()
+                ->with(['parent', 'children'])
                 ->get();
 
-            return [
-                'id' => $schedule->id,
-                'name' => $schedule->name,
-                'code' => $schedule->code,
-                'parent' => $schedule->parent ? $schedule->parent->name : null,
-                'planned_start' => $schedule->pivot->start_date,
-                'planned_end' => $schedule->pivot->end_date,
-                'actual_dates' => $revisions->map(function ($rev) {
-                    return [
+            $leafSchedules = $allSchedules->filter(fn($s) => $s->isLeaf());
+
+            $data = $leafSchedules->map(function ($schedule) use ($project) {
+                $revisions = ProjectScheduleDateRevision::where('project_id', $project->id)
+                    ->where('schedule_id', $schedule->id)
+                    ->orderBy('created_at')
+                    ->get();
+
+                return [
+                    'id' => $schedule->id,
+                    'name' => $schedule->name,
+                    'code' => $schedule->code,
+                    'parent' => $schedule->parent ? $schedule->parent->name : null,
+                    'planned_start' => $schedule->pivot->start_date,
+                    'planned_end' => $schedule->pivot->end_date,
+                    'actual_dates' => $revisions->map(fn($rev) => [
                         'start' => $rev->actual_start_date,
                         'end' => $rev->actual_end_date,
                         'reason' => $rev->revision_reason,
-                        // Ensure the 'revisedBy' relationship exists in your ProjectScheduleDateRevision model
-                        'revised_by' => $rev->revisedBy ? $rev->revisedBy->name : 'System',
-                    ];
-                }),
-                'progress' => $schedule->pivot->progress,
-            ];
-        });
+                    ]),
+                    'progress' => (float)$schedule->pivot->progress,
+                ];
+            })->values();
 
-        return response()->json($data);
+            return response()->json($data);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
     }
 
-    /**
-     * Get Gantt Chart data (API)
-     * Calculates critical path based on predecessor delays
-     */
     public function ganttData(Project $project)
     {
-        // Fallback dates for tasks without schedules
-        $fallbackStart = \Carbon\Carbon::now()->format('Y-m-d');
-        $fallbackEnd = \Carbon\Carbon::now()->addDay()->format('Y-m-d');
+        try {
+            $schedules = $project->activitySchedules()
+                ->with('children')
+                ->get()
+                ->filter(fn($s) => $s->isLeaf())
+                ->sortBy('code');
 
-        // Get leaf schedules, ordered by code
-        $schedules = $project->leafSchedules()->orderBy('code')->get();
+            if ($schedules->isEmpty()) {
+                return response()->json([]);
+            }
 
-        $tasks = [];
-        $previousTask = null;
+            $tasks = [];
+            $previousTaskId = null;
+            $previousPhase = null;
 
-        foreach ($schedules as $schedule) {
-            // Try to get Actual dates, if not, Planned dates
-            $start = $schedule->pivot->actual_start_date ?? $schedule->pivot->start_date;
-            $end = $schedule->pivot->actual_end_date ?? $schedule->pivot->end_date;
+            foreach ($schedules as $schedule) {
+                // Create clean ID (no dots, spaces, or special chars)
+                $cleanId = 'task_' . str_replace(['.', ' ', '/', '\\'], '_', (string)$schedule->code);
+                $currentPhase = explode('.', (string)$schedule->code)[0];
 
-            // CHECK: Are dates missing?
-            $hasDates = ($schedule->pivot->start_date || $schedule->pivot->actual_start_date);
+                // Get dates with fallbacks
+                $start = $schedule->pivot->actual_start_date
+                    ?? $schedule->pivot->start_date
+                    ?? now()->format('Y-m-d');
 
-            // If missing, use fallback so the chart renders
-            if (!$start) $start = $fallbackStart;
-            if (!$end) $end = $fallbackEnd;
+                $end = $schedule->pivot->actual_end_date
+                    ?? $schedule->pivot->end_date
+                    ?? now()->addDays(7)->format('Y-m-d');
 
-            // Format for Gantt
-            $startFormatted = $start instanceof \Carbon\Carbon ? $start->format('Y-m-d') : $start;
-            $endFormatted = $end instanceof \Carbon\Carbon ? $end->format('Y-m-d') : $end;
+                // Ensure dates are strings in YYYY-MM-DD format
+                try {
+                    $startDate = \Carbon\Carbon::parse($start);
+                    $endDate = \Carbon\Carbon::parse($end);
 
-            // Status Logic (Same as before)
-            $status = 'normal';
-            $dependencies = [];
-
-            if ($previousTask) {
-                if (substr($schedule->code, 0, 1) === substr($previousTask['code'], 0, 1)) {
-                    $dependencies[] = $previousTask['id'];
-
-                    // Check Critical Path
-                    if (
-                        $previousTask['actual_end'] &&
-                        $schedule->pivot->start_date &&
-                        $previousTask['actual_end'] > $schedule->pivot->start_date
-                    ) {
-                        $status = 'critical';
+                    // Ensure end is after start
+                    if ($endDate->lte($startDate)) {
+                        $endDate = $startDate->copy()->addDay();
                     }
-                    // Check Warning
-                    elseif (
-                        $schedule->pivot->actual_start_date &&
-                        $schedule->pivot->start_date &&
-                        $schedule->pivot->actual_start_date > $schedule->pivot->start_date
-                    ) {
-                        $status = 'warning';
-                    }
+
+                    $start = $startDate->format('Y-m-d');
+                    $end = $endDate->format('Y-m-d');
+                } catch (\Exception $e) {
+                    // If date parsing fails, use safe defaults
+                    $start = now()->format('Y-m-d');
+                    $end = now()->addDays(7)->format('Y-m-d');
                 }
+
+                // Build dependencies - MUST be empty string if no deps
+                $dependencies = '';
+                if ($previousTaskId && $previousPhase === $currentPhase) {
+                    $dependencies = $previousTaskId;
+                }
+
+                // Get progress as integer
+                $progress = (int)round((float)($schedule->pivot->progress ?? 0));
+                $progress = max(0, min(100, $progress)); // Clamp between 0-100
+
+                // Determine custom class
+                $customClass = 'normal';
+                try {
+                    if ($progress < 100 && \Carbon\Carbon::parse($end)->isPast()) {
+                        $customClass = 'critical';
+                    }
+                } catch (\Exception $e) {
+                    $customClass = 'normal';
+                }
+
+                // Build task object - ALL fields required
+                $tasks[] = [
+                    'id' => $cleanId,
+                    'name' => (string)$schedule->code . ': ' . $schedule->name,
+                    'start' => $start,
+                    'end' => $end,
+                    'progress' => $progress,
+                    'dependencies' => $dependencies,  // MUST be string (empty or comma-separated IDs)
+                    'custom_class' => $customClass
+                ];
+
+                $previousTaskId = $cleanId;
+                $previousPhase = $currentPhase;
             }
 
-            // Build Name
-            $name = $schedule->code . ': ' . $schedule->name;
-            if (!$hasDates) {
-                $name .= ' ⚠️ (No Dates)';
-            }
+            // Final validation: ensure all tasks have required fields
+            $validatedTasks = array_map(function ($task) {
+                return [
+                    'id' => $task['id'] ?? 'task_unknown',
+                    'name' => $task['name'] ?? 'Unnamed Task',
+                    'start' => $task['start'] ?? now()->format('Y-m-d'),
+                    'end' => $task['end'] ?? now()->addDay()->format('Y-m-d'),
+                    'progress' => isset($task['progress']) ? (int)$task['progress'] : 0,
+                    'dependencies' => $task['dependencies'] ?? '',
+                    'custom_class' => $task['custom_class'] ?? 'normal'
+                ];
+            }, $tasks);
 
-            $tasks[] = [
-                'id' => str_replace('.', '-', $schedule->code),
-                'name' => $name,
-                'start' => $startFormatted,
-                'end' => $endFormatted,
-                'progress' => $schedule->pivot->progress,
-                'dependencies' => $dependencies,
-                'custom_class' => $status
-            ];
-
-            $previousTask = [
-                'id' => str_replace('.', '-', $schedule->code),
-                'code' => $schedule->code,
-                'actual_end' => $schedule->pivot->actual_end_date,
-            ];
+            return response()->json($validatedTasks);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to generate Gantt data',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json($tasks);
     }
 
     // ════════════════════════════════════════════════════════════
@@ -722,7 +664,6 @@ class ProjectActivityScheduleController extends Controller
             } elseif ($date->gte($end)) {
                 $progressSum += 100;
             } else {
-                // Linear interpolation
                 $totalDays = $start->diffInDays($end);
                 $elapsedDays = $start->diffInDays($date);
                 $progressSum += ($elapsedDays / $totalDays) * 100;
@@ -741,7 +682,6 @@ class ProjectActivityScheduleController extends Controller
 
         $progressSum = 0;
         foreach ($schedules as $schedule) {
-            // Get latest revision before or on this date
             $revision = ProjectScheduleDateRevision::where('project_id', $project->id)
                 ->where('schedule_id', $schedule->id)
                 ->where('created_at', '<=', $date)
@@ -766,7 +706,6 @@ class ProjectActivityScheduleController extends Controller
             } elseif ($date->gte($end)) {
                 $progressSum += $schedule->pivot->progress;
             } else {
-                // Use actual recorded progress
                 $progressSum += $schedule->pivot->progress;
             }
         }
@@ -774,20 +713,14 @@ class ProjectActivityScheduleController extends Controller
         return round($progressSum / $totalWeight, 2);
     }
 
-    /**
-     * Consolidated Analytics Dashboard (OPTIMIZED)
-     * Eager loads all relationships to prevent N+1 queries
-     */
     public function analyticsDashboard(Request $request)
     {
         $user = Auth::user();
 
-        // 1. Get cached role IDs (using your custom instructions: be precise/professional)
         $roleIds = cache()->remember("user_{$user->id}_roles_ids", 3600, function () use ($user) {
             return $user->roles->pluck('id')->toArray();
         });
 
-        // 2. Get accessible IDs (Note: Use property 'roles' not method 'roles()' to avoid duplicates)
         $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
         $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
@@ -804,128 +737,62 @@ class ProjectActivityScheduleController extends Controller
             ]);
         }
 
-        // 3. Global Statistics (Aggregated queries are faster than processing collections)
-        $statistics = [
-            'total_projects' => count($accessibleProjectIds),
-            'total_schedules' => ProjectActivitySchedule::whereHas('projects', function ($query) use ($accessibleProjectIds) {
-                $query->whereIn('projects.id', $accessibleProjectIds);
-            })->count(),
-            'total_files' => ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)->count(),
-            // Average progress is calculated after the loop below
-        ];
+        $query = Project::whereIn('id', $accessibleProjectIds);
 
-        // 4. PAGINATED Projects (The Table Data)
-        // We only eager-load relationships for the 10-15 projects visible on the current page
-        $projects = Project::whereIn('id', $accessibleProjectIds)
-            ->with([
-                'directorate',
-                'status',
-                'activitySchedules' => function ($query) {
-                    // Single nested eager load for efficiency
-                    $query->with(['childrenRecursive', 'projects']);
-                }
-            ])
-            ->paginate(10);
-
-        // 5. Processing Paginated Results for the Table
-        $projectProgress = [];
-        $pageTotalProgress = 0;
-
-        foreach ($projects as $project) {
-            $progress = $project->calculatePhysicalProgress();
-            $pageTotalProgress += $progress;
-
-            // Efficiently filter the in-memory collection for completed schedules
-            $completedCount = $project->activitySchedules->filter(function ($schedule) {
-                // Check recursive relation to avoid lazy-loading 'children'
-                $children = $schedule->relationLoaded('childrenRecursive')
-                    ? $schedule->childrenRecursive
-                    : $schedule->children;
-
-                return $children->isNotEmpty() && (float)$schedule->pivot->progress >= 100;
-            })->count();
-
-            $projectProgress[] = [
-                'id' => $project->id,
-                'title' => $project->title,
-                'directorate' => $project->directorate?->title ?? 'N/A',
-                'progress' => $progress,
-                'status' => $project->status?->name ?? 'N/A',
-                'total_schedules' => $project->activitySchedules->count(),
-                'completed_schedules' => $completedCount,
-            ];
+        if ($request->filled('directorate_id')) {
+            $query->where('directorate_id', $request->directorate_id);
         }
 
-        // 6. Calculate Average Progress (For the cards, usually we want global average)
-        // To be precise, calculate the global average without hydration
-        $statistics['average_progress'] = DB::table('project_schedule_assignments')
-            ->whereIn('project_id', $accessibleProjectIds)
-            ->avg('progress') ?? 0;
+        if ($request->filled('project_id')) {
+            $query->where('id', $request->project_id);
+        }
 
-        // 7. Phase Breakdown (Optimized)
-        // We pass the PAGINATED projects to keep this fast, or the full collection if global view is required
-        $phaseBreakdown = $this->calculateGlobalPhaseBreakdown($accessibleProjectIds);
+        $filteredProjectIds = $query->pluck('id')->toArray();
 
-        // 8. Recent Files
-        $recentFiles = ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
-            ->with(['project', 'uploadedBy'])
+        $projects = $query->with(['directorate', 'status', 'activitySchedules'])
+            ->paginate(10);
+
+        $phaseBreakdown = $this->calculateGlobalPhaseBreakdown($filteredProjectIds);
+
+        $recentFiles = ProjectScheduleFile::whereIn('project_id', $filteredProjectIds)
+            ->with(['project'])
             ->latest()
             ->take(5)
             ->get();
 
-        $viewLevel = $this->getUserViewLevel($roleIds);
+        $directoratePerformance = $this->calculateDirectoratePerformance($accessibleDirectorateIds, $accessibleProjectIds);
 
-        $directoratePerformance = [];
+        $projectList = Project::whereIn('id', $accessibleProjectIds)
+            ->select('id', 'title')
+            ->orderBy('title')
+            ->get();
 
-        if ($viewLevel === 'admin' || $viewLevel === 'directorate') {
-            // Get directorates based on access
-            $directorates = \App\Models\Directorate::whereIn('id', $accessibleDirectorateIds)->get();
-
-            foreach ($directorates as $dir) {
-                // Query progress for projects only in this specific directorate
-                $dirProjectIds = Project::where('directorate_id', $dir->id)
-                    ->whereIn('id', $accessibleProjectIds)
-                    ->pluck('id');
-
-                if ($dirProjectIds->isNotEmpty()) {
-                    $avgProgress = DB::table('project_schedule_assignments')
-                        ->whereIn('project_id', $dirProjectIds)
-                        ->avg('progress') ?? 0;
-
-                    $directoratePerformance[] = [
-                        'title' => $dir->title,
-                        'total_projects' => $dirProjectIds->count(),
-                        'average_progress' => $avgProgress
-                    ];
-                }
-            }
-        }
-
-        // Add 'directoratePerformance' to your compact() or $viewData array
-        $viewData['directoratePerformance'] = $directoratePerformance;
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)->get();
 
         $viewData = [
-            'projects' => $projects, // The Paginator
-            'statistics' => $statistics,
-            'projectProgress' => $projectProgress,
+            'projects' => $projects,
+            'projectProgress' => $this->formatProjectProgressData($projects),
             'phaseBreakdown' => $phaseBreakdown,
             'recentFiles' => $recentFiles,
-            'viewLevel' => $viewLevel,
-            'userDirectorate' => $user->directorate,
+            'statistics' => $this->getGlobalStats($accessibleProjectIds),
             'directoratePerformance' => $directoratePerformance,
+            'projectList' => $projectList,
+            'directorates' => $directorates,
+            'viewLevel' => $this->getUserViewLevel($roleIds),
+            'userDirectorate' => $user->directorate,
         ];
 
-        // Handle AJAX Pagination
         if ($request->ajax()) {
-            return view('admin.schedules.partials._projects_table', $viewData)->render();
+            return response()->json([
+                'table' => view('admin.schedules.partials._projects_table', $viewData)->render(),
+                'phases' => view('admin.schedules.partials._phase_breakdown', $viewData)->render(),
+                'files' => view('admin.schedules.partials._recent_files', $viewData)->render(),
+            ]);
         }
 
         return view('admin.schedules.analytics', $viewData);
     }
 
-    /**
-     * All accessible schedule files (OPTIMIZED)
-     */
     public function allFiles(Request $request)
     {
         $user = Auth::user();
@@ -941,19 +808,16 @@ class ProjectActivityScheduleController extends Controller
         $query = ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
             ->with(['project.directorate', 'schedule', 'uploadedBy']);
 
-        // Filter by project
         if ($request->filled('project_id') && in_array($request->project_id, $accessibleProjectIds)) {
             $query->where('project_id', $request->project_id);
         }
 
-        // Filter by file type
         if ($request->filled('file_type')) {
             $query->where('file_type', $request->file_type);
         }
 
         $files = $query->latest()->paginate(20);
 
-        // Single query for all projects
         $projects = Project::whereIn('id', $accessibleProjectIds)
             ->with('directorate')
             ->orderBy('title')
@@ -962,14 +826,10 @@ class ProjectActivityScheduleController extends Controller
         return view('admin.schedules.all-files', compact('files', 'projects'));
     }
 
-    /**
-     * Multi-project charts (OPTIMIZED)
-     */
     public function analyticsCharts(Request $request)
     {
         $user = Auth::user();
 
-        // Cache role IDs
         $roleIds = cache()->remember("user_{$user->id}_roles", 3600, function () use ($user) {
             return $user->roles()->pluck('id')->toArray();
         });
@@ -985,7 +845,6 @@ class ProjectActivityScheduleController extends Controller
             ]);
         }
 
-        // Eager load relationships
         $projects = Project::whereIn('id', $accessibleProjectIds)
             ->with(['directorate', 'activitySchedules'])
             ->get();
@@ -1001,50 +860,151 @@ class ProjectActivityScheduleController extends Controller
         ));
     }
 
-    /**
-     * Overview page (OPTIMIZED)
-     */
     public function overview(Request $request)
     {
         $user = Auth::user();
+        $roleIds = cache()->remember("user_{$user->id}_roles", 3600, function () use ($user) {
+            return $user->roles()->pluck('id')->toArray();
+        });
+
         $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
         if (empty($accessibleProjectIds)) {
             return view('admin.schedules.overview', [
-                'projects' => collect([]),
+                'projects' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12),
                 'statistics' => $this->getEmptyStatistics(),
+                'directorates' => collect([]),
+                'allProjects' => collect([]),
+                'viewLevel' => $this->getUserViewLevel($roleIds),
             ]);
         }
 
-        // Eager load all relationships
-        $projects = Project::whereIn('id', $accessibleProjectIds)
-            ->with(['directorate', 'activitySchedules', 'status'])
+        $query = Project::whereIn('id', $accessibleProjectIds)
+            ->with([
+                'directorate',
+                'activitySchedules' => function ($q) {
+                    $q->with(['projects' => fn($q) => $q->select('projects.id')]);
+                },
+                'status'
+            ]);
+
+        if ($request->filled('directorate_id')) {
+            $directorateId = $request->directorate_id;
+            if (in_array($directorateId, $accessibleDirectorateIds)) {
+                $query->where('directorate_id', $directorateId);
+            }
+        }
+
+        if ($request->filled('project_id')) {
+            $projectId = $request->project_id;
+            if (in_array($projectId, $accessibleProjectIds)) {
+                $query->where('id', $projectId);
+            }
+        }
+
+        if ($request->filled('status')) {
+            $status = $request->status;
+            if ($status === 'completed') {
+                $query->whereHas('activitySchedules', function ($q) {
+                    $q->havingRaw('AVG(progress) >= 100');
+                });
+            } elseif ($status === 'in_progress') {
+                $query->whereHas('activitySchedules', function ($q) {
+                    $q->havingRaw('AVG(progress) > 0 AND AVG(progress) < 100');
+                });
+            } elseif ($status === 'not_started') {
+                $query->whereHas('activitySchedules', function ($q) {
+                    $q->havingRaw('AVG(progress) = 0');
+                });
+            }
+        }
+
+        $projects = $query->paginate(12)->withQueryString();
+
+        $allProjectsQuery = Project::whereIn('id', $accessibleProjectIds)
+            ->with([
+                'directorate',
+            ])
+            ->orderBy('title');
+
+        if ($request->filled('directorate_id')) {
+            $directorateId = $request->directorate_id;
+            if (in_array($directorateId, $accessibleDirectorateIds)) {
+                $allProjectsQuery->where('directorate_id', $directorateId);
+            }
+        }
+
+        $allProjects = $allProjectsQuery->get();
+
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
+            ->orderBy('title')
             ->get();
 
-        // Pre-calculate progress
+        $allProjectsForStats = Project::whereIn('id', $accessibleProjectIds)
+            ->with([
+                'activitySchedules' => function ($q) {
+                    $q->with(['projects' => fn($q) => $q->select('projects.id')]);
+                }
+            ])
+            ->get();
+
         $progressValues = [];
-        foreach ($projects as $project) {
+        foreach ($allProjectsForStats as $project) {
             $progressValues[] = $project->calculatePhysicalProgress();
         }
 
         $statistics = [
-            'total_projects' => $projects->count(),
-            'total_schedules' => $projects->sum(fn($p) => $p->activitySchedules->count()),
+            'total_projects' => $allProjectsForStats->count(),
+            'total_schedules' => $allProjectsForStats->sum(fn($p) => $p->activitySchedules->count()),
             'average_progress' => count($progressValues) > 0 ? round(array_sum($progressValues) / count($progressValues), 2) : 0,
         ];
 
-        return view('admin.schedules.overview', compact('projects', 'statistics'));
+        $viewLevel = $this->getUserViewLevel($roleIds);
+
+        return view('admin.schedules.overview', compact(
+            'projects',
+            'statistics',
+            'directorates',
+            'allProjects',
+            'viewLevel'
+        ));
     }
 
-    /**
-     * API: Projects comparison data (OPTIMIZED)
-     */
+    public function apiProjectsByDirectorate(Request $request)
+    {
+        $user = Auth::user();
+        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+
+        $query = Project::whereIn('id', $accessibleProjectIds)
+            ->with('directorate')
+            ->orderBy('title');
+
+        if ($request->filled('directorate_id')) {
+            $directorateId = $request->directorate_id;
+            $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+
+            if (in_array($directorateId, $accessibleDirectorateIds)) {
+                $query->where('directorate_id', $directorateId);
+            }
+        }
+
+        $projects = $query->get()->map(function ($project) {
+            return [
+                'id' => $project->id,
+                'title' => $project->title,
+                'directorate' => $project->directorate?->title,
+            ];
+        });
+
+        return response()->json($projects);
+    }
+
     public function apiProjectsComparison(Request $request)
     {
         $user = Auth::user();
         $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
 
-        // Eager load schedules
         $projects = Project::whereIn('id', $accessibleProjectIds)
             ->with(['directorate', 'topLevelSchedules.children'])
             ->get();
@@ -1063,14 +1023,10 @@ class ProjectActivityScheduleController extends Controller
         return response()->json($data);
     }
 
-    /**
-     * API: Directorate comparison data (OPTIMIZED)
-     */
     public function apiDirectoratesComparison(Request $request)
     {
         $user = Auth::user();
 
-        // Cache roles
         $roleIds = cache()->remember("user_{$user->id}_roles", 3600, function () use ($user) {
             return $user->roles()->pluck('id')->toArray();
         });
@@ -1085,7 +1041,6 @@ class ProjectActivityScheduleController extends Controller
 
         $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
-        // Eager load projects with schedules
         $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
             ->with(['projects.activitySchedules'])
             ->get();
@@ -1114,15 +1069,11 @@ class ProjectActivityScheduleController extends Controller
         return response()->json($data);
     }
 
-    /**
-     * API: Top performing projects (OPTIMIZED)
-     */
     public function apiTopProjects(Request $request)
     {
         $user = Auth::user();
         $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
 
-        // Eager load relationships
         $projects = Project::whereIn('id', $accessibleProjectIds)
             ->with(['directorate', 'activitySchedules'])
             ->get();
@@ -1141,13 +1092,8 @@ class ProjectActivityScheduleController extends Controller
         );
     }
 
-    /**
-     * OPTIMIZED: Calculate phase breakdown
-     * Avoids repeated getScheduleProgressBreakdown() calls
-     */
     private function calculateGlobalPhaseBreakdown(array $projectIds)
     {
-        // Fetch all Level 1 phases and pre-load all recursive children + pivots
         $phases = ProjectActivitySchedule::where('level', 1)
             ->with(['childrenRecursive.projects' => function ($q) use ($projectIds) {
                 $q->whereIn('projects.id', $projectIds)->withPivot('progress');
@@ -1164,7 +1110,6 @@ class ProjectActivityScheduleController extends Controller
                     $projectTotal = 0;
                     $leafCount = 0;
 
-                    // Sum up leaves across all schedules sharing this code (e.g., all Phase A's)
                     foreach ($groupedSchedules as $schedule) {
                         $leaves = $schedule->getLeafSchedules();
                         foreach ($leaves as $leaf) {
@@ -1194,9 +1139,6 @@ class ProjectActivityScheduleController extends Controller
             ->values();
     }
 
-    /**
-     * Helper: Determine user's view level
-     */
     private function getUserViewLevel($roleIds): string
     {
         if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
@@ -1210,9 +1152,6 @@ class ProjectActivityScheduleController extends Controller
         return 'project';
     }
 
-    /**
-     * Helper: Get empty statistics structure
-     */
     private function getEmptyStatistics(): array
     {
         return [
@@ -1222,5 +1161,502 @@ class ProjectActivityScheduleController extends Controller
             'completed_projects' => 0,
             'total_files' => 0,
         ];
+    }
+
+    private function formatProjectProgressData($projects): array
+    {
+        $formatted = [];
+
+        foreach ($projects as $project) {
+            $progress = $project->calculatePhysicalProgress();
+
+            $completedCount = $project->activitySchedules->filter(function ($schedule) {
+                return (float)$schedule->pivot->progress >= 100;
+            })->count();
+
+            $formatted[] = [
+                'id' => $project->id,
+                'title' => $project->title,
+                'directorate' => $project->directorate?->title ?? 'N/A',
+                'progress' => $progress,
+                'status' => $project->status?->name ?? 'N/A',
+                'total_schedules' => $project->activitySchedules->count(),
+                'completed_schedules' => $completedCount,
+            ];
+        }
+
+        return $formatted;
+    }
+
+    private function getGlobalStats(array $accessibleProjectIds): array
+    {
+        return [
+            'total_projects' => count($accessibleProjectIds),
+
+            'total_schedules' => DB::table('project_schedule_assignments')
+                ->whereIn('project_id', $accessibleProjectIds)
+                ->count(),
+
+            'average_progress' => DB::table('project_schedule_assignments')
+                ->whereIn('project_id', $accessibleProjectIds)
+                ->avg('progress') ?? 0,
+
+            'total_files' => \App\Models\ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
+                ->count(),
+        ];
+    }
+
+    private function calculateDirectoratePerformance(array $accessibleDirectorateIds, array $accessibleProjectIds): array
+    {
+        $performance = [];
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)->get();
+
+        foreach ($directorates as $dir) {
+            $dirProjectIds = Project::where('directorate_id', $dir->id)
+                ->whereIn('id', $accessibleProjectIds)
+                ->pluck('id');
+
+            if ($dirProjectIds->isNotEmpty()) {
+                $avgProgress = DB::table('project_schedule_assignments')
+                    ->whereIn('project_id', $dirProjectIds)
+                    ->avg('progress') ?? 0;
+
+                $performance[] = [
+                    'title' => $dir->title,
+                    'total_projects' => $dirProjectIds->count(),
+                    'average_progress' => (float)$avgProgress
+                ];
+            }
+        }
+
+        return $performance;
+    }
+
+    /**
+     * Show schedule library (all templates) - ALREADY EXISTS IN YOUR CODE
+     */
+    public function library()
+    {
+        // Define project types (no model needed)
+        $projectTypes = [
+            'transmission_line' => 'Transmission Line',
+            'substation' => 'Substation',
+        ];
+
+        // Get schedules grouped by project type
+        $schedulesByType = ProjectActivitySchedule::orderBy('project_type')
+            ->orderBy('sort_order')
+            // ->orderBy('code')
+            ->get()
+            ->groupBy('project_type');
+
+        return view('admin.schedules.library', compact('projectTypes', 'schedulesByType'));
+    }
+
+    /**
+     * Show form to create global schedule template - ALREADY EXISTS IN YOUR CODE
+     */
+    public function createGlobal()
+    {
+        // Define project types
+        $projectTypes = [
+            'transmission_line' => 'Transmission Line',
+            'substation' => 'Substation',
+        ];
+
+        // Get existing schedules grouped by project type
+        $schedulesByProjectType = ProjectActivitySchedule::orderBy('sort_order')
+            // ->orderBy('code')
+            ->get()
+            ->groupBy('project_type')
+            ->map(function ($schedules) {
+                return $schedules->map(function ($schedule) {
+                    return [
+                        'id' => $schedule->id,
+                        'code' => $schedule->code,
+                        'name' => $schedule->name,
+                        'is_leaf' => $schedule->isLeaf(),
+                    ];
+                });
+            });
+
+        return view('admin.schedules.create-global', compact('projectTypes', 'schedulesByProjectType'));
+    }
+
+    /**
+     * Store global schedule template
+     */
+    public function storeGlobal(Request $request)
+    {
+        $validated = $request->validate([
+            'project_type' => 'required|in:transmission_line,substation',
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                'regex:/^[A-Z](\.\d+)*$/',
+                // Unique within project type
+                function ($attribute, $value, $fail) use ($request) {
+                    $exists = ProjectActivitySchedule::where('project_type', $request->project_type)
+                        ->where('code', strtoupper($value))
+                        ->exists();
+                    if ($exists) {
+                        $fail('This activity code already exists for this project type.');
+                    }
+                },
+            ],
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'weightage' => 'nullable|numeric|min:0|max:100',
+            'parent_id' => [
+                'nullable',
+                'exists:project_activity_schedules,id',
+                // Parent must be same project type
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($value) {
+                        $parent = ProjectActivitySchedule::find($value);
+                        if ($parent && $parent->project_type != $request->project_type) {
+                            $fail('Parent activity must be from the same project type.');
+                        }
+                    }
+                },
+            ],
+        ], [
+            'project_type.required' => 'Please select a project type.',
+            'code.required' => 'Activity code is required.',
+            'code.regex' => 'Code must follow format: Letter.Number (e.g., A.1, B.2.1)',
+            'name.required' => 'Activity name is required.',
+            'weightage.numeric' => 'Weightage must be a number.',
+            'weightage.max' => 'Weightage cannot exceed 100.',
+        ]);
+
+        // Calculate level
+        $level = 1;
+        if ($request->parent_id) {
+            $parent = ProjectActivitySchedule::find($request->parent_id);
+            $level = $parent->level + 1;
+        }
+
+        // Create the schedule template
+        $schedule = ProjectActivitySchedule::create([
+            'project_type' => $validated['project_type'],
+            'code' => strtoupper($validated['code']),
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'parent_id' => $validated['parent_id'],
+            'weightage' => $validated['weightage'],
+            'level' => $level,
+            'sort_order' => 999,
+        ]);
+
+        // Log activity
+        activity()
+            ->performedOn($schedule)
+            ->causedBy(Auth::user())
+            ->withProperties([
+                'project_type' => $schedule->project_type,
+                'code' => $schedule->code,
+                'name' => $schedule->name,
+            ])
+            ->log('Global schedule template created');
+
+        $projectTypeName = $validated['project_type'] === 'transmission_line'
+            ? 'Transmission Line'
+            : 'Substation';
+
+        return redirect()
+            ->route('admin.schedules.library')
+            ->with('success', "Schedule template '{$schedule->code} - {$schedule->name}' created successfully for {$projectTypeName} projects!");
+    }
+
+    /**
+     * Edit global schedule template
+     */
+    public function editGlobal(ProjectActivitySchedule $schedule)
+    {
+        $projectTypes = [
+            'transmission_line' => 'Transmission Line',
+            'substation' => 'Substation',
+        ];
+
+        // THIS IS THE FIX: We need to pass this variable to the view 
+        // just like we did in the create() method.
+        $schedulesByProjectType = ProjectActivitySchedule::orderBy('code')
+            ->get()
+            ->groupBy('project_type')
+            ->map(function ($schedules) {
+                return $schedules->map(function ($schedule) {
+                    return [
+                        'id' => $schedule->id,
+                        'code' => $schedule->code,
+                        'name' => $schedule->name,
+                        'is_leaf' => $schedule->isLeaf(),
+                    ];
+                });
+            });
+
+        return view('admin.schedules.edit-global', compact('schedule', 'projectTypes', 'schedulesByProjectType'));
+    }
+
+    /**
+     * Update global schedule template
+     */
+    public function updateGlobal(Request $request, ProjectActivitySchedule $schedule)
+    {
+        $validated = $request->validate([
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                'regex:/^[A-Z]\.\d+(\.\d+)*$/',
+                // Unique within project type (except self)
+                function ($attribute, $value, $fail) use ($schedule) {
+                    $exists = ProjectActivitySchedule::where('project_type', $schedule->project_type)
+                        ->where('code', strtoupper($value))
+                        ->where('id', '!=', $schedule->id)
+                        ->exists();
+                    if ($exists) {
+                        $fail('This activity code already exists for this project type.');
+                    }
+                },
+            ],
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $schedule->update([
+            'code' => strtoupper($validated['code']),
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+        ]);
+
+        activity()
+            ->performedOn($schedule)
+            ->causedBy(Auth::user())
+            ->log('Global schedule template updated');
+
+        return redirect()
+            ->route('admin.schedules.library')
+            ->with('success', "Schedule template updated successfully!");
+    }
+
+    /**
+     * Delete global schedule template
+     */
+    public function destroyGlobal(ProjectActivitySchedule $schedule)
+    {
+        // Check if schedule has children
+        if ($schedule->children()->count() > 0) {
+            return redirect()
+                ->back()
+                ->with('error', 'Cannot delete this schedule because it has child activities. Delete children first.');
+        }
+
+        // Check if assigned to any projects
+        $assignedCount = $schedule->projects()->count();
+        if ($assignedCount > 0) {
+            return redirect()
+                ->back()
+                ->with('error', "Cannot delete this schedule because it is assigned to {$assignedCount} project(s). Unassign it first.");
+        }
+
+        $code = $schedule->code;
+        $name = $schedule->name;
+
+        $schedule->delete();
+
+        activity()
+            ->causedBy(Auth::user())
+            ->withProperties(['code' => $code, 'name' => $name])
+            ->log('Global schedule template deleted');
+
+        return redirect()
+            ->route('admin.schedules.library')
+            ->with('success', "Schedule template '{$code} - {$name}' deleted successfully!");
+    }
+
+    /**
+     * Update sort order for schedules (Drag & Drop)
+     */
+    public function updateOrder(Request $request)
+    {
+        $validated = $request->validate([
+            'schedules' => 'required|array',
+            'schedules.*.id' => 'required|exists:project_activity_schedules,id',
+            'schedules.*.sort_order' => 'required|integer|min:0',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            foreach ($validated['schedules'] as $scheduleData) {
+                ProjectActivitySchedule::where('id', $scheduleData['id'])
+                    ->update(['sort_order' => $scheduleData['sort_order']]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update order: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Renumber activity codes based on current sort order
+     * UPDATED: Now handles parent codes (A, B, C) properly
+     */
+    public function renumberCodes(Request $request)
+    {
+        $validated = $request->validate([
+            'project_type' => 'required|in:transmission_line,substation',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Get all top-level schedules (no parent), ordered by sort_order
+            $schedules = ProjectActivitySchedule::where('project_type', $validated['project_type'])
+                ->whereNull('parent_id')
+                ->orderBy('sort_order')
+                ->orderBy('code')
+                ->get();
+
+            $changes = [];
+            $errors = [];
+
+            // Separate pure parents (A, B, C) from children (A.1, B.2)
+            $pureParents = $schedules->filter(function ($s) {
+                return !str_contains($s->code, '.'); // Just "A", "B", "C"
+            });
+
+            $childrenWithoutParent = $schedules->filter(function ($s) {
+                return str_contains($s->code, '.'); // "A.1", "B.2" etc without parent
+            });
+
+            // Step 1: Renumber pure parent phases (A, B, C, D...)
+            $parentCounter = 0;
+            $parentLetters = range('A', 'Z'); // A-Z
+
+            foreach ($pureParents as $schedule) {
+                if ($parentCounter >= 26) {
+                    $errors[] = "Cannot create more than 26 parent phases (A-Z)";
+                    break;
+                }
+
+                $newCode = $parentLetters[$parentCounter];
+
+                if ($schedule->code !== $newCode) {
+                    $exists = ProjectActivitySchedule::where('project_type', $validated['project_type'])
+                        ->where('code', $newCode)
+                        ->where('id', '!=', $schedule->id)
+                        ->exists();
+
+                    if ($exists) {
+                        $errors[] = "Cannot change {$schedule->code} to {$newCode} - code already exists";
+                    } else {
+                        $oldCode = $schedule->code;
+                        $schedule->code = $newCode;
+                        $schedule->save();
+
+                        // Update children recursively
+                        $this->renumberChildren($schedule, $newCode);
+
+                        $changes[] = [
+                            'old' => $oldCode,
+                            'new' => $newCode,
+                            'name' => $schedule->name,
+                        ];
+                    }
+                }
+
+                $parentCounter++;
+            }
+
+            // Step 2: Renumber orphaned children (activities without parent record but with dots in code)
+            // Group by phase letter
+            $phaseGroups = $childrenWithoutParent->groupBy(function ($schedule) {
+                return substr($schedule->code, 0, 1); // Get first letter
+            });
+
+            foreach ($phaseGroups as $phaseLetter => $phaseSchedules) {
+                $counter = 1;
+
+                foreach ($phaseSchedules as $schedule) {
+                    $newCode = $phaseLetter . '.' . $counter;
+
+                    if ($schedule->code !== $newCode) {
+                        $exists = ProjectActivitySchedule::where('project_type', $validated['project_type'])
+                            ->where('code', $newCode)
+                            ->where('id', '!=', $schedule->id)
+                            ->exists();
+
+                        if ($exists) {
+                            $errors[] = "Cannot change {$schedule->code} to {$newCode} - code already exists";
+                        } else {
+                            $oldCode = $schedule->code;
+                            $schedule->code = $newCode;
+                            $schedule->save();
+
+                            // Update children recursively
+                            $this->renumberChildren($schedule, $newCode);
+
+                            $changes[] = [
+                                'old' => $oldCode,
+                                'new' => $newCode,
+                                'name' => $schedule->name,
+                            ];
+                        }
+                    }
+
+                    $counter++;
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'changes' => $changes,
+                'errors' => $errors,
+                'message' => count($changes) > 0
+                    ? 'Successfully renumbered ' . count($changes) . ' activities'
+                    : 'No changes needed - codes already match order',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to renumber codes: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Recursively renumber children
+     * UPDATED: Handles parent codes properly
+     */
+    private function renumberChildren($parent, $newParentCode)
+    {
+        $children = $parent->children()->orderBy('sort_order')->orderBy('code')->get();
+        $counter = 1;
+
+        foreach ($children as $child) {
+            $newCode = $newParentCode . '.' . $counter;
+            $child->code = $newCode;
+            $child->save();
+
+            // Recursively update grandchildren
+            if ($child->children()->count() > 0) {
+                $this->renumberChildren($child, $newCode);
+            }
+
+            $counter++;
+        }
     }
 }

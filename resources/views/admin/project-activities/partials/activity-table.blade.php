@@ -80,7 +80,7 @@
                         @foreach ($activities as $topActivity)
                             @php
                                 $topLevel++;
-                                $topPlan = $topActivity->plans->first(); // Assumes repo loads correct FY plan; add ->firstWhere('fiscal_year_id', $fiscalYearId ?? '') if needed
+                                $topPlan = $topActivity->plans->first();
                                 $hasTopChildren = $topActivity->children->isNotEmpty();
                                 $topBgClass = $hasTopChildren ? 'bg-gray-50 dark:bg-gray-700/50' : '';
 
@@ -106,7 +106,7 @@
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
-                                    {{ number_format($topTotalQuantity, 0) }}
+                                    {{ number_format($topTotalQuantity, 2) }}
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
@@ -114,7 +114,7 @@
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
-                                    {{ number_format($topCompletedQuantity, 0) }}
+                                    {{ number_format($topCompletedQuantity, 2) }}
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
@@ -122,7 +122,7 @@
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
-                                    {{ number_format($topPlannedQuantity, 0) }}
+                                    {{ number_format($topPlannedQuantity, 2) }}
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200">
@@ -131,7 +131,7 @@
                                 {{-- Scrollable --}}
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/20">
-                                    {{ number_format($topQQuantity, 0) }}
+                                    {{ number_format($topQQuantity, 2) }}
                                 </td>
                                 <td
                                     class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/20">
@@ -191,7 +191,7 @@
                             </td>
                             <td
                                 class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100 bg-yellow-50 dark:bg-yellow-900/30">
-                                {{ number_format($grandQQuantity, 0) }}
+                                {{ number_format($grandQQuantity, 2) }}
                             </td>
                             <td
                                 class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100 bg-yellow-50 dark:bg-yellow-900/30">

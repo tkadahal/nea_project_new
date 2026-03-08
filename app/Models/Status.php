@@ -36,21 +36,33 @@ class Status extends Model
         'deleted_at',
     ];
 
-    // public static function setStaticCache(Collection $statuses)
-    // {
-    //     static::$cachedStatuses = $statuses->keyBy('id');
-    // }
+    // ────────────────────────────────────────────────
+    //  Helper / Query-like methods
+    // ────────────────────────────────────────────────
 
-    // public static function getCachedStatuses(): ?Collection
-    // {
-    //     return static::$cachedStatuses;
-    // }
+    public function isTodo(): bool
+    {
+        return $this->id === self::STATUS_TODO;
+    }
 
-    // public static function find($id)
-    // {
-    //     if (static::$cachedStatuses && isset(static::$cachedStatuses[$id])) {
-    //         return static::$cachedStatuses[$id];
-    //     }
-    //     return parent::find($id);
-    // }
+    public function isInProgress(): bool
+    {
+        return $this->id === self::STATUS_IN_PROGRESS;
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->id === self::STATUS_COMPLETED;
+    }
+
+    // Bonus: if you ever add more statuses and want to group them
+    public function isActive(): bool
+    {
+        return $this->isTodo() || $this->isInProgress();
+    }
+
+    public function isDone(): bool
+    {
+        return $this->isCompleted();
+    }
 }

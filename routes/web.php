@@ -54,7 +54,7 @@ use App\Http\Controllers\Settings\{
 };
 
 use App\Http\Controllers\Admin\Charts\ProjectChartController;
-
+use App\Http\Controllers\Admin\PreBudgetController;
 
 /*
 |--------------------------------------------------------------------------
@@ -128,6 +128,11 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
                 ->name('project-charts.show');
         });
 
+        // Pre Budget
+        Route::get('/preBudget/export', [PreBudgetController::class, 'export'])
+            ->name('preBudget.export');
+        Route::resource('preBudget', PreBudgetController::class);
+
         // Analytics & Summary
         Route::controller(AnalyticalDashboardController::class)->group(function () {
             Route::get('summary', 'summary')->name('summary');
@@ -170,6 +175,35 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('fiscalYear', FiscalYearController::class);
         Route::resource('budgetHeading', BudgetHeadingController::class);
 
+        // ══════════════════════════════════════════════════════════
+        // GLOBAL SCHEDULE LIBRARY (Not project-specific)
+        // ══════════════════════════════════════════════════════════
+        Route::prefix('schedules')->name('schedules.')->group(function () {
+            Route::get('library', [ProjectActivityScheduleController::class, 'library'])
+                ->name('library');
+            Route::get('library/create', [ProjectActivityScheduleController::class, 'createGlobal'])
+                ->name('library.create');
+            Route::post('library/store', [ProjectActivityScheduleController::class, 'storeGlobal'])
+                ->name('library.store');
+            Route::get('library/{schedule}/edit', [ProjectActivityScheduleController::class, 'editGlobal'])
+                ->name('library.edit');
+            Route::put('library/{schedule}/update', [ProjectActivityScheduleController::class, 'updateGlobal'])
+                ->name('library.update');
+            Route::delete('library/{schedule}', [ProjectActivityScheduleController::class, 'destroyGlobal'])
+                ->name('library.destroy');
+
+            Route::post('library/update-order', [ProjectActivityScheduleController::class, 'updateOrder'])
+                ->name('library.update-order');
+
+            // Preview changes (GET)
+            Route::get('library/preview-renumber', [ProjectActivityScheduleController::class, 'previewRenumber'])
+                ->name('library.preview-renumber');
+
+            // Actually renumber (POST)
+            Route::post('library/renumber', [ProjectActivityScheduleController::class, 'renumberCodes'])
+                ->name('library.renumber');
+        });
+
         Route::get('schedules/overview', [ProjectActivityScheduleController::class, 'overview'])->name('schedules.overview');
 
         // Multi-level Schedule Analytics (ALL accessible projects)
@@ -193,6 +227,9 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
         Route::get('schedules/api/top-projects', [ProjectActivityScheduleController::class, 'apiTopProjects'])
             ->name('schedules.api.top-projects');
+
+        Route::get('schedules/api/projects-by-directorate', [ProjectActivityScheduleController::class, 'apiProjectsByDirectorate'])
+            ->name('schedules.api.projects-by-directorate');
 
         // Projects
         Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
@@ -533,6 +570,14 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             // Generate and download budget report
             Route::get('budgetReport/download', [ReportController::class, 'budgetReport'])
                 ->name('budgetReport');
+
+            // Show budget report generation view
+            Route::get('preBudgetReport', [ReportController::class, 'showPreBudgetReportView'])
+                ->name('preBudgetReport.view');
+
+            // Generate and download budget report
+            Route::get('preBudgetReport/download', [ReportController::class, 'preBudgetReport'])
+                ->name('preBudgetReport');
 
             // Get project count for preview
             Route::get('project-count', [ReportController::class, 'getProjectCount'])

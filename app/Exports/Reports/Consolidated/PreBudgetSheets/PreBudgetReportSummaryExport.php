@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Exports\Reports\Consolidated;
+namespace App\Exports\Reports\Consolidated\PreBudgetSheets;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\{FromCollection, WithHeadings, WithCustomStartCell, WithStyles, WithColumnWidths, WithEvents, ShouldAutoSize};
@@ -8,15 +8,17 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill, Color};
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-class BudgetReportSummaryExport implements
+class PreBudgetReportSummaryExport implements
     FromCollection,
     WithHeadings,
     WithCustomStartCell,
     WithStyles,
     WithColumnWidths,
     WithEvents,
-    ShouldAutoSize
+    ShouldAutoSize,
+    WithTitle
 {
     protected Collection $projects;
     protected string $fiscalYear;
@@ -37,6 +39,53 @@ class BudgetReportSummaryExport implements
         return 'A7';
     }
 
+    private function toNepaliNumber(int|float $number): string
+    {
+        $nepaliDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+        return preg_replace_callback('/\d/', fn($m) => $nepaliDigits[$m[0]], (string) $number);
+    }
+
+    private function toNepaliAlphabet(int $index): string
+    {
+        $alphabets = [
+            'क',
+            'ख',
+            'ग',
+            'घ',
+            'ङ',
+            'च',
+            'छ',
+            'ज',
+            'झ',
+            'ञ',
+            'ट',
+            'ठ',
+            'ड',
+            'ढ',
+            'ण',
+            'त',
+            'थ',
+            'द',
+            'ध',
+            'न',
+            'प',
+            'फ',
+            'ब',
+            'भ',
+            'म',
+            'य',
+            'र',
+            'ल',
+            'व',
+            'श',
+            'ष',
+            'स',
+            'ह',
+        ];
+
+        return $alphabets[$index - 1] ?? (string) $index;
+    }
+
     public function collection(): Collection
     {
         if ($this->projects->isEmpty()) return collect([]);
@@ -45,55 +94,50 @@ class BudgetReportSummaryExport implements
         $serial = 1;
 
         $this->projects
-            ->groupBy('budget_heading') // Grouping by title
+            ->groupBy('budget_heading')
             ->sortKeys()
             ->each(function ($byHeading, $headingTitle) use (&$rows, &$serial) {
                 $firstItem = $byHeading->first();
                 $headingCode = $firstItem['budget_heading_code'] ?? '';
-
-                // Accessing the 'description' field from your BudgetHeading model
-                // Make sure this is passed in your collection from the controller
                 $headingDescription = $firstItem['budget_heading_description']
                     ?? $firstItem['description']
                     ?? $headingTitle;
 
                 $groupTotal = $this->sumGroup($byHeading);
 
-                // 1. BUDGET HEADING ROW (Main Category)
                 $rows->push([
-                    $serial++,
+                    $this->toNepaliAlphabet($serial++),         // A: क, ख, ग ...
+                    $headingDescription,
                     $headingCode . ' ' . $headingTitle,
-                    $headingDescription,                // Column C: Model Description
-                    $groupTotal['gov_share'],
-                    $groupTotal['gov_loan'],
-                    $groupTotal['foreign_loan'],
+                    $this->toNepaliNumber($groupTotal['gov_share']),
+                    $this->toNepaliNumber($groupTotal['gov_loan']),
+                    $this->toNepaliNumber($groupTotal['foreign_loan']),
                     '',
-                    $groupTotal['grant'],
+                    $this->toNepaliNumber($groupTotal['grant']),
                     '',
-                    $groupTotal['total_lmbis'],
-                    $groupTotal['nea_budget'],
-                    $groupTotal['grand_total'],
+                    $this->toNepaliNumber($groupTotal['total_lmbis']),
+                    $this->toNepaliNumber($groupTotal['nea_budget']),
+                    $this->toNepaliNumber($groupTotal['grand_total']),
                 ]);
 
-                // 2. DIRECTORATE ROWS (Breakdown)
-                $directorates = $byHeading->groupBy('directorate')->sortKeys();
-                $directorates->each(function ($group, $directorateTitle) use (&$rows) {
-                    $totals = $this->sumGroup($group);
-                    $rows->push([
-                        '',
-                        '',
-                        $directorateTitle,   // Column C: Directorate Name
-                        $totals['gov_share'],
-                        $totals['gov_loan'],
-                        $totals['foreign_loan'],
-                        '',
-                        $totals['grant'],
-                        '',
-                        $totals['total_lmbis'],
-                        $totals['nea_budget'],
-                        $totals['grand_total'],
-                    ]);
-                });
+                $byHeading->groupBy('directorate')->sortKeys()
+                    ->each(function ($group, $directorateTitle) use (&$rows) {
+                        $totals = $this->sumGroup($group);
+                        $rows->push([
+                            '',
+                            $directorateTitle,
+                            '',
+                            $this->toNepaliNumber($totals['gov_share']),
+                            $this->toNepaliNumber($totals['gov_loan']),
+                            $this->toNepaliNumber($totals['foreign_loan']),
+                            '',
+                            $this->toNepaliNumber($totals['grant']),
+                            '',
+                            $this->toNepaliNumber($totals['total_lmbis']),
+                            $this->toNepaliNumber($totals['nea_budget']),
+                            $this->toNepaliNumber($totals['grand_total']),
+                        ]);
+                    });
             });
 
         return $rows;
@@ -118,8 +162,8 @@ class BudgetReportSummaryExport implements
     {
         return [
             'A' => 8,
-            'B' => 60,
-            'C' => 45,
+            'B' => 50,
+            'C' => 15,
             'D' => 15,
             'E' => 15,
             'F' => 15,
@@ -144,7 +188,7 @@ class BudgetReportSummaryExport implements
                 $sheet->mergeCells('A1:L1');
                 $sheet->setCellValue('A1', 'नेपाल विद्युत प्राधिकरण');
                 $sheet->mergeCells('A2:L2');
-                $sheet->setCellValue('A2', "आयोजनाहरूको आ.व. {$this->fiscalYear} को बजेट सारांश (Summary)");
+                $sheet->setCellValue('A2', "आयोजनाहरूको आ.व. {$this->fiscalYear} को पूर्वबजेट सारांश (Summary)");
 
                 // Realignment: C is now the Directorate column
                 $sheet->mergeCells('A4:A6'); // SN
@@ -156,8 +200,8 @@ class BudgetReportSummaryExport implements
                 $sheet->mergeCells('L4:L6'); // Grand Total
 
                 $sheet->setCellValue('A4', 'क्र.सं.');
-                $sheet->setCellValue('B4', 'बजेट शीर्षक');
-                $sheet->setCellValue('C4', 'निर्देशनालय');
+                $sheet->setCellValue('B4', 'निर्देशनालय');
+                $sheet->setCellValue('C4', 'बजेट शीर्षक');
                 $sheet->setCellValue('D4', 'वार्षिक बजेट (LMBIS)');
                 $sheet->setCellValue('J4', 'जम्मा');
                 $sheet->setCellValue('K4', 'ने.वि.प्रा.');
@@ -199,6 +243,10 @@ class BudgetReportSummaryExport implements
                                 'bottom' => ['borderStyle' => Border::BORDER_THIN]
                             ],
                         ]);
+
+                        $sheet->getStyle("B{$row}")->getAlignment()
+                            ->setHorizontal(Alignment::HORIZONTAL_RIGHT)
+                            ->setIndent(0);
                     }
 
                     // Numeric alignment
@@ -216,5 +264,10 @@ class BudgetReportSummaryExport implements
             1 => ['font' => ['bold' => true, 'size' => 16], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
             2 => ['font' => ['bold' => true, 'size' => 14], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
         ];
+    }
+
+    public function title(): string
+    {
+        return 'Summary_budget_head_directorate';
     }
 }

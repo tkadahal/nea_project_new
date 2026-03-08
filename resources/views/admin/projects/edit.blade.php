@@ -93,7 +93,7 @@
                                     class="js-single-select" />
                             </div>
 
-                            <div class="col-span-full">
+                            {{-- <div class="col-span-full">
                                 <x-forms.select label="{{ trans('global.project.fields.project_manager') }}"
                                     name="project_manager" id="project_manager_select" :options="collect($users)
                                         ->map(fn($label, $value) => ['value' => (string) $value, 'label' => $label])
@@ -103,6 +103,11 @@
                                     allow-clear="true"
                                     data-selected="{{ old('project_manager', $project->project_manager) }}"
                                     :error="$errors->first('project_manager')" class="js-single-select" />
+                            </div> --}}
+
+                            <div class="col-span-full">
+                                <x-forms.input label="{{ trans('global.project.fields.project_manager') }}"
+                                    name="manager" type="text" :value="old('manager', $project->manager)" :error="$errors->first('manager')" />
                             </div>
 
                             <div class="col-span-full">

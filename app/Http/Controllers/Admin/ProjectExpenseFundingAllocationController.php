@@ -295,13 +295,13 @@ class ProjectExpenseFundingAllocationController extends Controller
 
             if ($nextQuarter <= 4) {
                 $redirectParams['quarter'] = $nextQuarter;
-                $successMessage .= " Proceed to Q{$nextQuarter} funding allocation.";
+                $successMessage .= " Proceed to Q{$nextQuarter}.";
             } else {
                 $successMessage .= " All quarters for this fiscal year are now complete!";
             }
 
             return redirect()
-                ->route('admin.projectExpenseFundingAllocation.create', $redirectParams)
+                ->route('admin.projectExpense.index', $redirectParams)
                 ->with('success', $successMessage);
         } catch (\Exception $e) {
             DB::rollBack();

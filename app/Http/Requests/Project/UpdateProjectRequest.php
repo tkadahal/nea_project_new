@@ -40,6 +40,7 @@ class UpdateProjectRequest extends FormRequest
             'status_id' => ['required', 'exists:statuses,id'],
             'priority_id' => ['required', 'exists:priorities,id'],
             'project_manager' => ['nullable', 'exists:users,id'],
+            'manager' => ['nullable', 'string', 'max:1000'],
             'files' => ['nullable', 'array'],
             'files.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
         ];

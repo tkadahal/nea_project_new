@@ -175,11 +175,11 @@
             $externalVideos = [
                 ['filename' => 'annualprogram-2026-02-04_19.00.32.mkv', 'title' => 'Annual Program 2026 - Overview'],
                 [
-                    'filename' => 'createing_in_an_annualprogram_2026-02-05_18.01.20.mkv',
+                    'filename' => 'createing_an_annualprogram-2026-02-05_18.01.20.mkv',
                     'title' => 'Creating Annual Program 2026 - Part 1',
                 ],
                 [
-                    'filename' => 'createing_in_an_annualprogram_2026-02-05_18.08.25.mkv',
+                    'filename' => 'createing_an_annualprogram-2026-02-05_18.08.25.mkv',
                     'title' => 'Creating Annual Program 2026 - Part 2',
                 ],
                 ['filename' => 'overview-2026-02-04_18.54.04.mkv', 'title' => 'Annual Program 2026 - Summary'],
@@ -221,7 +221,8 @@
                         <div>Format: <span class="font-medium">MKV</span></div>
                     </div>
 
-                    <a href="{{ asset('storage/files/videos/' . $video['filename']) }}" download
+                    <a href="{{ asset('storage/files/videos/' . $video['filename']) }}?dl=1"
+                        download="{{ $video['filename'] }}" type="video/x-matroska"
                         class="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

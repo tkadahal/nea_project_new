@@ -81,6 +81,7 @@
             @endforeach
         </div>
 
+
         @if ($viewLevel === 'admin' || $viewLevel === 'directorate')
             @if (!empty($directoratePerformance))
                 <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
@@ -116,19 +117,44 @@
             @endif
         @endif
 
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div id="phase-breakdown-container">
+                @include('admin.schedules.partials._phase_breakdown')
+            </div>
+            <div id="recent-files-container">
+                @include('admin.schedules.partials._recent_files')
+            </div>
+        </div>
+
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 relative">
-            <div
-                class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Projects Overview</h3>
-                <div id="table-loader" class="hidden">
-                    <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
-                        viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                            stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                        </path>
-                    </svg>
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Projects Overview</h3>
+
+                    <div class="flex flex-wrap gap-3">
+                        @if ($viewLevel === 'admin')
+                            <select id="filter-directorate"
+                                class="rounded-md border-gray-300 py-1 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:text-white">
+                                <option value="">All Directorates</option>
+                                @foreach ($directorates as $dir)
+                                    <option value="{{ $dir->id }}">{{ $dir->title }}</option>
+                                @endforeach
+                            </select>
+                        @endif
+
+                        <input type="text" id="filter-project" placeholder="Search Project Name..."
+                            class="rounded-md border-gray-300 py-1 px-3 text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+
+                        <div id="table-loader" class="hidden self-center">
+                            <svg class="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -136,120 +162,64 @@
                 @include('admin.schedules.partials._projects_table')
             </div>
         </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            @if ($phaseBreakdown->isNotEmpty())
-                <div class="bg-white dark:bg-gray-800 shadow rounded-lg h-fit">
-                    <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Average Progress by
-                            Phase</h3>
-                    </div>
-                    <div class="px-4 py-5 sm:p-6 space-y-4">
-                        @foreach ($phaseBreakdown as $phase)
-                            <div>
-                                <div class="flex items-center justify-between mb-1">
-                                    <span
-                                        class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $phase['code'] }}:
-                                        {{ $phase['name'] }}</span>
-                                    <span
-                                        class="text-sm font-semibold text-gray-900 dark:text-white">{{ number_format($phase['average_progress'], 1) }}%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                    <div class="bg-blue-600 h-2 rounded-full"
-                                        style="width: {{ $phase['average_progress'] }}%"></div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            @if ($recentFiles->isNotEmpty())
-                <div class="bg-white dark:bg-gray-800 shadow rounded-lg h-fit">
-                    <div
-                        class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Recent Files</h3>
-                        <a href="{{ route('admin.schedules.all-files') }}"
-                            class="text-xs text-blue-600 hover:underline">View All</a>
-                    </div>
-                    <div class="px-4 py-5 sm:p-6 space-y-3">
-                        @foreach ($recentFiles as $file)
-                            <div
-                                class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                <div class="flex items-center space-x-3 overflow-hidden">
-                                    <div class="flex-shrink-0 text-blue-500">
-                                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
-                                            <path
-                                                d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                                        </svg>
-                                    </div>
-                                    <div class="truncate">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                            {{ $file->original_name }}</p>
-                                        <p class="text-xs text-gray-500">{{ $file->project->title }}</p>
-                                    </div>
-                                </div>
-                                <a href="{{ route('admin.projects.schedules.download-file', [$file->project_id, $file->id]) }}"
-                                    class="text-gray-400 hover:text-blue-600">
-                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                </a>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-        </div>
-
-        <div class="mt-8 flex gap-3">
-            <a href="{{ route('admin.schedules.analytics-charts') }}"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center shadow-sm">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Visual Analytics
-            </a>
-        </div>
     </div>
 
     @push('scripts')
         <script>
-            document.addEventListener('click', function(e) {
-                const link = e.target.closest('#projects-table-container .pagination a');
-                if (link) {
-                    e.preventDefault();
-                    loadTable(link.href);
-                }
-            });
+            const tableContainer = document.getElementById('projects-table-container');
+            const phaseContainer = document.getElementById('phase-breakdown-container');
+            const filesContainer = document.getElementById('recent-files-container');
+            const loader = document.getElementById('table-loader');
 
-            function loadTable(url) {
-                const container = document.getElementById('projects-table-container');
-                const loader = document.getElementById('table-loader');
-
+            // Function to refresh everything based on filters
+            function refreshDashboard(url = null) {
                 loader.classList.remove('hidden');
-                container.classList.add('opacity-50', 'pointer-events-none');
 
-                fetch(url, {
+                const params = new URLSearchParams({
+                    directorate_id: document.getElementById('filter-directorate')?.value || '',
+                    search: document.getElementById('filter-project').value || '',
+                    is_full_refresh: '1' // Flag to tell controller to return all 3 partials
+                });
+
+                const fetchUrl = url ? url + '&' + params.toString() :
+                    `{{ route('admin.schedules.analytics') }}?${params.toString()}`;
+
+                fetch(fetchUrl, {
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => response.text())
-                    .then(html => {
-                        container.innerHTML = html;
-                        window.scrollTo({
-                            top: container.offsetTop - 100,
-                            behavior: 'smooth'
-                        });
+                    .then(response => response.json())
+                    .then(data => {
+                        tableContainer.innerHTML = data.table;
+                        phaseContainer.innerHTML = data.phases;
+                        filesContainer.innerHTML = data.files;
                     })
-                    .catch(error => console.error('Error:', error))
-                    .finally(() => {
-                        loader.classList.add('hidden');
-                        container.classList.remove('opacity-50', 'pointer-events-none');
-                    });
+                    .catch(error => console.error('Dashboard Update Error:', error))
+                    .finally(() => loader.classList.add('hidden'));
+            }
+
+            // Event Listeners for Filters
+            document.getElementById('filter-directorate')?.addEventListener('change', () => refreshDashboard());
+            document.getElementById('filter-project').addEventListener('input', debounce(() => refreshDashboard(), 500));
+
+            // Pagination Click Handling
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('#projects-table-container .pagination a');
+                if (link) {
+                    e.preventDefault();
+                    refreshDashboard(link.href);
+                }
+            });
+
+            function debounce(func, timeout = 300) {
+                let timer;
+                return (...args) => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        func.apply(this, args);
+                    }, timeout);
+                };
             }
         </script>
     @endpush
