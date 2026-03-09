@@ -7,10 +7,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\{
+    HasMany,
+    BelongsTo,
+    BelongsToMany
+};
 
 class ProjectActivitySchedule extends Model
 {
@@ -28,45 +30,49 @@ class ProjectActivitySchedule extends Model
     ];
 
     protected $casts = [
-        'weightage' => 'decimal:2',
-        'level' => 'integer',
+        'weightage'  => 'decimal:2',
+        'level'      => 'integer',
         'sort_order' => 'integer',
     ];
 
-    // ────────────────────────────────────────────────
-    // Relationships
-    // ────────────────────────────────────────────────
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
 
-    /**
-     * Parent schedule (for hierarchical structure)
-     */
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivitySchedule::class, 'parent_id');
+        return $this->belongsTo(self::class, 'parent_id');
     }
 
-    /**
-     * Child schedules
-     */
     public function children(): HasMany
     {
-        return $this->hasMany(ProjectActivitySchedule::class, 'parent_id')->orderBy('sort_order');
+        return $this->hasMany(self::class, 'parent_id')
+            ->orderBy('sort_order');
     }
 
     /**
-     * All descendants (recursive)
+     * Recursive children tree
      */
-    public function descendants(): HasMany
+    public function childrenRecursive(): HasMany
     {
-        return $this->children()->with('descendants');
+        return $this->children()
+            ->withCount('children')
+            ->with('childrenRecursive');
     }
 
     /**
-     * Projects using this schedule
+     * Projects linked through pivot table
      */
     public function projects(): BelongsToMany
     {
-        return $this->belongsToMany(Project::class, 'project_schedule_assignments', 'schedule_id', 'project_id')
+        return $this->belongsToMany(
+            Project::class,
+            'project_schedule_assignments',
+            'schedule_id',
+            'project_id'
+        )
             ->withPivot([
                 'progress',
                 'start_date',
@@ -78,36 +84,57 @@ class ProjectActivitySchedule extends Model
             ->withTimestamps();
     }
 
-    // ────────────────────────────────────────────────
-    // Helper Methods
-    // ────────────────────────────────────────────────
+    /*
+    |--------------------------------------------------------------------------
+    | Structural Helpers
+    |--------------------------------------------------------------------------
+    */
 
-    /**
-     * Check if this is a top-level phase (A, B, C, D)
-     */
-    public function isTopLevel(): bool
+    public function isLeaf(): bool
     {
-        return $this->level === 1 && !is_null($this->weightage);
+        if (isset($this->children_count)) {
+            return $this->children_count === 0;
+        }
+
+        if ($this->relationLoaded('children')) {
+            return $this->children->isEmpty();
+        }
+
+        return true;
     }
 
-    /**
-     * Check if this schedule has children
-     */
     public function hasChildren(): bool
     {
-        return $this->children()->exists();
+        if (isset($this->children_count)) {
+            return $this->children_count > 0;
+        }
+
+        if ($this->relationLoaded('children')) {
+            return $this->children->isNotEmpty();
+        }
+
+        return false;
     }
 
-    /**
-     * Get the root parent (top-level phase)
-     */
-    public function getRootParent(): ?ProjectActivitySchedule
+    public function isTopLevel(): bool
+    {
+        return $this->level === 1 && $this->weightage !== null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Hierarchy Utilities
+    |--------------------------------------------------------------------------
+    */
+
+    public function getRootParent(): ?self
     {
         if ($this->isTopLevel()) {
             return $this;
         }
 
         $parent = $this->parent;
+
         while ($parent && !$parent->isTopLevel()) {
             $parent = $parent->parent;
         }
@@ -115,17 +142,15 @@ class ProjectActivitySchedule extends Model
         return $parent;
     }
 
-    /**
-     * Get effective weightage (from root parent)
-     */
     public function getEffectiveWeightage(): float
     {
         $root = $this->getRootParent();
+
         return $root ? (float) $root->weightage : 0.0;
     }
 
     /**
-     * Get all leaf schedules (schedules without children)
+     * Recursively collect leaf schedules
      */
     public function getLeafSchedules(): array
     {
@@ -134,6 +159,7 @@ class ProjectActivitySchedule extends Model
         }
 
         $leaves = [];
+
         foreach ($this->children as $child) {
             $leaves = array_merge($leaves, $child->getLeafSchedules());
         }
@@ -141,71 +167,129 @@ class ProjectActivitySchedule extends Model
         return $leaves;
     }
 
-    /**
-     * Calculate progress for this schedule based on its children
-     * 
-     * @param int $projectId
-     * @return float
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Progress Calculation
+    |--------------------------------------------------------------------------
+    */
+
     public function calculateProgressForProject(int $projectId): float
     {
-        // If no children, return the direct progress
-        if (!$this->hasChildren()) {
-            $pivot = $this->projects()->where('project_id', $projectId)->first()?->pivot;
-            return $pivot ? (float) $pivot->progress : 0.0;
+        if ($this->isLeaf()) {
+            $pivot = $this->projects()
+                ->where('project_id', $projectId)
+                ->first()?->pivot;
+
+            return (float) ($pivot->progress ?? 0);
         }
 
-        // Get all leaf schedules under this schedule
         $leaves = $this->getLeafSchedules();
-        $totalLeaves = count($leaves);
 
-        if ($totalLeaves === 0) {
+        if (empty($leaves)) {
             return 0.0;
         }
 
-        // Calculate average progress of all leaf schedules
-        $totalProgress = 0.0;
+        $total = 0.0;
+
         foreach ($leaves as $leaf) {
-            $pivot = $leaf->projects()->where('project_id', $projectId)->first()?->pivot;
-            $totalProgress += $pivot ? (float) $pivot->progress : 0.0;
+
+            $pivot = $leaf->projects()
+                ->where('project_id', $projectId)
+                ->first()?->pivot;
+
+            $total += (float) ($pivot->progress ?? 0);
         }
 
-        return round($totalProgress / $totalLeaves, 2);
+        return round($total / count($leaves), 2);
     }
 
-    // ────────────────────────────────────────────────
-    // Scopes
-    // ────────────────────────────────────────────────
+    /*
+    |--------------------------------------------------------------------------
+    | Cached Progress
+    |--------------------------------------------------------------------------
+    */
 
-    /**
-     * Get only top-level schedules (phases)
-     */
+    public function getCachedProgressForProject(int $projectId): float
+    {
+        return cache()->remember(
+            "schedule_{$this->id}_project_{$projectId}_progress",
+            300,
+            fn() => $this->calculateProgressForProject($projectId)
+        );
+    }
+
+    public function clearProgressCache(int $projectId): void
+    {
+        cache()->forget(
+            "schedule_{$this->id}_project_{$projectId}_progress"
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query Scopes
+    |--------------------------------------------------------------------------
+    */
+
     public function scopeTopLevel(Builder $query): Builder
     {
-        return $query->where('level', 1)->whereNotNull('weightage');
+        return $query
+            ->where('level', 1)
+            ->whereNotNull('weightage');
     }
 
-    /**
-     * Get schedules by project type
-     */
-    public function scopeForProjectType(Builder $query, string $projectType): Builder
-    {
-        return $query->where('project_type', $projectType);
-    }
-
-    /**
-     * Get leaf schedules (no children)
-     */
     public function scopeLeafSchedules(Builder $query): Builder
     {
         return $query->whereDoesntHave('children');
     }
 
-    /**
-     * Order by hierarchical structure
-     */
+    public function scopeForProjectType(
+        Builder $query,
+        string $projectType
+    ): Builder {
+        return $query->where('project_type', $projectType);
+    }
+
     public function scopeOrdered(Builder $query): Builder
     {
-        return $query->orderBy('sort_order')->orderBy('code');
+        return $query
+            ->orderBy('sort_order')
+            ->orderBy('code');
+    }
+
+    public function scopeEssentialColumns(Builder $query): Builder
+    {
+        return $query->select([
+            'id',
+            'code',
+            'name',
+            'description',
+            'parent_id',
+            'project_type',
+            'level',
+            'sort_order',
+            'weightage',
+        ]);
+    }
+
+    public function scopeWithCommonRelations(Builder $query): Builder
+    {
+        return $query
+            ->with([
+                'parent:id,code,name',
+                'children:id,parent_id,code,name',
+            ])
+            ->withCount('children');
+    }
+
+    public function scopeForProject(
+        Builder $query,
+        int $projectId
+    ): Builder {
+        return $query
+            ->whereHas('projects', fn($q) => $q->where('project_id', $projectId))
+            ->with([
+                'projects' => fn($q) => $q->where('project_id', $projectId)
+            ]);
     }
 }

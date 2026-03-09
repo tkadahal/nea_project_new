@@ -268,7 +268,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             // ══════════════════════════════════════════════════════════
 
             // Charts page (Burn Chart, S-Curve, Activity Chart)
-            Route::get('{project}/schedules/charts', [ProjectActivityScheduleController::class, 'charts'])
+            Route::get('{project}/schedule-charts', [ProjectActivityScheduleController::class, 'charts'])
                 ->name('schedules.charts');
 
             // ─── CHARTS DATA ENDPOINTS (JSON) ───

@@ -249,17 +249,17 @@
                     </div>
                 </div>
             @else
-                <!-- Projects Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                     @foreach ($projects as $project)
                         @php
-                            $progress = $project->calculatePhysicalProgress();
-                            $totalSchedules = $project->activitySchedules->count();
+                            $progress = $project->cached_progress ?? 0;
+                            $totalSchedules = $project->cached_total_schedules ?? 0;
+                            $completed = $project->cached_leaf_completed ?? 0;
+                            $total = $project->cached_leaf_total ?? 0;
                         @endphp
                         <div
                             class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
                             <div class="px-6 py-5">
-                                <!-- Project Header -->
                                 <div class="flex items-start justify-between mb-4">
                                     <div class="flex-1 min-w-0">
                                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
@@ -315,13 +315,6 @@
                                         <div class="text-xs text-gray-500 dark:text-gray-400">Schedules</div>
                                     </div>
                                     <div class="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                        @php
-                                            $completed = $project
-                                                ->leafSchedules()
-                                                ->wherePivot('progress', '>=', 100)
-                                                ->count();
-                                            $total = $project->leafSchedules()->count();
-                                        @endphp
                                         <div class="text-2xl font-bold text-gray-900 dark:text-white">
                                             {{ $completed }}/{{ $total }}</div>
                                         <div class="text-xs text-gray-500 dark:text-gray-400">Completed</div>

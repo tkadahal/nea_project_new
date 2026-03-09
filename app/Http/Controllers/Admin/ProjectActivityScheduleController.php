@@ -23,12 +23,15 @@ class ProjectActivityScheduleController extends Controller
 {
     public function index(Project $project): View
     {
-        $project->load(['topLevelSchedules', 'activitySchedules.parent']);
-
         $schedules = $project->activitySchedules()
+            ->select(['project_activity_schedules.*'])
+            ->with([
+                'parent:id,code,name',
+                'children:id,parent_id,code',
+                'children.children:id,parent_id',
+                'projects' => fn($q) => $q->where('project_id', $project->id),
+            ])
             ->withCount('children')
-            ->withPivot(['progress', 'start_date', 'end_date'])
-            ->ordered()
             ->get();
 
         $breakdown = $project->getScheduleProgressBreakdown();
@@ -44,12 +47,39 @@ class ProjectActivityScheduleController extends Controller
 
     public function tree(Project $project): View
     {
+        // ✅ OPTIMIZED: Load everything in one go with deep eager loading
         $topLevelSchedules = $project->topLevelSchedules()
-            ->with(['descendants' => function ($query) use ($project) {
-                $query->with(['projects' => function ($q) use ($project) {
+            ->with([
+                // Load children recursively (3 levels deep is usually enough)
+                'children' => function ($q) use ($project) {
+                    $q->with([
+                        'children' => function ($q2) use ($project) {
+                            $q2->with([
+                                'children' => function ($q3) use ($project) {
+                                    $q3->with([
+                                        'projects' => function ($qp) use ($project) {
+                                            $qp->where('project_id', $project->id);
+                                        }
+                                    ])
+                                        ->withCount('children');  // For 4th level check
+                                },
+                                'projects' => function ($qp) use ($project) {
+                                    $qp->where('project_id', $project->id);
+                                }
+                            ])
+                                ->withCount('children');  // For isLeaf check
+                        },
+                        'projects' => function ($qp) use ($project) {
+                            $qp->where('project_id', $project->id);
+                        }
+                    ])
+                        ->withCount('children');  // For isLeaf check
+                },
+                'projects' => function ($q) use ($project) {
                     $q->where('project_id', $project->id);
-                }]);
-            }])
+                }
+            ])
+            ->withCount('children')  // For top-level isLeaf check
             ->get();
 
         return view('admin.schedules.tree', compact('project', 'topLevelSchedules'));
@@ -57,16 +87,20 @@ class ProjectActivityScheduleController extends Controller
 
     public function dashboard(Project $project): View
     {
-        $breakdown = $project->getScheduleProgressBreakdown();
-        $overallProgress = $project->calculatePhysicalProgress();
+        $allSchedules = $project->activitySchedules()
+            ->with(['children', 'parent'])
+            ->withCount('children')
+            ->get();
 
-        $leafSchedules = $project->leafSchedules;
+        $leafSchedules = $allSchedules->filter(fn($s) => $s->children_count === 0);
+        $topLevel = $allSchedules->where('level', 1)->whereNotNull('weightage');
+
         $completed = $leafSchedules->filter(fn($s) => $s->pivot->progress >= 100)->count();
         $inProgress = $leafSchedules->filter(fn($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
         $notStarted = $leafSchedules->filter(fn($s) => $s->pivot->progress == 0)->count();
 
         $statistics = [
-            'total_schedules' => $project->activitySchedules->count(),
+            'total_schedules' => $allSchedules->count(),
             'total_leaf_schedules' => $leafSchedules->count(),
             'completed' => $completed,
             'in_progress' => $inProgress,
@@ -75,6 +109,9 @@ class ProjectActivityScheduleController extends Controller
                 ? round(($completed / $leafSchedules->count()) * 100, 2)
                 : 0,
         ];
+
+        $breakdown = $this->getBreakdownFromCollection($topLevel);
+        $overallProgress = $this->calculateProgressFromCollection($leafSchedules);
 
         return view('admin.schedules.dashboard', compact(
             'project',
@@ -717,12 +754,23 @@ class ProjectActivityScheduleController extends Controller
     {
         $user = Auth::user();
 
-        $roleIds = cache()->remember("user_{$user->id}_roles_ids", 3600, function () use ($user) {
-            return $user->roles->pluck('id')->toArray();
-        });
+        $roleIds = cache()->remember(
+            "user_{$user->id}_roles_ids",
+            3600,
+            fn() => $user->roles->pluck('id')->toArray()
+        );
 
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
-        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+        $accessibleProjectIds = cache()->remember(
+            "user_{$user->id}_accessible_projects",
+            1800,
+            fn() => RoleBasedAccess::getAccessibleProjectIds($user)
+        );
+
+        $accessibleDirectorateIds = cache()->remember(
+            "user_{$user->id}_accessible_directorates",
+            1800,
+            fn() => RoleBasedAccess::getAccessibleDirectorateIds($user)
+        );
 
         if (empty($accessibleProjectIds)) {
             return view('admin.schedules.analytics', [
@@ -734,47 +782,89 @@ class ProjectActivityScheduleController extends Controller
                 'recentFiles' => collect([]),
                 'viewLevel' => $this->getUserViewLevel($roleIds),
                 'userDirectorate' => $user->directorate,
+                'projectList' => collect([]),
+                'directorates' => collect([]),
             ]);
         }
 
-        $query = Project::whereIn('id', $accessibleProjectIds);
+        $allProjects = Project::whereIn('id', $accessibleProjectIds)
+            ->with([
+                'directorate:id,title',
+                'status:id,title,color',
+                'activitySchedules' => function ($q) {
+                    $q->select([
+                        'project_activity_schedules.id',
+                        'project_activity_schedules.code',
+                        'project_activity_schedules.name',
+                        'project_activity_schedules.level',
+                        'project_activity_schedules.weightage',
+                        'project_activity_schedules.parent_id',
+                    ])
+                        ->with([
+                            'children:id,parent_id,code',
+                            'children.children:id,parent_id',
+                        ])
+                        ->withCount('children');
+                }
+            ])
+            ->get();
+
+        $filteredProjects = $allProjects;
 
         if ($request->filled('directorate_id')) {
-            $query->where('directorate_id', $request->directorate_id);
+            $filteredProjects = $filteredProjects->where('directorate_id', $request->directorate_id);
         }
 
         if ($request->filled('project_id')) {
-            $query->where('id', $request->project_id);
+            $filteredProjects = $filteredProjects->where('id', $request->project_id);
         }
 
-        $filteredProjectIds = $query->pluck('id')->toArray();
+        $perPage = 10;
+        $currentPage = $request->get('page', 1);
+        $filteredArray = $filteredProjects->values()->all();
+        $paginatedProjects = new \Illuminate\Pagination\LengthAwarePaginator(
+            array_slice($filteredArray, ($currentPage - 1) * $perPage, $perPage),
+            count($filteredArray),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
-        $projects = $query->with(['directorate', 'status', 'activitySchedules'])
-            ->paginate(10);
+        $statistics = $this->calculateStatisticsFromCollection($allProjects);
+        $projectProgress = $this->formatProjectProgressFromCollection($paginatedProjects);
+        $phaseBreakdown = $this->calculatePhaseBreakdownFromCollection($filteredProjects);
+        $directoratePerformance = $this->calculateDirectoratePerformanceFromCollection(
+            $allProjects,
+            $accessibleDirectorateIds
+        );
 
-        $phaseBreakdown = $this->calculateGlobalPhaseBreakdown($filteredProjectIds);
-
+        $filteredProjectIds = $filteredProjects->pluck('id')->toArray();
         $recentFiles = ProjectScheduleFile::whereIn('project_id', $filteredProjectIds)
-            ->with(['project'])
+            ->with([
+                'project:id,title',
+                'uploadedBy:id,name',
+            ])
             ->latest()
             ->take(5)
             ->get();
 
-        $directoratePerformance = $this->calculateDirectoratePerformance($accessibleDirectorateIds, $accessibleProjectIds);
-
-        $projectList = Project::whereIn('id', $accessibleProjectIds)
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
             ->select('id', 'title')
             ->orderBy('title')
             ->get();
 
-        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)->get();
+        $projectList = $allProjects->map(fn($p) => [
+            'id' => $p->id,
+            'title' => $p->title,
+            'directorate_id' => $p->directorate_id,
+        ]);
 
         $viewData = [
-            'projects' => $projects,
-            'projectProgress' => $this->formatProjectProgressData($projects),
+            'projects' => $paginatedProjects,
+            'projectProgress' => $projectProgress,
             'phaseBreakdown' => $phaseBreakdown,
             'recentFiles' => $recentFiles,
-            'statistics' => $this->getGlobalStats($accessibleProjectIds),
+            'statistics' => $statistics,
             'directoratePerformance' => $directoratePerformance,
             'projectList' => $projectList,
             'directorates' => $directorates,
@@ -863,13 +953,28 @@ class ProjectActivityScheduleController extends Controller
     public function overview(Request $request)
     {
         $user = Auth::user();
-        $roleIds = cache()->remember("user_{$user->id}_roles", 3600, function () use ($user) {
-            return $user->roles()->pluck('id')->toArray();
-        });
 
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
-        $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
+        // Cached role IDs
+        $roleIds = cache()->remember(
+            "user_{$user->id}_roles",
+            3600,
+            fn() => $user->roles()->pluck('id')->toArray()
+        );
 
+        // Cached accessible IDs
+        $accessibleProjectIds = cache()->remember(
+            "user_{$user->id}_accessible_projects",
+            1800,
+            fn() => RoleBasedAccess::getAccessibleProjectIds($user)
+        );
+
+        $accessibleDirectorateIds = cache()->remember(
+            "user_{$user->id}_accessible_directorates",
+            1800,
+            fn() => RoleBasedAccess::getAccessibleDirectorateIds($user)
+        );
+
+        // Early return if no access
         if (empty($accessibleProjectIds)) {
             return view('admin.schedules.overview', [
                 'projects' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12),
@@ -880,95 +985,116 @@ class ProjectActivityScheduleController extends Controller
             ]);
         }
 
-        $query = Project::whereIn('id', $accessibleProjectIds)
+        $allProjects = Project::whereIn('id', $accessibleProjectIds)
+            ->select(['id', 'title', 'directorate_id', 'status_id'])
             ->with([
-                'directorate',
+                'directorate:id,title',
+                'status:id,title,color',
                 'activitySchedules' => function ($q) {
-                    $q->with(['projects' => fn($q) => $q->select('projects.id')]);
-                },
-                'status'
-            ]);
-
-        if ($request->filled('directorate_id')) {
-            $directorateId = $request->directorate_id;
-            if (in_array($directorateId, $accessibleDirectorateIds)) {
-                $query->where('directorate_id', $directorateId);
-            }
-        }
-
-        if ($request->filled('project_id')) {
-            $projectId = $request->project_id;
-            if (in_array($projectId, $accessibleProjectIds)) {
-                $query->where('id', $projectId);
-            }
-        }
-
-        if ($request->filled('status')) {
-            $status = $request->status;
-            if ($status === 'completed') {
-                $query->whereHas('activitySchedules', function ($q) {
-                    $q->havingRaw('AVG(progress) >= 100');
-                });
-            } elseif ($status === 'in_progress') {
-                $query->whereHas('activitySchedules', function ($q) {
-                    $q->havingRaw('AVG(progress) > 0 AND AVG(progress) < 100');
-                });
-            } elseif ($status === 'not_started') {
-                $query->whereHas('activitySchedules', function ($q) {
-                    $q->havingRaw('AVG(progress) = 0');
-                });
-            }
-        }
-
-        $projects = $query->paginate(12)->withQueryString();
-
-        $allProjectsQuery = Project::whereIn('id', $accessibleProjectIds)
-            ->with([
-                'directorate',
-            ])
-            ->orderBy('title');
-
-        if ($request->filled('directorate_id')) {
-            $directorateId = $request->directorate_id;
-            if (in_array($directorateId, $accessibleDirectorateIds)) {
-                $allProjectsQuery->where('directorate_id', $directorateId);
-            }
-        }
-
-        $allProjects = $allProjectsQuery->get();
-
-        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
-            ->orderBy('title')
-            ->get();
-
-        $allProjectsForStats = Project::whereIn('id', $accessibleProjectIds)
-            ->with([
-                'activitySchedules' => function ($q) {
-                    $q->with(['projects' => fn($q) => $q->select('projects.id')]);
+                    $q->select([
+                        'project_activity_schedules.id',
+                        'project_activity_schedules.code',
+                        'project_activity_schedules.name',
+                        'project_activity_schedules.level',
+                        'project_activity_schedules.weightage',
+                        'project_activity_schedules.parent_id',
+                    ])
+                        ->with([
+                            'children:id,parent_id',
+                            'children.children:id,parent_id',
+                        ])
+                        ->withCount('children');
                 }
             ])
             ->get();
 
-        $progressValues = [];
-        foreach ($allProjectsForStats as $project) {
-            $progressValues[] = $project->calculatePhysicalProgress();
+        // Filter in memory
+        $filteredProjects = $allProjects;
+
+        // Filter by directorate
+        if ($request->filled('directorate_id')) {
+            $directorateId = $request->directorate_id;
+            if (in_array($directorateId, $accessibleDirectorateIds)) {
+                $filteredProjects = $filteredProjects->where('directorate_id', $directorateId);
+            }
         }
 
-        $statistics = [
-            'total_projects' => $allProjectsForStats->count(),
-            'total_schedules' => $allProjectsForStats->sum(fn($p) => $p->activitySchedules->count()),
-            'average_progress' => count($progressValues) > 0 ? round(array_sum($progressValues) / count($progressValues), 2) : 0,
-        ];
+        // Filter by specific project
+        if ($request->filled('project_id')) {
+            $projectId = $request->project_id;
+            if (in_array($projectId, $accessibleProjectIds)) {
+                $filteredProjects = $filteredProjects->where('id', $projectId);
+            }
+        }
 
-        $viewLevel = $this->getUserViewLevel($roleIds);
+        // Filter by status in memory
+        if ($request->filled('status')) {
+            $status = $request->status;
+            $filteredProjects = $filteredProjects->filter(function ($project) use ($status) {
+                // ✅ Use helper method that works with loaded data
+                $progress = $this->calculateProjectProgressFromLoaded($project);
 
-        return view('admin.schedules.overview', compact(
-            'projects',
-            'statistics',
-            'directorates',
-            'allProjects',
-            'viewLevel'
-        ));
+                return match ($status) {
+                    'completed' => $progress >= 100,
+                    'in_progress' => $progress > 0 && $progress < 100,
+                    'not_started' => $progress == 0,
+                    default => true,
+                };
+            });
+        }
+
+        // Paginate in memory
+        $perPage = 12;
+        $currentPage = $request->get('page', 1);
+        $filteredArray = $filteredProjects->values()->all();
+        $paginatedArray = array_slice($filteredArray, ($currentPage - 1) * $perPage, $perPage);
+
+        // ✅ NEW: Pre-calculate all values for paginated projects (avoid blade queries)
+        foreach ($paginatedArray as $project) {
+            // Pre-calculate progress using helper method (no model queries)
+            $project->cached_progress = $this->calculateProjectProgressFromLoaded($project);
+
+            // Pre-calculate leaf stats from loaded data
+            $allSchedules = $project->activitySchedules;
+            $leafSchedules = $allSchedules->filter(fn($s) => $s->children_count === 0);
+
+            $project->cached_total_schedules = $allSchedules->count();
+            $project->cached_leaf_total = $leafSchedules->count();
+            $project->cached_leaf_completed = $leafSchedules->filter(
+                fn($s) => $s->pivot->progress >= 100
+            )->count();
+        }
+
+        $paginatedProjects = new \Illuminate\Pagination\LengthAwarePaginator(
+            $paginatedArray,
+            count($filteredArray),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        // Calculate from loaded data
+        $statistics = $this->calculateOverviewStatisticsFromCollection($allProjects);
+
+        // QUERY 2: Directorates
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
+            ->select('id', 'title')
+            ->orderBy('title')
+            ->get();
+
+        // Project list for filter
+        $projectListForFilter = $allProjects;
+        if ($request->filled('directorate_id')) {
+            $projectListForFilter = $projectListForFilter->where('directorate_id', $request->directorate_id);
+        }
+
+        return view('admin.schedules.overview', [
+            'projects' => $paginatedProjects,
+            'statistics' => $statistics,
+            'directorates' => $directorates,
+            'allProjects' => $projectListForFilter,
+            'viewLevel' => $this->getUserViewLevel($roleIds),
+        ]);
     }
 
     public function apiProjectsByDirectorate(Request $request)
@@ -1237,16 +1363,28 @@ class ProjectActivityScheduleController extends Controller
      */
     public function library()
     {
-        // Define project types (no model needed)
         $projectTypes = [
             'transmission_line' => 'Transmission Line',
             'substation' => 'Substation',
         ];
 
-        // Get schedules grouped by project type
-        $schedulesByType = ProjectActivitySchedule::orderBy('project_type')
+        $schedulesByType = ProjectActivitySchedule::select([
+            'id',
+            'code',
+            'name',
+            'description',
+            'parent_id',
+            'project_type',
+            'level',
+            'sort_order',
+            'weightage',
+        ])
+            ->with([
+                'parent:id,code,name',
+                'children:id,parent_id',
+            ])
+            ->withCount('children')
             ->orderBy('sort_order')
-            // ->orderBy('code')
             ->get()
             ->groupBy('project_type');
 
@@ -1258,15 +1396,19 @@ class ProjectActivityScheduleController extends Controller
      */
     public function createGlobal()
     {
-        // Define project types
         $projectTypes = [
             'transmission_line' => 'Transmission Line',
             'substation' => 'Substation',
         ];
 
-        // Get existing schedules grouped by project type
-        $schedulesByProjectType = ProjectActivitySchedule::orderBy('sort_order')
-            // ->orderBy('code')
+        $schedulesByProjectType = ProjectActivitySchedule::select([
+            'id',
+            'code',
+            'name',
+            'project_type',
+        ])
+            ->withCount('children')
+            ->orderBy('sort_order')
             ->get()
             ->groupBy('project_type')
             ->map(function ($schedules) {
@@ -1275,7 +1417,7 @@ class ProjectActivityScheduleController extends Controller
                         'id' => $schedule->id,
                         'code' => $schedule->code,
                         'name' => $schedule->name,
-                        'is_leaf' => $schedule->isLeaf(),
+                        'is_leaf' => $schedule->children_count === 0,
                     ];
                 });
             });
@@ -1295,7 +1437,6 @@ class ProjectActivityScheduleController extends Controller
                 'string',
                 'max:50',
                 'regex:/^[A-Z](\.\d+)*$/',
-                // Unique within project type
                 function ($attribute, $value, $fail) use ($request) {
                     $exists = ProjectActivitySchedule::where('project_type', $request->project_type)
                         ->where('code', strtoupper($value))
@@ -1311,7 +1452,6 @@ class ProjectActivityScheduleController extends Controller
             'parent_id' => [
                 'nullable',
                 'exists:project_activity_schedules,id',
-                // Parent must be same project type
                 function ($attribute, $value, $fail) use ($request) {
                     if ($value) {
                         $parent = ProjectActivitySchedule::find($value);
@@ -1324,7 +1464,7 @@ class ProjectActivityScheduleController extends Controller
         ], [
             'project_type.required' => 'Please select a project type.',
             'code.required' => 'Activity code is required.',
-            'code.regex' => 'Code must follow format: Letter.Number (e.g., A.1, B.2.1)',
+            'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
             'name.required' => 'Activity name is required.',
             'weightage.numeric' => 'Weightage must be a number.',
             'weightage.max' => 'Weightage cannot exceed 100.',
@@ -1374,14 +1514,21 @@ class ProjectActivityScheduleController extends Controller
      */
     public function editGlobal(ProjectActivitySchedule $schedule)
     {
+        $schedule->loadMissing(['parent:id,code,name', 'children:id,parent_id']);
+
         $projectTypes = [
             'transmission_line' => 'Transmission Line',
             'substation' => 'Substation',
         ];
 
-        // THIS IS THE FIX: We need to pass this variable to the view 
-        // just like we did in the create() method.
-        $schedulesByProjectType = ProjectActivitySchedule::orderBy('code')
+        $schedulesByProjectType = ProjectActivitySchedule::select([
+            'id',
+            'code',
+            'name',
+            'project_type',
+        ])
+            ->withCount('children')
+            ->orderBy('sort_order')
             ->get()
             ->groupBy('project_type')
             ->map(function ($schedules) {
@@ -1390,7 +1537,7 @@ class ProjectActivityScheduleController extends Controller
                         'id' => $schedule->id,
                         'code' => $schedule->code,
                         'name' => $schedule->name,
-                        'is_leaf' => $schedule->isLeaf(),
+                        'is_leaf' => $schedule->children_count === 0,
                     ];
                 });
             });
@@ -1404,12 +1551,20 @@ class ProjectActivityScheduleController extends Controller
     public function updateGlobal(Request $request, ProjectActivitySchedule $schedule)
     {
         $validated = $request->validate([
+            'project_type' => [
+                'required',
+                'in:transmission_line,substation',
+                function ($attribute, $value, $fail) use ($schedule) {
+                    if ($value !== $schedule->project_type) {
+                        $fail('Project type cannot be changed after creation.');
+                    }
+                },
+            ],
             'code' => [
                 'required',
                 'string',
                 'max:50',
-                'regex:/^[A-Z]\.\d+(\.\d+)*$/',
-                // Unique within project type (except self)
+                'regex:/^[A-Z](\.\d+)*$/',
                 function ($attribute, $value, $fail) use ($schedule) {
                     $exists = ProjectActivitySchedule::where('project_type', $schedule->project_type)
                         ->where('code', strtoupper($value))
@@ -1422,12 +1577,45 @@ class ProjectActivityScheduleController extends Controller
             ],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'weightage' => 'nullable|numeric|min:0|max:100',
+            'parent_id' => [
+                'nullable',
+                'exists:project_activity_schedules,id',
+                function ($attribute, $value, $fail) use ($schedule) {
+                    if ($value && (int)$value === (int)$schedule->id) {
+                        $fail('An activity cannot be its own parent.');
+                    }
+                },
+                function ($attribute, $value, $fail) use ($schedule) {
+                    if ($value) {
+                        $parent = ProjectActivitySchedule::find($value);
+                        if ($parent && $parent->project_type !== $schedule->project_type) {
+                            $fail('Parent activity must be from the same project type.');
+                        }
+                    }
+                },
+            ],
+        ], [
+            'code.required' => 'Activity code is required.',
+            'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
+            'name.required' => 'Activity name is required.',
+            'weightage.numeric' => 'Weightage must be a number.',
+            'weightage.max' => 'Weightage cannot exceed 100.',
         ]);
+
+        $level = 1;
+        if ($request->parent_id) {
+            $parent = ProjectActivitySchedule::find($request->parent_id);
+            $level = $parent->level + 1;
+        }
 
         $schedule->update([
             'code' => strtoupper($validated['code']),
             'name' => $validated['name'],
             'description' => $validated['description'],
+            'parent_id' => $validated['parent_id'],
+            'weightage' => $validated['weightage'],
+            'level' => $level,
         ]);
 
         activity()
@@ -1658,5 +1846,315 @@ class ProjectActivityScheduleController extends Controller
 
             $counter++;
         }
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+// HELPER METHODS (Add to controller)
+// ════════════════════════════════════════════════════════════
+
+    /**
+     * Calculate breakdown from already loaded collection
+     * (Avoids re-querying database)
+     */
+    private function getBreakdownFromCollection($topLevelSchedules): array
+    {
+        $breakdown = [];
+
+        foreach ($topLevelSchedules as $schedule) {
+            // All data already loaded via eager loading
+            $leaves = $this->getLeafSchedulesFromMemory($schedule);
+            $totalProgress = $leaves->sum('pivot.progress');
+            $avgProgress = $leaves->count() > 0 ? $totalProgress / $leaves->count() : 0;
+
+            $breakdown[] = [
+                'code' => $schedule->code,
+                'name' => $schedule->name,
+                'weightage' => (float) $schedule->weightage,
+                'progress' => round($avgProgress, 2),
+                'weighted_contribution' => round(($avgProgress * $schedule->weightage) / 100, 2),
+            ];
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Get leaf schedules from already loaded children (no queries)
+     */
+    private function getLeafSchedulesFromMemory($schedule)
+    {
+        if ($schedule->children_count === 0) {
+            return collect([$schedule]);
+        }
+
+        $leaves = collect();
+        foreach ($schedule->children as $child) {
+            $leaves = $leaves->merge($this->getLeafSchedulesFromMemory($child));
+        }
+
+        return $leaves;
+    }
+
+    /**
+     * Calculate progress from loaded collection
+     */
+    private function calculateProgressFromCollection($leafSchedules): float
+    {
+        if ($leafSchedules->isEmpty()) {
+            return 0.0;
+        }
+
+        $totalProgress = $leafSchedules->sum('pivot.progress');
+        return round($totalProgress / $leafSchedules->count(), 2);
+    }
+
+    /**
+     * Get schedule breakdown from loaded collection
+     */
+    private function getScheduleBreakdownFromCollection($schedules): array
+    {
+        $topLevel = $schedules->where('level', 1)->whereNotNull('weightage');
+        return $this->getBreakdownFromCollection($topLevel);
+    }
+
+    private function calculateProjectProgressFromLoaded($project): float
+    {
+        $allSchedules = $project->activitySchedules;
+        $topLevel = $allSchedules->where('level', 1)->whereNotNull('weightage');
+
+        if ($topLevel->isEmpty()) return 0.0;
+
+        $totalWeightedProgress = 0.0;
+        $totalWeightage = 0.0;
+
+        foreach ($topLevel as $schedule) {
+            $weight = (float) $schedule->weightage;
+
+            // Find all leaves under THIS specific top-level schedule
+            $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
+
+            // Average progress of leaves in this phase
+            $avgProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+
+            $totalWeightedProgress += ($avgProgress * $weight);
+            $totalWeightage += $weight;
+        }
+
+        return $totalWeightage > 0 ? round($totalWeightedProgress / $totalWeightage, 2) : 0.0;
+    }
+
+    private function collectLeavesFromCollection($current, $allSchedules)
+    {
+        $children = $allSchedules->where('parent_id', $current->id);
+
+        if ($children->isEmpty()) {
+            return collect([$current]);
+        }
+
+        $leaves = collect();
+        foreach ($children as $child) {
+            $leaves = $leaves->merge($this->collectLeavesFromCollection($child, $allSchedules));
+        }
+
+        return $leaves;
+    }
+
+    /**
+     * Calculate phase progress from loaded children
+     */
+    private function calculatePhaseProgressFromLoaded($schedule, $projectId): float
+    {
+        if ($schedule->children_count === 0) {
+            return (float) ($schedule->pivot->progress ?? 0);
+        }
+
+        $leaves = $this->getLeafSchedulesFromLoaded($schedule);
+        $totalLeaves = count($leaves);
+
+        if ($totalLeaves === 0) {
+            return 0.0;
+        }
+
+        $totalProgress = 0.0;
+        foreach ($leaves as $leaf) {
+            $totalProgress += (float) ($leaf->pivot->progress ?? 0);
+        }
+
+        return round($totalProgress / $totalLeaves, 2);
+    }
+
+    /**
+     * Get leaf schedules from loaded children (recursive)
+     */
+    private function getLeafSchedulesFromLoaded($schedule): array
+    {
+        if ($schedule->children_count === 0) {
+            return [$schedule];
+        }
+
+        $leaves = [];
+        foreach ($schedule->children as $child) {
+            $leaves = array_merge($leaves, $this->getLeafSchedulesFromLoaded($child));
+        }
+
+        return $leaves;
+    }
+
+    /**
+     * Calculate statistics from loaded collection
+     */
+    private function calculateStatisticsFromCollection($projects): array
+    {
+        $totalSchedules = 0;
+        $progressSum = 0;
+        $projectsWithSchedules = 0;
+
+        foreach ($projects as $project) {
+            $scheduleCount = $project->activitySchedules->count();
+            $totalSchedules += $scheduleCount;
+
+            if ($scheduleCount > 0) {
+                $progressSum += $this->calculateProjectProgressFromLoaded($project);
+                $projectsWithSchedules++;
+            }
+        }
+
+        return [
+            'total_projects' => $projects->count(),
+            'total_schedules' => $totalSchedules,
+            'average_progress' => $projectsWithSchedules > 0
+                ? round($progressSum / $projectsWithSchedules, 2)
+                : 0,
+            'total_files' => ProjectScheduleFile::whereIn('project_id', $projects->pluck('id'))->count(),
+        ];
+    }
+
+    /**
+     * Calculate overview statistics
+     */
+    private function calculateOverviewStatisticsFromCollection($projects): array
+    {
+        $progressValues = [];
+        $totalSchedules = 0;
+
+        foreach ($projects as $project) {
+            $progressValues[] = $this->calculateProjectProgressFromLoaded($project);
+            $totalSchedules += $project->activitySchedules->count();
+        }
+
+        return [
+            'total_projects' => $projects->count(),
+            'total_schedules' => $totalSchedules,
+            'average_progress' => count($progressValues) > 0
+                ? round(array_sum($progressValues) / count($progressValues), 2)
+                : 0,
+        ];
+    }
+
+    /**
+     * Format project progress from collection
+     */
+    private function formatProjectProgressFromCollection($projects): array
+    {
+        $formatted = [];
+
+        foreach ($projects as $project) {
+            $progress = $this->calculateProjectProgressFromLoaded($project);
+
+            $leafSchedules = $project->activitySchedules->filter(fn($s) => $s->children_count === 0);
+            $completedCount = $leafSchedules->filter(fn($s) => (float)$s->pivot->progress >= 100)->count();
+
+            $formatted[] = [
+                'id' => $project->id,
+                'title' => $project->title,
+                'directorate' => $project->directorate?->title ?? 'N/A',
+                'progress' => $progress,
+                'status' => $project->status?->name ?? 'N/A',
+                'total_schedules' => $project->activitySchedules->count(),
+                'completed_schedules' => $completedCount,
+            ];
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Calculate phase breakdown from loaded projects
+     */
+    private function calculatePhaseBreakdownFromCollection($projects): \Illuminate\Support\Collection
+    {
+        $allTopLevelSchedules = collect();
+
+        foreach ($projects as $project) {
+            $topLevel = $project->activitySchedules
+                ->where('level', 1)
+                ->whereNotNull('weightage');
+            $allTopLevelSchedules = $allTopLevelSchedules->merge($topLevel);
+        }
+
+        $groupedByCode = $allTopLevelSchedules->groupBy('code');
+
+        $breakdown = $groupedByCode->map(function ($schedules, $code) use ($projects) {
+            $firstName = $schedules->first()->name;
+            $totalPhaseProgress = 0;
+            $activeProjectCount = 0;
+
+            foreach ($projects as $project) {
+                $phaseSchedules = $project->activitySchedules
+                    ->where('code', $code)
+                    ->where('level', 1);
+
+                foreach ($phaseSchedules as $schedule) {
+                    $progress = $this->calculatePhaseProgressFromLoaded($schedule, $project->id);
+                    $totalPhaseProgress += $progress;
+                    $activeProjectCount++;
+                }
+            }
+
+            return [
+                'code' => $code,
+                'name' => $firstName,
+                'average_progress' => $activeProjectCount > 0
+                    ? round($totalPhaseProgress / $activeProjectCount, 1)
+                    : 0
+            ];
+        })
+            ->sortBy('code')
+            ->values();
+
+        return $breakdown;
+    }
+
+    /**
+     * Calculate directorate performance from loaded projects
+     */
+    private function calculateDirectoratePerformanceFromCollection($projects, $accessibleDirectorateIds): array
+    {
+        $performance = [];
+        $projectsByDirectorate = $projects->groupBy('directorate_id');
+
+        $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
+            ->select('id', 'title')
+            ->get();
+
+        foreach ($directorates as $directorate) {
+            $directorateProjects = $projectsByDirectorate->get($directorate->id, collect());
+
+            if ($directorateProjects->isNotEmpty()) {
+                $progressSum = 0;
+                foreach ($directorateProjects as $project) {
+                    $progressSum += $this->calculateProjectProgressFromLoaded($project);
+                }
+
+                $performance[] = [
+                    'title' => $directorate->title,
+                    'total_projects' => $directorateProjects->count(),
+                    'average_progress' => round($progressSum / $directorateProjects->count(), 2),
+                ];
+            }
+        }
+
+        return $performance;
     }
 }
