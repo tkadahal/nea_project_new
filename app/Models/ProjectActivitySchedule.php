@@ -79,8 +79,61 @@ class ProjectActivitySchedule extends Model
                 'end_date',
                 'actual_start_date',
                 'actual_end_date',
-                'remarks'
+                'remarks',
+                'status',
             ])
+            ->withTimestamps();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dependency Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Dependencies where this schedule is the successor
+     * (activities that THIS schedule depends on)
+     */
+    public function predecessorDependencies(): HasMany
+    {
+        return $this->hasMany(ProjectActivityDependency::class, 'successor_id');
+    }
+
+    /**
+     * Dependencies where this schedule is the predecessor
+     * (activities that depend on THIS schedule)
+     */
+    public function successorDependencies(): HasMany
+    {
+        return $this->hasMany(ProjectActivityDependency::class, 'predecessor_id');
+    }
+
+    /**
+     * Get all predecessor schedules (activities this depends on)
+     */
+    public function predecessors(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProjectActivitySchedule::class,
+            'project_activity_dependencies',
+            'successor_id',
+            'predecessor_id'
+        )->withPivot(['type', 'lag_days', 'is_auto', 'project_id'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get all successor schedules (activities that depend on this)
+     */
+    public function successors(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProjectActivitySchedule::class,
+            'project_activity_dependencies',
+            'predecessor_id',
+            'successor_id'
+        )->withPivot(['type', 'lag_days', 'is_auto', 'project_id'])
             ->withTimestamps();
     }
 
@@ -192,7 +245,6 @@ class ProjectActivitySchedule extends Model
         $total = 0.0;
 
         foreach ($leaves as $leaf) {
-
             $pivot = $leaf->projects()
                 ->where('project_id', $projectId)
                 ->first()?->pivot;
@@ -223,6 +275,78 @@ class ProjectActivitySchedule extends Model
         cache()->forget(
             "schedule_{$this->id}_project_{$projectId}_progress"
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Project-Scoped Dependency Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get predecessors for a specific project
+     */
+    public function predecessorsForProject(int $projectId)
+    {
+        return $this->predecessors()
+            ->wherePivot('project_id', $projectId);
+    }
+
+    /**
+     * Get successors for a specific project
+     */
+    public function successorsForProject(int $projectId)
+    {
+        return $this->successors()
+            ->wherePivot('project_id', $projectId);
+    }
+
+    /**
+     * Get all dependencies for this schedule in a specific project
+     */
+    public function getDependenciesForProject(int $projectId)
+    {
+        return ProjectActivityDependency::where('project_id', $projectId)
+            ->where(function ($q) {
+                $q->where('predecessor_id', $this->id)
+                    ->orWhere('successor_id', $this->id);
+            })
+            ->with(['predecessor', 'successor'])
+            ->get();
+    }
+
+    /**
+     * Check if this schedule has any dependencies in a project
+     */
+    public function hasDependenciesInProject(int $projectId): bool
+    {
+        return ProjectActivityDependency::where('project_id', $projectId)
+            ->where(function ($q) {
+                $q->where('predecessor_id', $this->id)
+                    ->orWhere('successor_id', $this->id);
+            })
+            ->exists();
+    }
+
+    /**
+     * Get dependency chain (all activities that must complete before this)
+     */
+    public function getDependencyChain(int $projectId, array &$visited = []): array
+    {
+        if (in_array($this->id, $visited)) {
+            return [];
+        }
+
+        $visited[] = $this->id;
+        $chain = [$this->id];
+
+        $predecessors = $this->predecessorsForProject($projectId)->get();
+
+        foreach ($predecessors as $pred) {
+            $chain = array_merge($chain, $pred->getDependencyChain($projectId, $visited));
+        }
+
+        return array_unique($chain);
     }
 
     /*
@@ -291,5 +415,27 @@ class ProjectActivitySchedule extends Model
             ->with([
                 'projects' => fn($q) => $q->where('project_id', $projectId)
             ]);
+    }
+
+    /**
+     * Scope: Only active schedules for a project
+     */
+    public function scopeActiveForProject(Builder $query, int $projectId): Builder
+    {
+        return $query->whereHas('projects', function ($q) use ($projectId) {
+            $q->where('project_id', $projectId)
+                ->where('status', 'active');
+        });
+    }
+
+    /**
+     * Scope: Not needed schedules for a project
+     */
+    public function scopeNotNeededForProject(Builder $query, int $projectId): Builder
+    {
+        return $query->whereHas('projects', function ($q) use ($projectId) {
+            $q->where('project_id', $projectId)
+                ->where('status', 'not_needed');
+        });
     }
 }

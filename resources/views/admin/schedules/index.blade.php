@@ -55,6 +55,30 @@
                         Assign Schedules
                     </a>
                 @else
+                    {{-- Recalculate Timeline Button --}}
+                    <form action="{{ route('admin.projects.schedules.recalculate-timeline', $project) }}" method="POST"
+                        class="inline"
+                        onsubmit="return confirm('Recalculate all dependencies and dates? This will update the timeline based on actual progress.')">
+                        @csrf
+                        <button type="submit"
+                            class="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Recalculate Timeline
+                        </button>
+                    </form>
+
+                    {{-- Critical Path Button --}}
+                    <a href="{{ route('admin.projects.schedules.critical-path', $project) }}"
+                        class="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Critical Path
+                    </a>
                     <a href="{{ route('admin.projects.schedules.tree', $project) }}"
                         class="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,16 +308,114 @@
                 </div>
             </div>
 
+            {{-- Status Breakdown --}}
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                @php
+                    $allSchedules = $project->activitySchedules;
+                    $activeCount = $allSchedules->where('pivot.status', 'active')->count();
+                    $notNeededCount = $allSchedules->where('pivot.status', 'not_needed')->count();
+                    $completedCount = $allSchedules->where('pivot.status', 'completed')->count();
+                    $cancelledCount = $allSchedules->where('pivot.status', 'cancelled')->count();
+                @endphp
+
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="h-8 w-8 text-green-600 mr-3" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Active Activities</div>
+                            <div class="text-2xl font-bold text-green-600">{{ $activeCount }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="h-8 w-8 text-gray-600 mr-3" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Not Needed</div>
+                            <div class="text-2xl font-bold text-gray-600">{{ $notNeededCount }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="h-8 w-8 text-blue-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Completed</div>
+                            <div class="text-2xl font-bold text-blue-600">{{ $completedCount }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="h-8 w-8 text-red-600 mr-3" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Cancelled</div>
+                            <div class="text-2xl font-bold text-red-600">{{ $cancelledCount }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Grouped Schedule Table -->
             <div
                 class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden ring-1 ring-gray-900/5 dark:ring-gray-700">
                 <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">All Activity Schedules</h3>
                 </div>
+
+                <div class="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <select id="bulk-status"
+                            class="rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm">
+                            <option value="">Bulk Actions...</option>
+                            <option value="not_needed">Mark as Not Needed</option>
+                            <option value="active">Mark as Active</option>
+                            <option value="cancelled">Mark as Cancelled</option>
+                        </select>
+
+                        <button onclick="applyBulkStatus()"
+                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 13l4 4L19 7" />
+                            </svg>
+                            Apply to Selected
+                        </button>
+
+                        <span class="text-sm text-gray-500 dark:text-gray-400" id="selected-count"></span>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                             <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <input type="checkbox" id="select-all"
+                                        class="rounded border-gray-300 dark:border-gray-600"
+                                        onclick="toggleAllCheckboxes(this)">
+                                </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Code</th>
@@ -308,6 +430,9 @@
                                     Weight</th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Status</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Progress</th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -315,6 +440,10 @@
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     End Date</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Dependencies
+                                </th>
                                 <th class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
                             </tr>
                         </thead>
@@ -363,12 +492,44 @@
 
                                 <!-- All child rows under this phase (sorted by code) -->
                                 @foreach ($group->where('level', '>', 1)->sortBy('code', SORT_NATURAL) as $schedule)
-                                    @php $colors = getPhaseColor($schedule->code, $phaseColors); @endphp
+                                    @php
+                                        $colors = getPhaseColor($schedule->code, $phaseColors);
+                                        $status = $schedule->pivot->status ?? 'active';
+                                        $statusConfig = [
+                                            'active' => [
+                                                'bg' => 'bg-green-100 dark:bg-green-900',
+                                                'text' => 'text-green-800 dark:text-green-200',
+                                                'label' => 'Active',
+                                            ],
+                                            'not_needed' => [
+                                                'bg' => 'bg-gray-100 dark:bg-gray-700',
+                                                'text' => 'text-gray-600 dark:text-gray-300',
+                                                'label' => 'Not Needed',
+                                            ],
+                                            'cancelled' => [
+                                                'bg' => 'bg-red-100 dark:bg-red-900',
+                                                'text' => 'text-red-800 dark:text-red-200',
+                                                'label' => 'Cancelled',
+                                            ],
+                                            'completed' => [
+                                                'bg' => 'bg-blue-100 dark:bg-blue-900',
+                                                'text' => 'text-blue-800 dark:text-blue-200',
+                                                'label' => 'Completed',
+                                            ],
+                                        ];
+                                        $config = $statusConfig[$status] ?? $statusConfig['active'];
+                                    @endphp
 
                                     <tr
                                         class="{{ $schedule->level == 2 ? 'bg-gray-50 dark:bg-gray-800/30' : '' }}
-                                               {{ $schedule->level == 3 ? 'bg-gray-100/50 dark:bg-gray-900/20' : '' }}
-                                               hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                                        {{ $schedule->level == 3 ? 'bg-gray-100/50 dark:bg-gray-900/20' : '' }}
+                                        {{ $status === 'not_needed' ? 'opacity-60' : '' }}
+                                        hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <input type="checkbox"
+                                                class="schedule-checkbox rounded border-gray-300 dark:border-gray-600"
+                                                value="{{ $schedule->id }}">
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap"
                                             style="padding-left: {{ max(24, $schedule->level * 24) }}px !important;">
                                             <div class="flex items-center">
@@ -412,6 +573,12 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
+                                            <span
+                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $config['bg'] }} {{ $config['text'] }}">
+                                                {{ $config['label'] }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             @if (!$schedule->children_count > 0)
                                                 <div
                                                     class="w-full min-w-[120px] bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
@@ -437,17 +604,50 @@
                                             {{ $schedule->pivot->end_date ? \Carbon\Carbon::parse($schedule->pivot->end_date)->format('M d, Y') : '—' }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            @if (!$schedule->children_count > 0)
+                                            <a href="{{ route('admin.projects.schedules.dependencies', [$project, $schedule]) }}"
+                                                class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                title="View Dependencies">
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                </svg>
+                                            </a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            @if ($status === 'active' && !$schedule->children_count > 0)
                                                 <a href="{{ route('admin.projects.schedules.edit', [$project, $schedule]) }}"
-                                                    class="{{ $colors['text'] }} hover:opacity-80 dark:{{ $colors['text_dark'] }} hover:{{ $colors['text_dark'] }}/80">
-                                                    <svg class="h-5 w-5" fill="none" stroke="currentColor"
+                                                    class="{{ $colors['text'] }} hover:opacity-80 dark:{{ $colors['text_dark'] }} hover:{{ $colors['text_dark'] }}/80 mr-3">
+                                                    <svg class="h-5 w-5 inline" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             stroke-width="2"
-                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
-                                                        </path>
+                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                     </svg>
                                                 </a>
+
+                                                <form
+                                                    action="{{ route('admin.projects.schedules.mark-not-needed', [$project, $schedule]) }}"
+                                                    method="POST" class="inline"
+                                                    onsubmit="return confirm('Mark as Not Needed? Progress will be reset.')">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        class="text-gray-600 hover:text-gray-900 dark:text-gray-400 text-xs">
+                                                        Not Needed
+                                                    </button>
+                                                </form>
+                                            @elseif($status === 'not_needed')
+                                                <form
+                                                    action="{{ route('admin.projects.schedules.mark-active', [$project, $schedule]) }}"
+                                                    method="POST" class="inline"
+                                                    onsubmit="return confirm('Reactivate this activity?')">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        class="text-green-600 hover:text-green-900 dark:text-green-400 text-xs">
+                                                        Reactivate
+                                                    </button>
+                                                </form>
                                             @endif
                                         </td>
                                     </tr>
@@ -460,5 +660,63 @@
             </div>
         @endif
     </div>
+
+    @push('scripts')
+        <script>
+            function toggleAllCheckboxes(source) {
+                const checkboxes = document.querySelectorAll('.schedule-checkbox');
+                checkboxes.forEach(cb => cb.checked = source.checked);
+                updateSelectedCount();
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const checkboxes = document.querySelectorAll('.schedule-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.addEventListener('change', updateSelectedCount);
+                });
+            });
+
+            function updateSelectedCount() {
+                const checked = document.querySelectorAll('.schedule-checkbox:checked').length;
+                const counter = document.getElementById('selected-count');
+                if (counter) {
+                    counter.textContent = checked > 0 ? `${checked} selected` : '';
+                }
+            }
+
+            function applyBulkStatus() {
+                const status = document.getElementById('bulk-status').value;
+                if (!status) {
+                    alert('Please select an action');
+                    return;
+                }
+
+                const checkboxes = document.querySelectorAll('.schedule-checkbox:checked');
+                if (checkboxes.length === 0) {
+                    alert('Please select at least one activity');
+                    return;
+                }
+
+                const scheduleIds = Array.from(checkboxes).map(cb => cb.value);
+
+                if (!confirm(`Apply "${status.replace('_', ' ')}" to ${scheduleIds.length} activities?`)) {
+                    return;
+                }
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('admin.projects.schedules.bulk-mark-status', $project) }}';
+
+                form.innerHTML = `
+        @csrf
+        <input type="hidden" name="status" value="${status}">
+        ${scheduleIds.map(id => `<input type="hidden" name="schedule_ids[]" value="${id}">`).join('')}
+    `;
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        </script>
+    @endpush
 
 </x-layouts.app>

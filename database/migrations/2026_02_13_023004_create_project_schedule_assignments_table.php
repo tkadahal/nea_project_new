@@ -15,6 +15,7 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
             $table->foreignId('schedule_id')->constrained('project_activity_schedules')->onDelete('cascade');
             $table->decimal('progress', 5, 2)->default(0.00);
+            $table->enum('status', ['active', 'not_needed', 'cancelled', 'completed'])->default('active');
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
             $table->date('actual_start_date')->nullable();
@@ -22,10 +23,8 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->timestamps();
 
-            // Unique constraint - each schedule can only be assigned once per project
             $table->unique(['project_id', 'schedule_id']);
 
-            // Indexes
             $table->index('progress');
         });
     }

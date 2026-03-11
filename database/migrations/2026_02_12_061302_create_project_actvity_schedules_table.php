@@ -23,7 +23,6 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            // Indexes
             $table->index(['project_type', 'level']);
             $table->index('parent_id');
 

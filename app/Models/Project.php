@@ -163,10 +163,6 @@ class Project extends Model
     // ────────────────────────────────────────────────
     // Schedule Relationships
     // ────────────────────────────────────────────────
-
-    /**
-     * Activity schedules assigned to this project
-     */
     public function activitySchedules(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -187,9 +183,6 @@ class Project extends Model
             ->orderBy('sort_order');
     }
 
-    /**
-     * Get only top-level phase schedules for this project
-     */
     public function topLevelSchedules(): BelongsToMany
     {
         return $this->activitySchedules()
@@ -197,9 +190,6 @@ class Project extends Model
             ->whereNotNull('weightage');
     }
 
-    /**
-     * Get leaf schedules (executable activities without children)
-     */
     public function leafSchedules(): BelongsToMany
     {
         return $this->activitySchedules()
@@ -210,12 +200,8 @@ class Project extends Model
     // Progress Calculations
     // ────────────────────────────────────────────────
 
-    /**
-     * Calculate physical progress
-     */
     public function calculatePhysicalProgress(): float
     {
-        // Try schedule-based progress calculation first
         $topLevelSchedules = $this->topLevelSchedules()->get();
 
         if ($topLevelSchedules->isNotEmpty()) {
@@ -235,7 +221,6 @@ class Project extends Model
             }
         }
 
-        // Fallback to task-based calculation
         $tasks = $this->tasks()->get();
 
         if ($tasks->isNotEmpty()) {
@@ -247,7 +232,6 @@ class Project extends Model
             return (float) round($weighted / $totalWeight, 2);
         }
 
-        // Fallback to contract-based calculation
         $contracts = $this->contracts()->get();
 
         if ($contracts->isNotEmpty()) {
@@ -262,9 +246,6 @@ class Project extends Model
         return 0.0;
     }
 
-    /**
-     * Update physical progress
-     */
     public function updatePhysicalProgress(): void
     {
         $this->updateQuietly(['progress' => $this->calculatePhysicalProgress()]);
@@ -272,24 +253,18 @@ class Project extends Model
     }
 
     // ────────────────────────────────────────────────
-    // ✨ NEW: Cached Progress Methods
+    // NEW: Cached Progress Methods
     // ────────────────────────────────────────────────
 
-    /**
-     * Get cached physical progress (5 minute cache)
-     */
     public function getCachedPhysicalProgress(): float
     {
         return cache()->remember(
             "project_{$this->id}_physical_progress",
-            300, // 5 minutes
+            300,
             fn() => $this->calculatePhysicalProgress()
         );
     }
 
-    /**
-     * Get cached schedule breakdown (5 minute cache)
-     */
     public function getCachedScheduleBreakdown(): array
     {
         return cache()->remember(
@@ -299,15 +274,11 @@ class Project extends Model
         );
     }
 
-    /**
-     * Clear all progress caches
-     */
     public function clearProgressCache(): void
     {
         cache()->forget("project_{$this->id}_physical_progress");
         cache()->forget("project_{$this->id}_schedule_breakdown");
 
-        // Clear individual schedule caches if loaded
         if ($this->relationLoaded('activitySchedules')) {
             $this->activitySchedules->each(function ($schedule) {
                 cache()->forget("schedule_{$schedule->id}_project_{$this->id}_progress");
@@ -319,9 +290,6 @@ class Project extends Model
     // Schedule Helper Methods
     // ────────────────────────────────────────────────
 
-    /**
-     * Get detailed progress breakdown by phase
-     */
     public function getScheduleProgressBreakdown(): array
     {
         $breakdown = [];
@@ -348,9 +316,6 @@ class Project extends Model
         return $breakdown;
     }
 
-    /**
-     * Update progress for a specific schedule
-     */
     public function updateScheduleProgress(int $scheduleId, float $progress): void
     {
         $this->activitySchedules()->updateExistingPivot($scheduleId, [
@@ -361,9 +326,6 @@ class Project extends Model
         $this->updatePhysicalProgress();
     }
 
-    /**
-     * Bulk update multiple schedule progresses
-     */
     public function bulkUpdateScheduleProgress(array $progressData): void
     {
         foreach ($progressData as $scheduleId => $progress) {
@@ -457,6 +419,14 @@ class Project extends Model
                 ->whereColumn('project_user.project_id', 'projects.id')
                 ->where('project_user.user_id', $user->id);
         });
+    }
+
+    /**
+     * Activity dependencies for this project
+     */
+    public function activityDependencies(): HasMany
+    {
+        return $this->hasMany(ProjectActivityDependency::class);
     }
 
     public function newEloquentBuilder($query): ModelBuilder

@@ -231,6 +231,15 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::get('schedules/api/projects-by-directorate', [ProjectActivityScheduleController::class, 'apiProjectsByDirectorate'])
             ->name('schedules.api.projects-by-directorate');
 
+        Route::get('schedules/api/project-attention-counts', [ProjectActivityScheduleController::class, 'apiProjectAttentionCounts'])
+            ->name('schedules.api.project-attention-counts');
+        Route::get('schedules/api/progress-buckets', [ProjectActivityScheduleController::class, 'apiProgressBuckets'])
+            ->name('schedules.api.progress-buckets');
+        Route::get('schedules/api/activity-extremes', [ProjectActivityScheduleController::class, 'apiActivityExtremes'])
+            ->name('schedules.api.activity-extremes');
+        Route::get('schedules/api/slippages', [ProjectActivityScheduleController::class, 'apiSlippages'])
+            ->name('schedules.api.slippages');
+
         // Projects
         Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
             Route::get('analytics', 'analytics')->name('analytics');
@@ -268,7 +277,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             // ══════════════════════════════════════════════════════════
 
             // Charts page (Burn Chart, S-Curve, Activity Chart)
-            Route::get('{project}/schedule-charts', [ProjectActivityScheduleController::class, 'charts'])
+            Route::get('{project}/schedules/schedule-charts', [ProjectActivityScheduleController::class, 'charts'])
                 ->name('schedules.charts');
 
             // ─── CHARTS DATA ENDPOINTS (JSON) ───
@@ -307,9 +316,27 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             Route::put('{project}/schedules/{schedule}/update-schedule', [ProjectActivityScheduleController::class, 'updateSchedule'])
                 ->name('schedules.update-schedule');
 
+            Route::post('{project}/schedules/{schedule}/mark-not-needed', [ProjectActivityScheduleController::class, 'markAsNotNeeded'])
+                ->name('schedules.mark-not-needed');
+
+            Route::post('{project}/schedules/{schedule}/mark-active', [ProjectActivityScheduleController::class, 'markAsActive'])
+                ->name('schedules.mark-active');
+
+            Route::post('{project}/schedules/bulk-mark-status', [ProjectActivityScheduleController::class, 'bulkMarkStatus'])
+                ->name('schedules.bulk-mark-status');
+
             // Delete schedule
             Route::delete('{project}/schedules/{schedule}/destroy-schedule', [ProjectActivityScheduleController::class, 'destroySchedule'])
                 ->name('schedules.destroy-schedule');
+
+            Route::post('{project}/schedules/recalculate-timeline', [ProjectActivityScheduleController::class, 'recalculateTimeline'])
+                ->name('schedules.recalculate-timeline');
+
+            Route::get('{project}/schedules/{schedule}/dependencies', [ProjectActivityScheduleController::class, 'showDependencies'])
+                ->name('schedules.dependencies');
+
+            Route::get('{project}/schedules/critical-path', [ProjectActivityScheduleController::class, 'criticalPath'])
+                ->name('schedules.critical-path');
 
             // ══════════════════════════════════════════════════════════
             // ASSIGNMENT - Assign Schedules to Project

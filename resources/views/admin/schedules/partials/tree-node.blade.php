@@ -1,10 +1,16 @@
 @php
-    // Get assignment data
-    $assignment = $schedule->projects->first();
-    $progress = $assignment ? (float) $assignment->pivot->progress : 0;
-
     // ✅ Use children_count for isLeaf check (no query)
     $isLeaf = $schedule->children_count === 0;
+
+    // ✅ Get progress - use aggregated_progress for parents, direct pivot for leaves
+    if (isset($schedule->aggregated_progress)) {
+        // Pre-calculated aggregated progress from controller (for parents)
+        $progress = $schedule->aggregated_progress;
+    } else {
+        // Direct pivot progress (for leaves)
+        $assignment = $schedule->projects->first();
+        $progress = $assignment ? (float) ($assignment->pivot->progress ?? 0) : 0;
+    }
 
     // Determine badge color and label
     if ($level === 0) {
