@@ -187,6 +187,7 @@
                             </div>
 
                             <!-- Section 3: Planned Dates (Baseline) -->
+                            <!-- Section 3: Planned Dates (Baseline) -->
                             <div
                                 class="mb-8 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 border-l-4 border-l-blue-500">
                                 <div class="flex items-center mb-4">
@@ -201,70 +202,75 @@
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <!-- Planned Start Date -->
                                     <div>
                                         <label for="start_date"
                                             class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Planned
                                             Start Date</label>
+
                                         <input type="date" id="start_date" name="start_date"
                                             value="{{ old('start_date', $assignment->pivot->start_date) }}"
-                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            {{-- DISABLED LOGIC: If date exists, disable input --}}
+                                            {{ $assignment->pivot->start_date ? 'disabled' : '' }}
+                                            {{-- STYLE LOGIC: If disabled, use gray 'read-only' styles, otherwise normal styles --}}
+                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5
+                                            {{ $assignment->pivot->start_date
+                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                                : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white' }}">
+
                                         @error('start_date')
                                             <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                         @enderror
                                     </div>
+
+                                    <!-- Planned End Date -->
                                     <div>
                                         <label for="end_date"
                                             class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Planned
                                             End Date</label>
+
                                         <input type="date" id="end_date" name="end_date"
                                             value="{{ old('end_date', $assignment->pivot->end_date) }}"
-                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            {{-- DISABLED LOGIC: If date exists, disable input --}} {{ $assignment->pivot->end_date ? 'disabled' : '' }}
+                                            {{-- STYLE LOGIC: If disabled, use gray 'read-only' styles, otherwise normal styles --}}
+                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5
+                                            {{ $assignment->pivot->end_date
+                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                                : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white' }}">
+
                                         @error('end_date')
                                             <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                         @enderror
                                     </div>
                                 </div>
                                 <p class="text-xs text-blue-600 dark:text-blue-400 mt-2"><i
-                                        class="fas fa-info-circle"></i> These are your baseline/original planned dates
+                                        class="fas fa-info-circle"></i> These are your baseline/original planned dates.
+                                    Once set, they are locked.
                                 </p>
                             </div>
 
-                            <!-- Section 3.5: Actual Dates (Read Only) -->
+                            <!-- Section 3.5: Add Date Revision Button -->
                             <div
-                                class="mb-8 p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 border-l-4 border-l-yellow-500">
-                                <div class="flex items-center mb-4">
-                                    <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Current Actual
-                                        Dates
-                                    </h3>
-                                </div>
+                                class="mb-8 flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-green-500 dark:hover:border-green-500 transition-colors">
+                                <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Track Date Changes
+                                </h3>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center">If actual dates
+                                    have changed or need to be recorded, click below.</p>
 
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label
-                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current
-                                            Actual Start</label>
-                                        <input type="date"
-                                            value="{{ $assignment->pivot->actual_start_date ? \Carbon\Carbon::parse($assignment->pivot->actual_start_date)->format('Y-m-d') : '' }}"
-                                            disabled
-                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 shadow-sm sm:text-sm p-2.5 cursor-not-allowed">
-                                        <small class="text-yellow-700 dark:text-yellow-300">Updates are tracked via the
-                                            "Add Date Revision" form below.</small>
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current
-                                            Actual End</label>
-                                        <input type="date"
-                                            value="{{ $assignment->pivot->actual_end_date ? \Carbon\Carbon::parse($assignment->pivot->actual_end_date)->format('Y-m-d') : '' }}"
-                                            disabled
-                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 shadow-sm sm:text-sm p-2.5 cursor-not-allowed">
-                                    </div>
-                                </div>
+                                <button onclick="openRevisionModal()" type="button"
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 dark:focus:ring-offset-gray-800">
+                                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                    Add Date Revision
+                                </button>
                             </div>
 
                             <!-- Section 4: Remarks -->
@@ -438,7 +444,7 @@
                         @endif
 
                         <!-- Add New Revision Form -->
-                        <div
+                        {{-- <div
                             class="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 overflow-hidden">
                             <div class="px-6 py-4 bg-green-600 border-b border-green-700">
                                 <h3 class="text-base font-semibold text-white flex items-center">
@@ -507,11 +513,91 @@
                                     </button>
                                 </form>
                             </div>
-                        </div>
+                        </div> --}}
 
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- Revision Modal -->
+    <div id="revisionModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog"
+        aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeRevisionModal()"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <!-- Modal Panel -->
+                <div
+                    class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+
+                    <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div
+                                class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900 sm:mx-0 sm:h-10 sm:w-10">
+                                <svg class="h-6 w-6 text-green-600 dark:text-green-400" fill="none"
+                                    viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                </svg>
+                            </div>
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-lg font-semibold leading-6 text-gray-900 dark:text-gray-100"
+                                    id="modal-title">Add Date Revision</h3>
+                                <div class="mt-4">
+                                    <form
+                                        action="{{ route('admin.projects.schedules.add-date-revision', [$project, $schedule]) }}"
+                                        method="POST">
+                                        @csrf
+                                        <div class="space-y-4">
+                                            <div>
+                                                <!-- Updated Label Style (added mb-1) -->
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual
+                                                    Start Date</label>
+                                                <!-- Updated Input Style (Matching Main Form) -->
+                                                <input type="date" name="actual_start_date"
+                                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            </div>
+                                            <div>
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual
+                                                    End Date</label>
+                                                <input type="date" name="actual_end_date"
+                                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            </div>
+                                            <div>
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason
+                                                    for Revision <span class="text-red-500">*</span></label>
+                                                <input type="text" name="revision_reason" required
+                                                    placeholder="e.g. Weather delay"
+                                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            </div>
+                                            <div>
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Remarks</label>
+                                                <textarea name="remarks" rows="2"
+                                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"></textarea>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                                            <button type="submit"
+                                                class="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 sm:col-start-2">Save
+                                                Revision</button>
+                                            <button type="button" onclick="closeRevisionModal()"
+                                                class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:col-start-1 sm:mt-0 dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-600">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -527,27 +613,44 @@
 
             function updateProgressBar(value) {
                 const progressBar = document.getElementById('progress-bar');
-                const textDisplay = document 'progress-text-display');
-            if (!progressBar) return;
+                // FIXED: Added 'getElementById' and fixed quotes
+                const textDisplay = document.getElementById('progress-text-display');
 
-            // Update width and text
-            progressBar.style.width = value + '%';
-            progressBar.textContent = value + '%';
-            if (textDisplay) textDisplay.textContent = value + '%';
+                if (!progressBar) return;
 
-            // Tailwind color classes
-            progressBar.classList.remove('bg-gray-400', 'bg-blue-500', 'bg-yellow-500', 'bg-green-500');
+                // Update width and text
+                progressBar.style.width = value + '%';
+                progressBar.textContent = value + '%';
+                if (textDisplay) textDisplay.textContent = value + '%';
 
-            if (value >= 100) {
-                progressBar.classList.add('bg-green-500');
-            } else if (value >= 75) {
-                progressBar.classList.add('bg-blue-500');
-            } else if (value >= 50) {
-                progressBar.classList.add('bg-yellow-500');
-            } else {
-                progressBar.classList.add('bg-gray-400');
+                // Tailwind color classes
+                progressBar.classList.remove('bg-gray-400', 'bg-blue-500', 'bg-yellow-500', 'bg-green-500');
+
+                if (value >= 100) {
+                    progressBar.classList.add('bg-green-500');
+                } else if (value >= 75) {
+                    progressBar.classList.add('bg-blue-500');
+                } else if (value >= 50) {
+                    progressBar.classList.add('bg-yellow-500');
+                } else {
+                    progressBar.classList.add('bg-gray-400');
+                }
             }
+
+            function openRevisionModal() {
+                document.getElementById('revisionModal').classList.remove('hidden');
             }
+
+            function closeRevisionModal() {
+                document.getElementById('revisionModal').classList.add('hidden');
+            }
+
+            // Close on Escape key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === "Escape") {
+                    closeRevisionModal();
+                }
+            });
         </script>
     @endpush
 </x-layouts.app>
