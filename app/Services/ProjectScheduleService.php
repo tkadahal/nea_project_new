@@ -12,18 +12,13 @@ use Carbon\Carbon;
 
 class ProjectScheduleService
 {
-    /**
-     * Smart dependency sync - respects hierarchy and phases
-     */
     public function syncDependencies(int $projectId): void
     {
         DB::transaction(function () use ($projectId) {
-            // 1. Clear ONLY auto-created dependencies (preserve manual ones)
             ProjectActivityDependency::where('project_id', $projectId)
                 ->where('is_auto', true)
                 ->delete();
 
-            // 2. Get all schedules for this project through pivot
             $project = Project::with(['activitySchedules' => function ($q) {
                 $q->select([
                     'project_activity_schedules.id',
@@ -41,16 +36,13 @@ class ProjectScheduleService
             $schedules = $project->activitySchedules;
             $dependencies = [];
 
-            // 3. Group by phase (A, B, C, etc.)
             $phases = $schedules->groupBy(fn($s) => substr($s->code, 0, 1));
 
             foreach ($phases as $phaseCode => $phaseSchedules) {
-                // Get top-level activities in this phase (e.g., A.1, A.2, A.3)
                 $topLevelInPhase = $phaseSchedules->where('level', 2)
                     ->sortBy('code')
                     ->values();
 
-                // Link top-level activities sequentially within phase
                 for ($i = 0; $i < count($topLevelInPhase) - 1; $i++) {
                     $dependencies[] = [
                         'project_id' => $projectId,
@@ -124,80 +116,219 @@ class ProjectScheduleService
      */
     public function rippleDates(int $projectId, ?int $startFromScheduleId = null): void
     {
-        DB::transaction(function () use ($projectId, $startFromScheduleId) {
-            // Get all pivot assignments using DB facade
-            $assignments = DB::table('project_schedule_assignments')
-                ->where('project_id', $projectId)
-                ->get()
-                ->keyBy('schedule_id');
+        $assignments = DB::table('project_schedule_assignments')
+            ->where('project_id', $projectId)
+            ->whereNotNull('start_date')
+            ->whereNotNull('end_date')
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('schedule_id');
 
-            if ($assignments->isEmpty()) {
-                return;
+        // If no valid assignments, nothing to ripple
+        if ($assignments->isEmpty()) {
+            return;
+        }
+
+        // Get all dependencies for this project
+        $dependencies = DB::table('project_activity_dependencies')
+            ->where('project_id', $projectId)
+            ->get();
+
+        if ($dependencies->isEmpty()) {
+            return; // No dependencies to process
+        }
+
+        // Build adjacency list for topological sort
+        $graph = [];
+        $inDegree = [];
+
+        foreach ($assignments as $assignment) {
+            $scheduleId = $assignment->schedule_id;
+            if (!isset($graph[$scheduleId])) {
+                $graph[$scheduleId] = [];
+                $inDegree[$scheduleId] = 0;
+            }
+        }
+
+        foreach ($dependencies as $dep) {
+            if (!isset($assignments[$dep->predecessor_id]) || !isset($assignments[$dep->successor_id])) {
+                continue; // Skip if either schedule not in project or not active
             }
 
-            // Get dependencies
-            $dependencies = ProjectActivityDependency::where('project_id', $projectId)
-                ->with(['predecessor', 'successor'])
-                ->get()
-                ->groupBy('successor_id');
+            $graph[$dep->predecessor_id][] = [
+                'successor' => $dep->successor_id,
+                'type' => $dep->type,
+                'lag' => $dep->lag_days,
+            ];
 
-            // Build dependency graph
-            $graph = [];
-            foreach ($dependencies as $successorId => $deps) {
-                $graph[$successorId] = $deps->pluck('predecessor_id')->toArray();
+            if (!isset($inDegree[$dep->successor_id])) {
+                $inDegree[$dep->successor_id] = 0;
             }
+            $inDegree[$dep->successor_id]++;
+        }
 
-            // Topological sort to process in correct order
-            $sortedIds = $this->topologicalSort($graph, $assignments->keys()->toArray());
-
-            // If starting from specific activity, only process successors
-            if ($startFromScheduleId) {
-                $sortedIds = $this->getSuccessors($graph, $startFromScheduleId);
+        // Topological sort (Kahn's algorithm)
+        $queue = [];
+        foreach ($inDegree as $scheduleId => $degree) {
+            if ($degree === 0) {
+                $queue[] = $scheduleId;
             }
+        }
 
-            foreach ($sortedIds as $scheduleId) {
-                $current = $assignments->get($scheduleId);
+        $sorted = [];
+        while (!empty($queue)) {
+            $current = array_shift($queue);
+            $sorted[] = $current;
 
-                if (!$current) continue;
-
-                // Skip completed activities
-                if ($current->progress >= 100) continue;
-
-                // Get dependencies for this activity
-                $activityDeps = $dependencies->get($scheduleId);
-                if (!$activityDeps || $activityDeps->isEmpty()) continue;
-
-                // Calculate earliest start based on all predecessors
-                $earliestStart = null;
-
-                foreach ($activityDeps as $dep) {
-                    $pred = $assignments->get($dep->predecessor_id);
-                    if (!$pred) continue;
-
-                    // Calculate successor start based on dependency type
-                    $predDate = $this->calculateSuccessorDate($pred, $dep);
-
-                    if (!$earliestStart || $predDate->gt($earliestStart)) {
-                        $earliestStart = $predDate;
+            if (isset($graph[$current])) {
+                foreach ($graph[$current] as $edge) {
+                    $successor = $edge['successor'];
+                    $inDegree[$successor]--;
+                    if ($inDegree[$successor] === 0) {
+                        $queue[] = $successor;
                     }
                 }
+            }
+        }
 
-                if ($earliestStart) {
-                    // Preserve original duration
-                    $duration = Carbon::parse($current->start_date)->diffInDays($current->end_date);
+        // If we should only ripple from a specific schedule, filter the sorted list
+        if ($startFromScheduleId !== null) {
+            $startIndex = array_search($startFromScheduleId, $sorted);
+            if ($startIndex !== false) {
+                $sorted = array_slice($sorted, $startIndex);
+            } else {
+                return; // Start schedule not found in dependency chain
+            }
+        }
 
-                    // Update using DB facade
-                    DB::table('project_schedule_assignments')
-                        ->where('project_id', $projectId)
-                        ->where('schedule_id', $scheduleId)
-                        ->update([
-                            'start_date' => $earliestStart->format('Y-m-d'),
-                            'end_date' => $earliestStart->copy()->addDays($duration)->format('Y-m-d'),
-                            'updated_at' => now(),
-                        ]);
+        // Now ripple dates according to topological order
+        foreach ($sorted as $scheduleId) {
+            if (!isset($assignments[$scheduleId])) {
+                continue;
+            }
+
+            $assignment = $assignments[$scheduleId];
+
+            // Calculate current duration (in days, rounded to integer)
+            try {
+                $startDate = new \DateTime($assignment->start_date);
+                $endDate = new \DateTime($assignment->end_date);
+                $duration = max(0, (int)$startDate->diff($endDate)->days); // ✅ Use diff() and cast to int
+            } catch (\Exception $e) {
+                // Skip if dates are invalid
+                continue;
+            }
+
+            // Check all predecessors to find the latest constraint
+            $latestConstraintDate = null;
+
+            foreach ($dependencies as $dep) {
+                if ($dep->successor_id != $scheduleId) {
+                    continue;
+                }
+
+                if (!isset($assignments[$dep->predecessor_id])) {
+                    continue;
+                }
+
+                $predAssignment = $assignments[$dep->predecessor_id];
+
+                // Validate predecessor dates
+                if (!$predAssignment->start_date || !$predAssignment->end_date) {
+                    continue;
+                }
+
+                try {
+                    $predStart = new \DateTime($predAssignment->start_date);
+                    $predEnd = new \DateTime($predAssignment->end_date);
+                } catch (\Exception $e) {
+                    continue; // Skip invalid predecessor dates
+                }
+
+                // Calculate constraint date based on dependency type
+                $constraintDate = null;
+                switch ($dep->type) {
+                    case 'FS': // Finish-to-Start (most common)
+                        $constraintDate = clone $predEnd;
+                        $lagDays = (int)$dep->lag_days; // ✅ Cast to int
+                        if ($lagDays !== 0) {
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                        }
+                        break;
+
+                    case 'SS': // Start-to-Start
+                        $constraintDate = clone $predStart;
+                        $lagDays = (int)$dep->lag_days;
+                        if ($lagDays !== 0) {
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                        }
+                        break;
+
+                    case 'FF': // Finish-to-Finish
+                        $constraintDate = clone $predEnd;
+                        $lagDays = (int)$dep->lag_days;
+                        if ($lagDays !== 0) {
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                        }
+                        // For FF, we need to work backwards from finish
+                        if ($duration > 0) {
+                            $constraintDate->modify('-' . $duration . ' days');
+                        }
+                        break;
+
+                    case 'SF': // Start-to-Finish (rare)
+                        $constraintDate = clone $predStart;
+                        $lagDays = (int)$dep->lag_days;
+                        if ($lagDays !== 0) {
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                        }
+                        if ($duration > 0) {
+                            $constraintDate->modify('-' . $duration . ' days');
+                        }
+                        break;
+                }
+
+                // Keep the latest constraint
+                if ($constraintDate && (!$latestConstraintDate || $constraintDate > $latestConstraintDate)) {
+                    $latestConstraintDate = $constraintDate;
                 }
             }
-        });
+
+            // If there's a constraint, update the dates
+            if ($latestConstraintDate) {
+                try {
+                    $currentStart = new \DateTime($assignment->start_date);
+
+                    // Only update if the constraint pushes the date forward
+                    if ($latestConstraintDate > $currentStart) {
+                        $newStartDate = clone $latestConstraintDate;
+                        $newEndDate = clone $newStartDate;
+
+                        // ✅ Use integer days for modification
+                        if ($duration > 0) {
+                            $newEndDate->modify('+' . $duration . ' days');
+                        }
+
+                        // Update in database
+                        DB::table('project_schedule_assignments')
+                            ->where('project_id', $projectId)
+                            ->where('schedule_id', $scheduleId)
+                            ->update([
+                                'start_date' => $newStartDate->format('Y-m-d'),
+                                'end_date' => $newEndDate->format('Y-m-d'),
+                                'updated_at' => now(),
+                            ]);
+
+                        // Update in our local cache for subsequent iterations
+                        $assignment->start_date = $newStartDate->format('Y-m-d');
+                        $assignment->end_date = $newEndDate->format('Y-m-d');
+                        $assignments[$scheduleId] = $assignment;
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        }
     }
 
     /**
@@ -205,91 +336,229 @@ class ProjectScheduleService
      */
     public function calculateCriticalPath(int $projectId): array
     {
-        // Get all assignments using DB
-        $assignments = DB::table('project_schedule_assignments')
-            ->where('project_id', $projectId)
+        $assignments = DB::table('project_schedule_assignments as psa')
+            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->where('psa.project_id', $projectId)
+            ->where('psa.status', 'active')
+            ->whereNotNull('psa.start_date')
+            ->whereNotNull('psa.end_date')
+            ->select([
+                'pas.id as schedule_id',
+                'pas.code',
+                'pas.name',
+                'psa.start_date',
+                'psa.end_date',
+                'psa.progress',
+            ])
             ->get()
             ->keyBy('schedule_id');
 
         if ($assignments->isEmpty()) {
             return [
+                'has_data' => false,
+                'message' => 'No activities with planned dates found. Please set start and end dates for activities.',
                 'critical_activities' => [],
                 'slacks' => [],
                 'project_duration' => 0,
             ];
         }
 
-        // Get all dependencies
-        $dependencies = ProjectActivityDependency::where('project_id', $projectId)->get();
-        $depsBySuccessor = $dependencies->groupBy('successor_id');
+        $dependencies = DB::table('project_activity_dependencies')
+            ->where('project_id', $projectId)
+            ->get();
 
-        // Forward pass - calculate Early Start (ES) and Early Finish (EF)
-        $es = [];
-        $ef = [];
+        $durations = [];
+        $validScheduleIds = [];
 
-        foreach ($assignments as $id => $assignment) {
+        foreach ($assignments as $assignment) {
+            try {
+                $start = new \DateTime($assignment->start_date);
+                $end = new \DateTime($assignment->end_date);
+                $duration = max(1, (int)$start->diff($end)->days);
+
+                $durations[$assignment->schedule_id] = $duration;
+                $validScheduleIds[] = $assignment->schedule_id;
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+
+        if (empty($durations)) {
+            return [
+                'has_data' => false,
+                'message' => 'Unable to calculate durations. Please check date formats.',
+                'critical_activities' => [],
+                'slacks' => [],
+                'project_duration' => 0,
+            ];
+        }
+
+        $predecessors = [];
+        $successors = [];
+
+        foreach ($validScheduleIds as $scheduleId) {
+            $predecessors[$scheduleId] = [];
+            $successors[$scheduleId] = [];
+        }
+
+        foreach ($dependencies as $dep) {
+            if (
+                !in_array($dep->predecessor_id, $validScheduleIds) ||
+                !in_array($dep->successor_id, $validScheduleIds)
+            ) {
+                continue;
+            }
+
+            $predecessors[$dep->successor_id][] = $dep->predecessor_id;
+            $successors[$dep->predecessor_id][] = $dep->successor_id;
+        }
+
+        $ES = [];
+        $EF = [];
+
+        foreach ($validScheduleIds as $scheduleId) {
+            $ES[$scheduleId] = 0;
+            $EF[$scheduleId] = 0;
+        }
+
+        $visited = [];
+        $queue = [];
+
+        foreach ($validScheduleIds as $scheduleId) {
+            if (empty($predecessors[$scheduleId])) {
+                $queue[] = $scheduleId;
+            }
+        }
+
+        if (empty($queue)) {
+            return [
+                'has_data' => false,
+                'message' => 'Circular dependency detected or no starting activities found.',
+                'critical_activities' => [],
+                'slacks' => [],
+                'project_duration' => 0,
+            ];
+        }
+
+        while (!empty($queue)) {
+            $current = array_shift($queue);
+
+            if (isset($visited[$current])) {
+                continue;
+            }
+
+            $allPredecessorsProcessed = true;
+            foreach ($predecessors[$current] as $pred) {
+                if (!isset($visited[$pred])) {
+                    $allPredecessorsProcessed = false;
+                    break;
+                }
+            }
+
+            if (!$allPredecessorsProcessed) {
+                $queue[] = $current;
+                continue;
+            }
+
             $maxPredEF = 0;
+            foreach ($predecessors[$current] as $pred) {
+                $maxPredEF = max($maxPredEF, $EF[$pred]);
+            }
 
-            $deps = $depsBySuccessor->get($id, collect());
-            foreach ($deps as $dep) {
-                if (isset($ef[$dep->predecessor_id])) {
-                    $maxPredEF = max($maxPredEF, $ef[$dep->predecessor_id] + $dep->lag_days);
+            $ES[$current] = $maxPredEF;
+            $EF[$current] = $ES[$current] + $durations[$current];
+
+            $visited[$current] = true;
+
+            foreach ($successors[$current] as $succ) {
+                if (!isset($visited[$succ])) {
+                    $queue[] = $succ;
+                }
+            }
+        }
+
+        $projectDuration = 0;
+        foreach ($EF as $ef) {
+            $projectDuration = max($projectDuration, $ef);
+        }
+
+        $LS = [];
+        $LF = [];
+
+        foreach ($validScheduleIds as $scheduleId) {
+            $LF[$scheduleId] = $projectDuration;
+            $LS[$scheduleId] = $projectDuration;
+        }
+
+        $visited = [];
+        $queue = [];
+
+        foreach ($validScheduleIds as $scheduleId) {
+            if (empty($successors[$scheduleId])) {
+                $LF[$scheduleId] = $EF[$scheduleId];
+                $queue[] = $scheduleId;
+            }
+        }
+
+        while (!empty($queue)) {
+            $current = array_shift($queue);
+
+            if (isset($visited[$current])) {
+                continue;
+            }
+
+            $allSuccessorsProcessed = true;
+            foreach ($successors[$current] as $succ) {
+                if (!isset($visited[$succ])) {
+                    $allSuccessorsProcessed = false;
+                    break;
                 }
             }
 
-            $es[$id] = $maxPredEF;
-            $duration = $assignment->start_date && $assignment->end_date
-                ? Carbon::parse($assignment->start_date)->diffInDays($assignment->end_date)
-                : 1;
-            $ef[$id] = $es[$id] + $duration;
-        }
-
-        // Backward pass - calculate Late Start (LS) and Late Finish (LF)
-        $projectEnd = !empty($ef) ? max($ef) : 0;
-        $ls = [];
-        $lf = [];
-
-        foreach (array_reverse($assignments->keys()->toArray()) as $id) {
-            $assignment = $assignments->get($id);
-
-            // Find successors
-            $minSuccLS = $projectEnd;
-            $successorDeps = $dependencies->where('predecessor_id', $id);
-
-            foreach ($successorDeps as $dep) {
-                if (isset($ls[$dep->successor_id])) {
-                    $minSuccLS = min($minSuccLS, $ls[$dep->successor_id] - $dep->lag_days);
-                }
+            if (!$allSuccessorsProcessed) {
+                $queue[] = $current;
+                continue;
             }
 
-            $lf[$id] = $minSuccLS;
-            $duration = $assignment->start_date && $assignment->end_date
-                ? Carbon::parse($assignment->start_date)->diffInDays($assignment->end_date)
-                : 1;
-            $ls[$id] = $lf[$id] - $duration;
+            $minSuccLS = $projectDuration;
+            foreach ($successors[$current] as $succ) {
+                $minSuccLS = min($minSuccLS, $LS[$succ]);
+            }
+
+            $LF[$current] = $minSuccLS;
+            $LS[$current] = $LF[$current] - $durations[$current];
+
+            $visited[$current] = true;
+
+            foreach ($predecessors[$current] as $pred) {
+                if (!isset($visited[$pred])) {
+                    $queue[] = $pred;
+                }
+            }
         }
 
-        // Calculate slack (float) and identify critical path
-        $criticalPath = [];
         $slacks = [];
+        $criticalActivities = [];
 
-        foreach ($assignments as $id => $assignment) {
-            $slack = ($ls[$id] ?? 0) - ($es[$id] ?? 0);
-            $slacks[$id] = $slack;
+        foreach ($validScheduleIds as $scheduleId) {
+            $slack = $LS[$scheduleId] - $ES[$scheduleId];
+            $slacks[$scheduleId] = max(0, $slack);
 
-            if ($slack == 0) {
-                $criticalPath[] = $id;
+            if ($slack <= 0) {
+                $criticalActivities[] = $scheduleId;
             }
         }
 
         return [
-            'critical_activities' => $criticalPath,
+            'has_data' => true,
+            'critical_activities' => $criticalActivities,
             'slacks' => $slacks,
-            'project_duration' => $projectEnd,
-            'early_start' => $es,
-            'early_finish' => $ef,
-            'late_start' => $ls,
-            'late_finish' => $lf,
+            'project_duration' => $projectDuration,
+            'early_start' => $ES,
+            'early_finish' => $EF,
+            'late_start' => $LS,
+            'late_finish' => $LF,
+            'total_activities' => count($validScheduleIds),
         ];
     }
 

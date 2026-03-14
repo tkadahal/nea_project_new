@@ -41,7 +41,7 @@ class ProjectActivityScheduleController extends Controller
                 'project_activity_schedules.weightage',
                 'project_activity_schedules.parent_id',
             ])
-            ->withPivot(['progress', 'start_date', 'end_date', 'actual_start_date', 'actual_end_date', 'remarks'])
+            ->withPivot(['progress', 'start_date', 'end_date', 'actual_start_date', 'actual_end_date', 'remarks', 'status'])
             ->withCount('children')
             ->orderBy('sort_order')
             ->get();
@@ -897,7 +897,7 @@ class ProjectActivityScheduleController extends Controller
                         'project_activity_schedules.weightage',
                         'project_activity_schedules.parent_id',
                     ])
-                        ->withPivot(['progress', 'start_date', 'end_date', 'actual_start_date', 'actual_end_date', 'remarks'])
+                        ->withPivot(['progress', 'start_date', 'end_date', 'actual_start_date', 'actual_end_date', 'remarks', 'status'])
                         ->withCount('children');
                 }
             ])
@@ -1435,288 +1435,6 @@ class ProjectActivityScheduleController extends Controller
         }
 
         return $performance;
-    }
-
-    public function library()
-    {
-        $projectTypes = [
-            'transmission_line' => 'Transmission Line',
-            'substation' => 'Substation',
-        ];
-
-        $schedulesByType = ProjectActivitySchedule::select([
-            'id',
-            'code',
-            'name',
-            'description',
-            'parent_id',
-            'project_type',
-            'level',
-            'sort_order',
-            'weightage',
-        ])
-            ->with([
-                'parent:id,code,name',
-                'children:id,parent_id',
-            ])
-            ->withCount('children')
-            ->orderBy('sort_order')
-            ->get()
-            ->groupBy('project_type');
-
-        return view('admin.schedules.library', compact('projectTypes', 'schedulesByType'));
-    }
-
-    public function createGlobal()
-    {
-        $projectTypes = [
-            'transmission_line' => 'Transmission Line',
-            'substation' => 'Substation',
-        ];
-
-        $schedulesByProjectType = ProjectActivitySchedule::select([
-            'id',
-            'code',
-            'name',
-            'project_type',
-        ])
-            ->withCount('children')
-            ->orderBy('sort_order')
-            ->get()
-            ->groupBy('project_type')
-            ->map(function ($schedules) {
-                return $schedules->map(function ($schedule) {
-                    return [
-                        'id' => $schedule->id,
-                        'code' => $schedule->code,
-                        'name' => $schedule->name,
-                        'is_leaf' => $schedule->children_count === 0,
-                    ];
-                });
-            });
-
-        return view('admin.schedules.create-global', compact('projectTypes', 'schedulesByProjectType'));
-    }
-
-    public function storeGlobal(Request $request)
-    {
-        $validated = $request->validate([
-            'project_type' => 'required|in:transmission_line,substation',
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'regex:/^[A-Z](\.\d+)*$/',
-                function ($attribute, $value, $fail) use ($request) {
-                    $exists = ProjectActivitySchedule::where('project_type', $request->project_type)
-                        ->where('code', strtoupper($value))
-                        ->exists();
-                    if ($exists) {
-                        $fail('This activity code already exists for this project type.');
-                    }
-                },
-            ],
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'weightage' => 'nullable|numeric|min:0|max:100',
-            'parent_id' => [
-                'nullable',
-                'exists:project_activity_schedules,id',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($value) {
-                        $parent = ProjectActivitySchedule::find($value);
-                        if ($parent && $parent->project_type != $request->project_type) {
-                            $fail('Parent activity must be from the same project type.');
-                        }
-                    }
-                },
-            ],
-        ], [
-            'project_type.required' => 'Please select a project type.',
-            'code.required' => 'Activity code is required.',
-            'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
-            'name.required' => 'Activity name is required.',
-            'weightage.numeric' => 'Weightage must be a number.',
-            'weightage.max' => 'Weightage cannot exceed 100.',
-        ]);
-
-        $level = 1;
-        if ($request->parent_id) {
-            $parent = ProjectActivitySchedule::find($request->parent_id);
-            $level = $parent->level + 1;
-        }
-
-        $schedule = ProjectActivitySchedule::create([
-            'project_type' => $validated['project_type'],
-            'code' => strtoupper($validated['code']),
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-            'parent_id' => $validated['parent_id'],
-            'weightage' => $validated['weightage'],
-            'level' => $level,
-            'sort_order' => 999,
-        ]);
-
-        activity()
-            ->performedOn($schedule)
-            ->causedBy(Auth::user())
-            ->withProperties([
-                'project_type' => $schedule->project_type,
-                'code' => $schedule->code,
-                'name' => $schedule->name,
-            ])
-            ->log('Global schedule template created');
-
-        $projectTypeName = $validated['project_type'] === 'transmission_line'
-            ? 'Transmission Line'
-            : 'Substation';
-
-        return redirect()
-            ->route('admin.schedules.library')
-            ->with('success', "Schedule template '{$schedule->code} - {$schedule->name}' created successfully for {$projectTypeName} projects!");
-    }
-
-    public function editGlobal(ProjectActivitySchedule $schedule)
-    {
-        $schedule->loadMissing(['parent:id,code,name', 'children:id,parent_id']);
-
-        $projectTypes = [
-            'transmission_line' => 'Transmission Line',
-            'substation' => 'Substation',
-        ];
-
-        $schedulesByProjectType = ProjectActivitySchedule::select([
-            'id',
-            'code',
-            'name',
-            'project_type',
-        ])
-            ->withCount('children')
-            ->orderBy('sort_order')
-            ->get()
-            ->groupBy('project_type')
-            ->map(function ($schedules) {
-                return $schedules->map(function ($schedule) {
-                    return [
-                        'id' => $schedule->id,
-                        'code' => $schedule->code,
-                        'name' => $schedule->name,
-                        'is_leaf' => $schedule->children_count === 0,
-                    ];
-                });
-            });
-
-        return view('admin.schedules.edit-global', compact('schedule', 'projectTypes', 'schedulesByProjectType'));
-    }
-
-    public function updateGlobal(Request $request, ProjectActivitySchedule $schedule)
-    {
-        $validated = $request->validate([
-            'project_type' => [
-                'required',
-                'in:transmission_line,substation',
-                function ($attribute, $value, $fail) use ($schedule) {
-                    if ($value !== $schedule->project_type) {
-                        $fail('Project type cannot be changed after creation.');
-                    }
-                },
-            ],
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'regex:/^[A-Z](\.\d+)*$/',
-                function ($attribute, $value, $fail) use ($schedule) {
-                    $exists = ProjectActivitySchedule::where('project_type', $schedule->project_type)
-                        ->where('code', strtoupper($value))
-                        ->where('id', '!=', $schedule->id)
-                        ->exists();
-                    if ($exists) {
-                        $fail('This activity code already exists for this project type.');
-                    }
-                },
-            ],
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'weightage' => 'nullable|numeric|min:0|max:100',
-            'parent_id' => [
-                'nullable',
-                'exists:project_activity_schedules,id',
-                function ($attribute, $value, $fail) use ($schedule) {
-                    if ($value && (int)$value === (int)$schedule->id) {
-                        $fail('An activity cannot be its own parent.');
-                    }
-                },
-                function ($attribute, $value, $fail) use ($schedule) {
-                    if ($value) {
-                        $parent = ProjectActivitySchedule::find($value);
-                        if ($parent && $parent->project_type !== $schedule->project_type) {
-                            $fail('Parent activity must be from the same project type.');
-                        }
-                    }
-                },
-            ],
-        ], [
-            'code.required' => 'Activity code is required.',
-            'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
-            'name.required' => 'Activity name is required.',
-            'weightage.numeric' => 'Weightage must be a number.',
-            'weightage.max' => 'Weightage cannot exceed 100.',
-        ]);
-
-        $level = 1;
-        if ($request->parent_id) {
-            $parent = ProjectActivitySchedule::find($request->parent_id);
-            $level = $parent->level + 1;
-        }
-
-        $schedule->update([
-            'code' => strtoupper($validated['code']),
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-            'parent_id' => $validated['parent_id'],
-            'weightage' => $validated['weightage'],
-            'level' => $level,
-        ]);
-
-        activity()
-            ->performedOn($schedule)
-            ->causedBy(Auth::user())
-            ->log('Global schedule template updated');
-
-        return redirect()
-            ->route('admin.schedules.library')
-            ->with('success', "Schedule template updated successfully!");
-    }
-
-    public function destroyGlobal(ProjectActivitySchedule $schedule)
-    {
-        if ($schedule->children()->count() > 0) {
-            return redirect()
-                ->back()
-                ->with('error', 'Cannot delete this schedule because it has child activities. Delete children first.');
-        }
-
-        $assignedCount = $schedule->projects()->count();
-        if ($assignedCount > 0) {
-            return redirect()
-                ->back()
-                ->with('error', "Cannot delete this schedule because it is assigned to {$assignedCount} project(s). Unassign it first.");
-        }
-
-        $code = $schedule->code;
-        $name = $schedule->name;
-
-        $schedule->delete();
-
-        activity()
-            ->causedBy(Auth::user())
-            ->withProperties(['code' => $code, 'name' => $name])
-            ->log('Global schedule template deleted');
-
-        return redirect()
-            ->route('admin.schedules.library')
-            ->with('success', "Schedule template '{$code} - {$name}' deleted successfully!");
     }
 
     public function updateOrder(Request $request)
@@ -2418,25 +2136,47 @@ class ProjectActivityScheduleController extends Controller
      */
     public function criticalPath(Project $project): View
     {
+        // Calculate CPM
         $cpm = $this->scheduleService->calculateCriticalPath($project->id);
 
-        $allSchedules = $project->activitySchedules()
-            ->select([
-                'project_activity_schedules.id',
-                'project_activity_schedules.code',
-                'project_activity_schedules.name',
-                'project_activity_schedules.level',
-            ])
-            ->withPivot(['progress', 'start_date', 'end_date'])
-            ->get()
-            ->keyBy('id');
-
-        foreach ($allSchedules as $schedule) {
-            $schedule->slack = $cpm['slacks'][$schedule->id] ?? 0;
-            $schedule->is_critical = in_array($schedule->id, $cpm['critical_activities']);
+        // ✅ Check if we have valid data
+        if (!$cpm['has_data']) {
+            // Return view with empty state message
+            return view('admin.schedules.critical-path', [
+                'project' => $project,
+                'cpm' => $cpm,
+                'allSchedules' => collect([]),
+                'hasValidDates' => false,
+                'message' => $cpm['message'] ?? 'No data available for critical path analysis.',
+            ]);
         }
 
-        return view('admin.schedules.critical-path', compact('project', 'allSchedules', 'cpm'));
+        // Load all ACTIVE schedules with dates
+        $allSchedules = $project->activitySchedules()
+            ->where('status', 'active')
+            ->whereNotNull('start_date')
+            ->whereNotNull('end_date')
+            ->withPivot(['progress', 'start_date', 'end_date', 'status'])
+            ->get();
+
+        // Attach CPM data to each schedule
+        foreach ($allSchedules as $schedule) {
+            $scheduleId = $schedule->id;
+
+            $schedule->early_start = $cpm['early_start'][$scheduleId] ?? 0;
+            $schedule->early_finish = $cpm['early_finish'][$scheduleId] ?? 0;
+            $schedule->late_start = $cpm['late_start'][$scheduleId] ?? 0;
+            $schedule->late_finish = $cpm['late_finish'][$scheduleId] ?? 0;
+            $schedule->slack = $cpm['slacks'][$scheduleId] ?? 0;
+            $schedule->is_critical = in_array($scheduleId, $cpm['critical_activities']);
+        }
+
+        return view('admin.schedules.critical-path', [
+            'project' => $project,
+            'cpm' => $cpm,
+            'allSchedules' => $allSchedules,
+            'hasValidDates' => true,
+        ]);
     }
 
     /**
@@ -2450,17 +2190,14 @@ class ProjectActivityScheduleController extends Controller
 
         DB::beginTransaction();
         try {
-            // Update status to 'not_needed'
             $project->activitySchedules()->updateExistingPivot($schedule->id, [
                 'status' => 'not_needed',
-                'progress' => 0, // Reset progress
+                'progress' => 0,
                 'updated_at' => now(),
             ]);
 
-            // Recalculate project progress (excluding not-needed activities)
             $project->updatePhysicalProgress();
 
-            // Update dependencies if needed
             $this->scheduleService->rippleDates($project->id);
 
             DB::commit();
@@ -2519,7 +2256,7 @@ class ProjectActivityScheduleController extends Controller
                 if ($project->activitySchedules()->where('schedule_id', $scheduleId)->exists()) {
                     $project->activitySchedules()->updateExistingPivot($scheduleId, [
                         'status' => $request->status,
-                        'progress' => $request->status === 'not_needed' ? 0 : null, // Reset if not needed
+                        'progress' => $request->status === 'not_needed' ? 0 : null,
                         'updated_at' => now(),
                     ]);
                     $updatedCount++;

@@ -177,7 +177,8 @@ class Project extends Model
                 'end_date',
                 'actual_start_date',
                 'actual_end_date',
-                'remarks'
+                'remarks',
+                'status',
             ])
             ->withTimestamps()
             ->orderBy('sort_order');

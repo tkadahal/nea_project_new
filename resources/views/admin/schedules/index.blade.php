@@ -164,6 +164,110 @@
             </div>
         @endif
 
+        @if (!$schedules->isEmpty())
+            @php
+                // Check how many active schedules are missing dates
+                $activeSchedules = $schedules->where('pivot.status', 'active');
+                $missingDates = $activeSchedules
+                    ->filter(function ($schedule) {
+                        return empty($schedule->pivot->start_date) || empty($schedule->pivot->end_date);
+                    })
+                    ->count();
+
+                $totalActive = $activeSchedules->count();
+                $hasAllDates = $missingDates === 0;
+            @endphp
+
+            {{-- Warning: Missing Dates --}}
+            @if (!$hasAllDates && $missingDates > 0)
+                <div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                Planned Dates Missing
+                            </h3>
+                            <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                                <p class="mb-2">
+                                    <strong>{{ $missingDates }}</strong> out of <strong>{{ $totalActive }}</strong>
+                                    active activities are missing planned start/end dates.
+                                </p>
+                                <p class="mb-3">
+                                    Without dates set, you cannot:
+                                </p>
+                                <ul class="list-disc list-inside space-y-1 mb-3">
+                                    <li>View Critical Path Analysis</li>
+                                    <li>Use automatic timeline ripple effects</li>
+                                    <li>Track schedule variance</li>
+                                    <li>Generate accurate Gantt charts</li>
+                                </ul>
+                                <div class="flex items-center gap-3">
+                                    <a href="{{ route('admin.projects.schedules.quick-update', $project) }}"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-800 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-100 dark:hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                        <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        Set Dates Now
+                                    </a>
+                                    <button type="button"
+                                        onclick="this.parentElement.parentElement.parentElement.parentElement.remove()"
+                                        class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Success: All Dates Set --}}
+            @if ($hasAllDates && $totalActive > 0)
+                <div class="mb-6 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 p-4 rounded-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-green-800 dark:text-green-200">
+                                All Active Schedules Have Dates
+                            </h3>
+                            <div class="mt-2 text-sm text-green-700 dark:text-green-300">
+                                <p>
+                                    All <strong>{{ $totalActive }}</strong> active activities have planned start and
+                                    end dates set.
+                                    You can now use Critical Path Analysis and timeline features.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="ml-auto pl-3">
+                            <button type="button" onclick="this.parentElement.parentElement.parentElement.remove()"
+                                class="inline-flex rounded-md bg-green-50 dark:bg-green-900/30 p-1.5 text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 focus:outline-none">
+                                <span class="sr-only">Dismiss</span>
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd"
+                                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        @endif
+
         @php
             // Define color schemes for each phase
             $phaseColors = [
@@ -441,21 +545,23 @@
                             </tr>
                         </thead>
 
+                        {{-- ═══════════════════════════════════════════════════════════════ --}}
+                        {{-- COMPLETELY DISABLED VERSION - NO INTERACTION POSSIBLE --}}
+                        {{-- Replace the entire table body in index.blade.php --}}
+                        {{-- ═══════════════════════════════════════════════════════════════ --}}
+
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
 
                             @php
-                                // Group by the phase prefix (A, B, C, ...) and sort the groups
                                 $grouped = $schedules->groupBy(fn($s) => substr($s->code, 0, 1))->sortKeys();
                             @endphp
 
                             @foreach ($grouped as $phaseCode => $group)
                                 @php
-                                    // Find the phase row (level 1) in this group
                                     $phase = $group->firstWhere('level', 1);
                                     if (!$phase) {
                                         continue;
-                                    } // skip groups without a level-1 item
-
+                                    }
                                     $colors = getPhaseColor($phaseCode, $phaseColors);
                                 @endphp
 
@@ -483,11 +589,17 @@
                                     </td>
                                 </tr>
 
-                                <!-- All child rows under this phase (sorted by code) -->
+                                <!-- Activity Rows -->
                                 @foreach ($group->where('level', '>', 1)->sortBy('code', SORT_NATURAL) as $schedule)
                                     @php
                                         $colors = getPhaseColor($schedule->code, $phaseColors);
                                         $status = $schedule->pivot->status ?? 'active';
+                                        $isActive = $status === 'active';
+                                        $isCompleted = $status === 'completed';
+                                        $isNotNeeded = $status === 'not_needed';
+                                        $isCancelled = $status === 'cancelled';
+                                        $isDisabled = $isNotNeeded || $isCancelled;
+
                                         $statusConfig = [
                                             'active' => [
                                                 'bg' => 'bg-green-100 dark:bg-green-900',
@@ -513,73 +625,118 @@
                                         $config = $statusConfig[$status] ?? $statusConfig['active'];
                                     @endphp
 
+                                    {{-- ✅ COMPLETELY DISABLED ROW - NO INTERACTION --}}
                                     <tr
                                         class="{{ $schedule->level == 2 ? 'bg-gray-50 dark:bg-gray-800/30' : '' }}
-                                        {{ $schedule->level == 3 ? 'bg-gray-100/50 dark:bg-gray-900/20' : '' }}
-                                        {{ $status === 'not_needed' ? 'opacity-60' : '' }}
-                                        hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                {{ $schedule->level == 3 ? 'bg-gray-100/50 dark:bg-gray-900/20' : '' }}
+                {{ $isDisabled ? 'opacity-40 bg-gray-100 dark:bg-gray-900' : '' }}
+                {{ $isDisabled ? 'pointer-events-none' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40' }}
+                transition-colors">
+
+                                        {{-- ✅ CHECKBOX - Completely disabled, visually hidden for disabled rows --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <input type="checkbox"
-                                                class="schedule-checkbox rounded border-gray-300 dark:border-gray-600"
-                                                value="{{ $schedule->id }}">
+                                            @if ($isDisabled)
+                                                <div
+                                                    class="w-4 h-4 rounded border-2 border-gray-300 dark:border-gray-600 bg-gray-200 dark:bg-gray-700">
+                                                </div>
+                                            @else
+                                                <input type="checkbox"
+                                                    class="schedule-checkbox rounded border-gray-300 dark:border-gray-600"
+                                                    value="{{ $schedule->id }}">
+                                            @endif
                                         </td>
+
+                                        {{-- CODE --}}
                                         <td class="px-6 py-4 whitespace-nowrap"
                                             style="padding-left: {{ max(24, $schedule->level * 24) }}px !important;">
                                             <div class="flex items-center">
                                                 <span
-                                                    class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $schedule->code }}</span>
+                                                    class="text-sm font-medium {{ $isDisabled ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-gray-100' }}">
+                                                    {{ $schedule->code }}
+                                                </span>
                                                 @if ($schedule->children_count > 0)
-                                                    <svg class="ml-2 h-4 w-4 text-yellow-500" fill="none"
-                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z">
-                                                        </path>
-                                                    </svg>
-                                                @else
-                                                    <svg class="ml-2 h-4 w-4 {{ $colors['text'] }} dark:{{ $colors['text_dark'] }}"
+                                                    <svg class="ml-2 h-4 w-4 {{ $isDisabled ? 'text-gray-400' : 'text-yellow-500' }}"
                                                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             stroke-width="2"
-                                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                                                        </path>
+                                                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                                    </svg>
+                                                @else
+                                                    <svg class="ml-2 h-4 w-4 {{ $isDisabled ? 'text-gray-400' : $colors['text'] }} dark:{{ $isDisabled ? 'text-gray-600' : $colors['text_dark'] }}"
+                                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
                                                 @endif
                                             </div>
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                            {{ $schedule->name }}</td>
+
+                                        {{-- NAME - Strikethrough for disabled --}}
+                                        <td
+                                            class="px-6 py-4 text-sm {{ $isDisabled ? 'text-gray-400 dark:text-gray-600 line-through decoration-2' : 'text-gray-600 dark:text-gray-300' }}">
+                                            {{ $schedule->name }}
+                                            @if ($isDisabled)
+                                                <span
+                                                    class="ml-2 text-xs text-gray-500 dark:text-gray-500 italic">(Excluded
+                                                    from project)</span>
+                                            @endif
+                                        </td>
+
+                                        {{-- LEVEL --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-center">
                                             <span
-                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $isDisabled ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-500' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' }}">
                                                 L{{ $schedule->level }}
                                             </span>
                                         </td>
+
+                                        {{-- WEIGHT --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-center">
                                             @if ($schedule->weightage)
                                                 <span
-                                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $colors['bg'] }} text-white">
+                                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $isDisabled ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500' : $colors['bg'] . ' text-white' }}">
                                                     {{ $schedule->weightage }}%
                                                 </span>
                                             @else
                                                 <span class="text-gray-500 dark:text-gray-400">—</span>
                                             @endif
                                         </td>
+
+                                        {{-- STATUS --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span
                                                 class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $config['bg'] }} {{ $config['text'] }}">
+                                                @if ($isDisabled)
+                                                    <svg class="w-3 h-3 mr-1" fill="currentColor"
+                                                        viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd"
+                                                            d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
+                                                            clip-rule="evenodd" />
+                                                    </svg>
+                                                @endif
                                                 {{ $config['label'] }}
                                             </span>
                                         </td>
+
+                                        {{-- PROGRESS --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            @if (!$schedule->children_count > 0)
+                                            @if ($isDisabled)
+                                                <div class="text-center">
+                                                    <span
+                                                        class="text-sm text-gray-400 dark:text-gray-600 font-medium">—</span>
+                                                    <div class="text-xs text-gray-400 dark:text-gray-600 italic">
+                                                        Excluded</div>
+                                                </div>
+                                            @elseif (!$schedule->children_count > 0)
                                                 <div
                                                     class="w-full min-w-[120px] bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                                                     <div class="h-2.5 rounded-full text-xs font-medium text-white text-center leading-2.5 shadow-sm
-                                                        @if ($schedule->pivot->progress >= 100) bg-gradient-to-r from-green-500 to-green-600
-                                                        @elseif ($schedule->pivot->progress > 0) {{ $colors['progress'] }}
-                                                        @else bg-gray-400 @endif"
-                                                        style="width: {{ $schedule->pivot->progress }}%"></div>
+                                @if ($schedule->pivot->progress >= 100) bg-gradient-to-r from-green-500 to-green-600
+                                @elseif ($schedule->pivot->progress > 0) {{ $colors['progress'] }}
+                                @else bg-gray-400 @endif"
+                                                        style="width: {{ $schedule->pivot->progress }}%">
+                                                    </div>
                                                 </div>
                                                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
                                                     {{ number_format($schedule->pivot->progress, 0) }}%
@@ -588,30 +745,66 @@
                                                 <span class="text-xs text-gray-400 italic">Auto-calculated</span>
                                             @endif
                                         </td>
+
+                                        {{-- DATES --}}
                                         <td
-                                            class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
+                                            class="px-6 py-4 whitespace-nowrap text-sm {{ $isDisabled ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400' }} text-center">
                                             {{ $schedule->pivot->start_date ? \Carbon\Carbon::parse($schedule->pivot->start_date)->format('M d, Y') : '—' }}
                                         </td>
                                         <td
-                                            class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
+                                            class="px-6 py-4 whitespace-nowrap text-sm {{ $isDisabled ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400' }} text-center">
                                             {{ $schedule->pivot->end_date ? \Carbon\Carbon::parse($schedule->pivot->end_date)->format('M d, Y') : '—' }}
                                         </td>
+
+                                        {{-- DEPENDENCIES --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <a href="{{ route('admin.projects.schedules.dependencies', [$project, $schedule]) }}"
-                                                class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                                                title="View Dependencies">
-                                                <svg class="h-5 w-5" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
+                                            @if ($isDisabled)
+                                                <svg class="h-5 w-5 text-gray-300 dark:text-gray-700 inline opacity-30"
+                                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
                                                         stroke-width="2"
                                                         d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                                 </svg>
-                                            </a>
+                                            @else
+                                                <a href="{{ route('admin.projects.schedules.dependencies', [$project, $schedule]) }}"
+                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                    title="View Dependencies">
+                                                    <svg class="h-5 w-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                    </svg>
+                                                </a>
+                                            @endif
                                         </td>
+
+                                        {{-- ACTIONS - Only reactivate button for disabled --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            @if ($status === 'active' && !$schedule->children_count > 0)
+                                            @if ($isDisabled)
+                                                {{-- ✅ REACTIVATE BUTTON - Use pointer-events-auto to override parent --}}
+                                                <div class="pointer-events-auto">
+                                                    <form
+                                                        action="{{ route('admin.projects.schedules.mark-active', [$project, $schedule]) }}"
+                                                        method="POST" class="inline"
+                                                        onsubmit="return confirm('Reactivate this activity? It will be included in project calculations again.')">
+                                                        @csrf
+                                                        <button type="submit"
+                                                            class="inline-flex items-center px-3 py-2 border-2 border-green-600 dark:border-green-500 text-sm font-semibold rounded-md text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm transition-all">
+                                                            <svg class="-ml-0.5 mr-2 h-5 w-5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2"
+                                                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                            </svg>
+                                                            Reactivate
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            @elseif ($isActive && !$schedule->children_count > 0)
                                                 <a href="{{ route('admin.projects.schedules.edit', [$project, $schedule]) }}"
-                                                    class="{{ $colors['text'] }} hover:opacity-80 dark:{{ $colors['text_dark'] }} hover:{{ $colors['text_dark'] }}/80 mr-3">
+                                                    class="{{ $colors['text'] }} hover:opacity-80 dark:{{ $colors['text_dark'] }} hover:{{ $colors['text_dark'] }}/80 mr-3"
+                                                    title="Edit">
                                                     <svg class="h-5 w-5 inline" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -623,22 +816,11 @@
                                                 <form
                                                     action="{{ route('admin.projects.schedules.mark-not-needed', [$project, $schedule]) }}"
                                                     method="POST" class="inline"
-                                                    onsubmit="return confirm('Mark as Not Needed? Progress will be reset.')">
+                                                    onsubmit="return confirm('Mark as Not Needed? This will exclude it from project calculations and reset its progress.')">
                                                     @csrf
                                                     <button type="submit"
-                                                        class="text-gray-600 hover:text-gray-900 dark:text-gray-400 text-xs">
+                                                        class="text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:dark:text-gray-200 text-xs hover:underline">
                                                         Not Needed
-                                                    </button>
-                                                </form>
-                                            @elseif($status === 'not_needed')
-                                                <form
-                                                    action="{{ route('admin.projects.schedules.mark-active', [$project, $schedule]) }}"
-                                                    method="POST" class="inline"
-                                                    onsubmit="return confirm('Reactivate this activity?')">
-                                                    @csrf
-                                                    <button type="submit"
-                                                        class="text-green-600 hover:text-green-900 dark:text-green-400 text-xs">
-                                                        Reactivate
                                                     </button>
                                                 </form>
                                             @endif

@@ -231,7 +231,7 @@
                                 @endcan
 
                                 @can('library_access')
-                                    <a href="{{ route('admin.schedules.library') }}"
+                                    <a href="{{ route('admin.library.index') }}"
                                         class="block px-3 py-2 text-sm rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                                         <div class="flex items-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none"
@@ -239,7 +239,7 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M3 21v-7m0 0V7a2 2 0 012-2h3m10 9V7a2 2 0 00-2-2h-3m-5 16a2 2 0 002-2v-3a2 2 0 00-2-2H5a2 2 0 00-2 2v3a2 2 0 002 2h3z" />
                                             </svg>
-                                            <span>{{ trans('global.schedule.title') }}</span>
+                                            <span>Library</span>
                                         </div>
                                     </a>
                                 @endcan
