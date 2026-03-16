@@ -180,7 +180,8 @@
 
             {{-- Warning: Missing Dates --}}
             @if (!$hasAllDates && $missingDates > 0)
-                <div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-md">
+                <div id="missing-dates-warning"
+                    class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-md">
                     <div class="flex">
                         <div class="flex-shrink-0">
                             <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -218,7 +219,7 @@
                                         Set Dates Now
                                     </a>
                                     <button type="button"
-                                        onclick="this.parentElement.parentElement.parentElement.parentElement.remove()"
+                                        onclick="document.getElementById('missing-dates-warning').remove()"
                                         class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">
                                         Dismiss
                                     </button>

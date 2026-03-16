@@ -3,6 +3,7 @@
 
         <!-- Breadcrumb & Header -->
         <div class="mb-6">
+            <!-- Breadcrumb -->
             <nav class="flex mb-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
@@ -48,6 +49,7 @@
                 </ol>
             </nav>
 
+            <!-- Header Row: Title (Left) & Back Button (Right) -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="min-w-0 flex-1">
                     <h2
@@ -58,10 +60,21 @@
                         Update progress for all executable activities at once.
                     </p>
                 </div>
+
+                <!-- Back Button -->
+                <div class="shrink-0 mt-4 md:mt-0">
+                    <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Schedules
+                    </a>
+                </div>
             </div>
         </div>
 
-        {{-- ✅ NEW: Info Banner showing excluded activities --}}
         @if (!$leafSchedules->isEmpty() && isset($allSchedules))
             @php
                 $totalLeafCount = $allSchedules->where('children_count', 0)->count();
@@ -109,7 +122,41 @@
             @endif
         @endif
 
-        {{-- Empty state if no active activities --}}
+        @if ($missingDatesCount > 0)
+            <div class="mb-6 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 p-4 rounded-md">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-indigo-800 dark:text-indigo-200">
+                            Activities Hidden Due to Missing Dates
+                        </h3>
+                        <div class="mt-2 text-sm text-indigo-700 dark:text-indigo-300">
+                            <p>
+                                <strong>{{ $missingDatesCount }}</strong> active
+                                {{ Str::plural('activity', $missingDatesCount) }}
+                                are hidden because planned start/end dates are not set.
+                            </p>
+                            <p class="mt-1">
+                                Please set dates in the
+                                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                    class="font-medium underline hover:text-indigo-900 dark:hover:text-indigo-100">
+                                    Schedules List
+                                </a>
+                                to enable progress updates.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- EMPTY STATE: If NO activities have dates (Replaces the old empty state) --}}
         @if ($leafSchedules->isEmpty())
             <div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-md">
                 <div class="flex">
@@ -122,18 +169,20 @@
                     </div>
                     <div class="ml-3">
                         <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                            No Active Activities to Update
+                            No Activities Ready for Update
                         </h3>
                         <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                            <p class="mb-2">
-                                All leaf activities have been marked as Not Needed, Cancelled, or Completed.
-                            </p>
                             <p>
-                                To update activities, please reactivate them in the
+                                To update progress, activities must have <strong>Planned Start</strong> and
+                                <strong>End</strong> dates.
+                            </p>
+                            <p class="mt-2">
+                                Please visit the
                                 <a href="{{ route('admin.projects.schedules.index', $project) }}"
                                     class="font-medium underline hover:text-yellow-900 dark:hover:text-yellow-100">
-                                    Schedules page
-                                </a>.
+                                    Schedules List
+                                </a>
+                                to assign baseline dates.
                             </p>
                         </div>
                     </div>
@@ -147,9 +196,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Schedules
+                    Go to Schedules List
                 </a>
             </div>
+
+            {{-- NORMAL STATE: List of activities with dates --}}
         @else
             <form action="{{ route('admin.projects.schedules.bulk-update', $project) }}" method="POST"
                 id="quick-update-form" class="space-y-6">
@@ -218,7 +269,7 @@
                                             $completed = $schedule->pivot->completed_quantity ?? 0;
                                             $unit = $schedule->pivot->unit ?? '';
                                             $progress = $schedule->pivot->progress ?? 0;
-                                            $targetExists = !is_null($target) && $target > 0; // ✅ Check if target is already set
+                                            $targetExists = !is_null($target) && $target > 0;
                                         @endphp
 
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -270,10 +321,8 @@
                                                     </label>
                                                 </div>
 
-                                                {{-- ✅ UPDATED: Quantity Mode with locked target --}}
                                                 <div class="quantity-mode {{ $useQuantity ? '' : 'hidden' }}">
                                                     <div class="space-y-2">
-                                                        {{-- Completed Quantity (Always Editable) --}}
                                                         <div class="flex items-center space-x-2">
                                                             <label
                                                                 class="text-xs text-gray-600 dark:text-gray-400 w-20">Completed:</label>
@@ -285,7 +334,6 @@
                                                                 oninput="calculateQuantityProgress(this)">
                                                         </div>
 
-                                                        {{-- ✅ Target Quantity (Lock if already set) --}}
                                                         <div class="flex items-center space-x-2">
                                                             <label
                                                                 class="text-xs text-gray-600 dark:text-gray-400 w-20">
@@ -301,11 +349,10 @@
                                                                 min="0" step="0.01"
                                                                 {{ $targetExists ? 'readonly' : '' }}
                                                                 class="flex-1 text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700
-                                       {{ $targetExists ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : '' }}"
+                                                                {{ $targetExists ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : '' }}"
                                                                 oninput="calculateQuantityProgress(this)">
                                                         </div>
 
-                                                        {{-- Unit --}}
                                                         <div class="flex items-center space-x-2">
                                                             <label
                                                                 class="text-xs text-gray-600 dark:text-gray-400 w-20">Unit:</label>

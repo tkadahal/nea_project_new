@@ -497,90 +497,45 @@ class ProjectActivityScheduleController extends Controller
                 'use_quantity_tracking',
             ])
             ->withCount('children')
+            // We still fetch basic order, but we will refine it with Collection sorting
             ->orderBy('sort_order')
             ->get();
 
-        $leafSchedules = $allSchedules
-            ->filter(function ($schedule) {
-                return $schedule->children_count == 0
-                    && ($schedule->pivot->status ?? 'active') === 'active';
-            })
-            ->groupBy(function ($schedule) {
-                return substr($schedule->code, 0, 1);
-            })
-            ->sortKeys();
+        $activeLeaves = $allSchedules
+            ->where('children_count', 0)
+            ->where('pivot.status', 'active');
+
+        $validLeaves = $activeLeaves->filter(function ($schedule) {
+            return !empty($schedule->pivot->start_date) && !empty($schedule->pivot->end_date);
+        });
+
+        $sortedLeaves = $validLeaves->sortBy(function ($schedule) {
+            $parts = explode('.', $schedule->code);
+
+            return array_map(function ($part) {
+                return is_numeric($part) ? (int)$part : $part;
+            }, $parts);
+        });
+
+        $leafSchedules = $sortedLeaves->groupBy(function ($schedule) {
+            return substr($schedule->code, 0, 1);
+        });
+
+        $leafSchedules = $leafSchedules->sortKeys();
 
         foreach ($leafSchedules as $phaseSchedules) {
             foreach ($phaseSchedules as $schedule) {
                 $schedule->load('parent');
-
                 $phaseCode = substr($schedule->code, 0, 1);
                 $schedule->phase = $allSchedules->firstWhere('code', $phaseCode);
             }
         }
 
-        return view('admin.schedules.quick-update', compact('project', 'leafSchedules', 'allSchedules'));
-    }
+        $totalLeafCount = $allSchedules->where('children_count', 0)->count();
+        $activeLeafCount = $activeLeaves->count();
+        $missingDatesCount = $activeLeafCount - $sortedLeaves->flatten()->count();
 
-    public function createSchedule(Project $project): View
-    {
-        $parentSchedules = $project->activitySchedules()
-            ->orderBy('sort_order')
-            ->get();
-
-        return view('admin.schedules.create', compact('project', 'parentSchedules'));
-    }
-
-    public function storeSchedule(Request $request, Project $project): RedirectResponse
-    {
-        $request->validate([
-            'code' => 'required|string|max:50|unique:project_activity_schedules,code',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'parent_id' => 'nullable|exists:project_activity_schedules,id',
-            'weightage' => 'nullable|numeric|min:0|max:100',
-            'project_type' => 'required|in:transmission_line,substation',
-            'sort_order' => 'nullable|integer',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $level = 1;
-            if ($request->parent_id) {
-                $parent = ProjectActivitySchedule::find($request->parent_id);
-                $level = $parent->level + 1;
-            }
-
-            $schedule = ProjectActivitySchedule::create([
-                'code' => $request->code,
-                'name' => $request->name,
-                'description' => $request->description,
-                'parent_id' => $request->parent_id,
-                'weightage' => $level === 1 ? $request->weightage : null,
-                'project_type' => $request->project_type,
-                'level' => $level,
-                'sort_order' => $request->sort_order ?? 999,
-            ]);
-
-            $project->activitySchedules()->attach($schedule->id, [
-                'progress' => 0.00,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            $this->scheduleService->syncDependencies($project->id);
-
-            DB::commit();
-
-            return redirect()
-                ->route('admin.projects.schedules.index', $project)
-                ->with('success', 'Custom schedule created successfully');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()
-                ->withInput()
-                ->with('error', 'Failed to create schedule: ' . $e->getMessage());
-        }
+        return view('admin.schedules.quick-update', compact('project', 'leafSchedules', 'allSchedules', 'missingDatesCount', 'totalLeafCount', 'activeLeafCount'));
     }
 
     public function editSchedule(Project $project, ProjectActivitySchedule $schedule): View
@@ -640,27 +595,6 @@ class ProjectActivityScheduleController extends Controller
             return back()
                 ->withInput()
                 ->with('error', 'Failed to update schedule: ' . $e->getMessage());
-        }
-    }
-
-    public function destroySchedule(Project $project, ProjectActivitySchedule $schedule): RedirectResponse
-    {
-        DB::beginTransaction();
-        try {
-            $project->activitySchedules()->detach($schedule->id);
-
-            $schedule->delete();
-
-            DB::commit();
-
-            return redirect()
-                ->route('admin.projects.schedules.index', $project)
-                ->with('success', 'Schedule deleted successfully');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()
-                ->route('admin.projects.schedules.index', $project)
-                ->with('error', 'Failed to delete schedule: ' . $e->getMessage());
         }
     }
 

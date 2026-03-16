@@ -2,67 +2,74 @@
     <div class="container-fluid px-4 sm:px-6 lg:px-8 py-6">
 
         <!-- Header -->
-        <div class="mb-8">
-            <div class="flex items-center gap-3 mb-2">
-                <svg class="w-8 h-8 text-blue-600 dark:text-blue-500" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Hierarchy Tree</h1>
+        <div class="mb-8 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+
+            <div class="flex-1 space-y-2">
+                <div class="flex items-center gap-3">
+                    <svg class="w-8 h-8 text-blue-600 dark:text-blue-500 shrink-0" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Hierarchy Tree</h1>
+                </div>
+
+                <p class="text-gray-600 dark:text-gray-400">
+                    Visual breakdown of project activities and their relationships.
+                </p>
+
+                <nav aria-label="Breadcrumb">
+                    <ol class="inline-flex items-center space-x-1 md:space-x-3 text-sm">
+                        <li class="inline-flex items-center">
+                            <a href="{{ route('admin.project.index') }}"
+                                class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">Projects</a>
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="m5 15 7-7 7 7" />
+                            </svg>
+                            <a href="{{ route('admin.project.show', $project) }}"
+                                class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 truncate max-w-[200px] md:max-w-none">
+                                {{ Str::limit($project->title, 35) }}
+                            </a>
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="m5 15 7-7 7 7" />
+                            </svg>
+                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">Schedules</a>
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="m5 15 7-7 7 7" />
+                            </svg>
+                            <span class="text-gray-500 dark:text-gray-400 font-medium">Tree View</span>
+                        </li>
+                    </ol>
+                </nav>
             </div>
-            <p class="text-gray-600 dark:text-gray-400">Visual breakdown of project activities and their relationships.
-            </p>
 
-            <!-- Breadcrumb -->
-            <nav class="mt-4" aria-label="Breadcrumb">
-                <ol class="inline-flex items-center space-x-1 md:space-x-3 text-sm">
-                    <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
-                            class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">Projects</a>
-                    </li>
-                    <li class="flex items-center">
-                        <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7" />
-                        </svg>
-                        <a href="{{ route('admin.project.show', $project) }}"
-                            class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 truncate max-w-[200px] md:max-w-none">
-                            {{ Str::limit($project->title, 35) }}
-                        </a>
-                    </li>
-                    <li class="flex items-center">
-                        <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7" />
-                        </svg>
-                        <a href="{{ route('admin.projects.schedules.index', $project) }}"
-                            class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">Schedules</a>
-                    </li>
-                    <li class="flex items-center">
-                        <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7" />
-                        </svg>
-                        <span class="text-gray-500 dark:text-gray-400 font-medium">Tree View</span>
-                    </li>
-                </ol>
-            </nav>
+            <div class="flex flex-wrap items-center justify-start lg:justify-end gap-3 shrink-0">
 
-            <!-- Controls -->
-            <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
                 <div class="flex flex-wrap gap-3">
                     <button onclick="expandAll()"
-                        class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5" />
                         </svg>
                         Expand All
                     </button>
                     <button onclick="collapseAll()"
-                        class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -70,18 +77,18 @@
                     </button>
                 </div>
 
-                <div class="flex flex-wrap gap-3">
+                <div class="flex flex-wrap gap-3 border-l border-gray-300 dark:border-gray-600 pl-3">
                     <a href="{{ route('admin.projects.schedules.index', $project) }}"
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 6h16M4 12h16M4 18h7" />
                         </svg>
                         List View
                     </a>
                     <a href="{{ route('admin.projects.schedules.dashboard', $project) }}"
-                        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
@@ -89,6 +96,7 @@
                     </a>
                 </div>
             </div>
+
         </div>
 
         @if ($topLevelSchedules->isEmpty())
@@ -116,7 +124,6 @@
                 </div>
             </div>
         @else
-            <!-- Tree Card -->
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div
@@ -161,7 +168,6 @@
                 </div>
             </div>
 
-            <!-- Legend -->
             <div
                 class="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">

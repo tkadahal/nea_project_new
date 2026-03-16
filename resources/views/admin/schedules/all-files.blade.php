@@ -38,6 +38,15 @@
                         </svg>
                         Back to Dashboard
                     </a>
+
+                    <a href=""
+                        class="inline-flex items-center px-4 py-2 border border-green-300 dark:border-green-600 shadow-sm text-sm font-medium rounded-md text-green-700 dark:text-green-200 bg-white dark:bg-green-700 hover:bg-green-50 dark:hover:bg-green-600">
+                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        Upload File
+                    </a>
                 </div>
             </div>
         </div>
@@ -50,13 +59,15 @@
             <div class="p-6">
                 <form method="GET" action="{{ route('admin.schedules.all-files') }}"
                     class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
                     <!-- Project Filter -->
                     <div>
                         <label for="project_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Filter by Project
                         </label>
+                        <!-- ADDED w-full CLASS HERE -->
                         <select name="project_id" id="project_id"
-                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border">
                             <option value="">All Projects ({{ $projects->count() }})</option>
                             @foreach ($projects as $project)
                                 <option value="{{ $project->id }}"
@@ -75,8 +86,9 @@
                         <label for="file_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Filter by Type
                         </label>
+                        <!-- ADDED w-full CLASS HERE -->
                         <select name="file_type" id="file_type"
-                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border">
                             <option value="">All Types</option>
                             <option value="pdf" {{ request('file_type') == 'pdf' ? 'selected' : '' }}>PDF Only
                             </option>
@@ -158,8 +170,8 @@
                                         @if ($file->file_type === 'pdf')
                                             <div
                                                 class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                                                <svg class="h-7 w-7 text-red-600 dark:text-red-400" fill="currentColor"
-                                                    viewBox="0 0 20 20">
+                                                <svg class="h-7 w-7 text-red-600 dark:text-red-400"
+                                                    fill="currentColor" viewBox="0 0 20 20">
                                                     <path fill-rule="evenodd"
                                                         d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
                                                         clip-rule="evenodd" />

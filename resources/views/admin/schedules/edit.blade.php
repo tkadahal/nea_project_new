@@ -1,15 +1,28 @@
 <x-layouts.app>
-    <!-- Full width container -->
     <div class="container-fluid px-4 sm:px-6 lg:px-8 py-6">
 
-        <!-- Breadcrumb & Header -->
         <div class="mb-6">
-            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Edit Schedule: {{ $schedule->code }}
-            </h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">
-                Update progress and track date revisions for {{ $schedule->name }}
-            </p>
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div class="flex-1 space-y-2">
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                        Edit Schedule: {{ $schedule->code }}
+                    </h1>
+                    <p class="text-gray-600 dark:text-gray-400">
+                        Update progress and track date revisions for {{ $schedule->name }}
+                    </p>
+                </div>
+
+                <div class="shrink-0">
+                    <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Schedules
+                    </a>
+                </div>
+            </div>
 
             <nav class="flex mt-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
@@ -61,10 +74,8 @@
         </div>
 
         <div class="flex flex-col md:flex-row gap-6">
-            <!-- Main Content Area -->
             <div class="flex-1">
 
-                <!-- Main Update Form -->
                 <div
                     class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 mb-6 overflow-hidden">
                     <div class="px-6 py-4 bg-blue-600 dark:bg-blue-800 border-b border-blue-700">
@@ -78,7 +89,6 @@
                             @csrf
                             @method('PUT')
 
-                            <!-- Error Display -->
                             @if ($errors->any())
                                 <div
                                     class="mb-6 p-4 bg-red-50 text-red-800 border border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800 rounded">
@@ -698,14 +708,10 @@
                 const slider = document.getElementById('progress-slider');
                 const quantityRadio = document.querySelector('input[name="tracking_mode"][value="quantity"]');
 
-                // 1. Initialize the main slider visual state
                 if (slider) {
                     updateProgressBar(slider.value);
                 }
 
-                // 2. ONLY run quantity logic if "Quantity Mode" is actually checked
-                // This prevents the JS from overwriting a valid % progress with 0 
-                // just because target quantity is 0.
                 if (quantityRadio && quantityRadio.checked) {
                     calculateQuantityProgress();
                 }
@@ -746,26 +752,22 @@
                     quantityMode.classList.remove('hidden');
                     hiddenField.value = '1';
 
-                    // Disable slider inputs
                     progressSlider.disabled = true;
                     progressValue.readOnly = true;
                     progressSlider.classList.add('opacity-50', 'cursor-not-allowed');
                     progressValue.classList.add('opacity-50', 'cursor-not-allowed');
 
-                    // Calculate progress immediately when switching to this mode
                     calculateQuantityProgress();
                 } else {
                     percentageMode.classList.remove('hidden');
                     quantityMode.classList.add('hidden');
                     hiddenField.value = '0';
 
-                    // Enable slider inputs
                     progressSlider.disabled = false;
                     progressValue.readOnly = false;
                     progressSlider.classList.remove('opacity-50', 'cursor-not-allowed');
                     progressValue.classList.remove('opacity-50', 'cursor-not-allowed');
 
-                    // Optional: Reset to the slider's value when switching back
                     updateProgressBar(progressSlider.value);
                 }
             }
@@ -776,11 +778,9 @@
 
                 let progress = 0;
 
-                // Only calculate if we have a valid target
                 if (target > 0) {
                     progress = Math.min(100, Math.max(0, (completed / target) * 100));
 
-                    // Only update the main inputs if we successfully calculated from quantity
                     const progressDisplay = document.getElementById('quantity-progress-display');
                     const progressBar = document.getElementById('quantity-progress-bar');
                     const progressHidden = document.getElementById('progress-quantity-hidden');

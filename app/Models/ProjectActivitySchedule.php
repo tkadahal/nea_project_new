@@ -209,16 +209,28 @@ class ProjectActivitySchedule extends Model
     /**
      * Recursively collect leaf schedules
      */
-    public function getLeafSchedules(): array
+    public function getLeafSchedules(?int $projectId = null, string $status = 'active'): array
     {
         if (!$this->hasChildren()) {
+            if ($projectId !== null) {
+                $pivot = $this->projects()
+                    ->where('project_id', $projectId)
+                    ->first()?->pivot;
+
+                if ($pivot && ($pivot->status ?? 'active') === $status) {
+                    return [$this];
+                }
+
+                return [];
+            }
+
             return [$this];
         }
 
         $leaves = [];
 
         foreach ($this->children as $child) {
-            $leaves = array_merge($leaves, $child->getLeafSchedules());
+            $leaves = array_merge($leaves, $child->getLeafSchedules($projectId, $status));
         }
 
         return $leaves;
@@ -240,7 +252,7 @@ class ProjectActivitySchedule extends Model
             return (float) ($pivot->progress ?? 0);
         }
 
-        $leaves = $this->getLeafSchedules();
+        $leaves = $this->getLeafSchedules($projectId, 'active');
 
         if (empty($leaves)) {
             return 0.0;
