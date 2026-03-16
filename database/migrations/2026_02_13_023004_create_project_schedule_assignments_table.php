@@ -15,6 +15,10 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
             $table->foreignId('schedule_id')->constrained('project_activity_schedules')->onDelete('cascade');
             $table->decimal('progress', 5, 2)->default(0.00);
+            $table->decimal('target_quantity', 15, 2)->nullable();
+            $table->decimal('completed_quantity', 15, 2)->nullable();
+            $table->string('unit', 50)->nullable();
+            $table->boolean('use_quantity_tracking')->default(false)->after('unit');
             $table->enum('status', ['active', 'not_needed', 'cancelled', 'completed'])->default('active');
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();

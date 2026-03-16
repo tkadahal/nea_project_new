@@ -145,6 +145,11 @@ class Project extends Model
             ->whereNull('parent_id');
     }
 
+    public function projectType(): BelongsTo
+    {
+        return $this->belongsTo(ProjectType::class);
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'project_user');
@@ -179,6 +184,10 @@ class Project extends Model
                 'actual_end_date',
                 'remarks',
                 'status',
+                'target_quantity',
+                'completed_quantity',
+                'unit',
+                'use_quantity_tracking',
             ])
             ->withTimestamps()
             ->orderBy('sort_order');

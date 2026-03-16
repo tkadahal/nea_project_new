@@ -163,6 +163,168 @@
                                         </div>
                                     </div>
 
+                                    <!-- Section 2.5: Quantity Tracking Mode -->
+                                    <div
+                                        class="mb-8 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                                        <h3
+                                            class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 pb-2 border-b border-gray-200 dark:border-gray-600">
+                                            Progress Tracking Mode
+                                        </h3>
+
+                                        <!-- Mode Toggle -->
+                                        <div class="flex items-center space-x-6 mb-6">
+                                            <label class="inline-flex items-center cursor-pointer">
+                                                <input type="radio" name="tracking_mode" value="percentage"
+                                                    {{ !($assignment->pivot->use_quantity_tracking ?? false) ? 'checked' : '' }}
+                                                    onchange="toggleTrackingMode('percentage')"
+                                                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                                <span
+                                                    class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Percentage
+                                                    Mode (Slider)</span>
+                                            </label>
+
+                                            <label class="inline-flex items-center cursor-pointer">
+                                                <input type="radio" name="tracking_mode" value="quantity"
+                                                    {{ $assignment->pivot->use_quantity_tracking ?? false ? 'checked' : '' }}
+                                                    onchange="toggleTrackingMode('quantity')"
+                                                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                                <span
+                                                    class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Quantity
+                                                    Mode (Numbers)</span>
+                                            </label>
+                                        </div>
+
+                                        <!-- Hidden field for backend -->
+                                        <input type="hidden" name="use_quantity_tracking" id="use_quantity_tracking"
+                                            value="{{ $assignment->pivot->use_quantity_tracking ?? 0 }}">
+
+                                        <!-- Percentage Mode (Existing slider - will be shown/hidden) -->
+                                        <div id="percentage-mode"
+                                            class="{{ $assignment->pivot->use_quantity_tracking ?? false ? 'hidden' : '' }}">
+                                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                                <i class="fas fa-info-circle"></i> Use the slider and number input
+                                                above to set progress.
+                                            </p>
+                                        </div>
+
+                                        <!-- Quantity Mode (New) -->
+                                        <div id="quantity-mode"
+                                            class="{{ !($assignment->pivot->use_quantity_tracking ?? false) ? 'hidden' : '' }}">
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                                <!-- Completed Quantity (Always Editable) -->
+                                                <div>
+                                                    <label
+                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                        Completed Quantity <span class="text-red-500">*</span>
+                                                    </label>
+                                                    <input type="number" name="completed_quantity"
+                                                        id="completed-quantity"
+                                                        value="{{ old('completed_quantity', $assignment->pivot->completed_quantity ?? 0) }}"
+                                                        min="0" step="0.01"
+                                                        oninput="calculateQuantityProgress()"
+                                                        class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+                                                        placeholder="0">
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                        Update this value as work progresses
+                                                    </p>
+                                                </div>
+
+                                                <!-- Target Quantity (Lock after first save) -->
+                                                <div>
+                                                    <label
+                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                        Target Quantity <span class="text-red-500">*</span>
+                                                    </label>
+                                                    @php
+                                                        $targetExists =
+                                                            !is_null($assignment->pivot->target_quantity) &&
+                                                            $assignment->pivot->target_quantity > 0;
+                                                    @endphp
+
+                                                    <input type="number" name="target_quantity" id="target-quantity"
+                                                        value="{{ old('target_quantity', $assignment->pivot->target_quantity ?? 0) }}"
+                                                        min="0" step="0.01"
+                                                        oninput="calculateQuantityProgress()"
+                                                        {{ $targetExists ? 'disabled' : '' }}
+                                                        class="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5
+                          {{ $targetExists
+                              ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white' }}"
+                                                        placeholder="100">
+
+                                                    @if ($targetExists)
+                                                        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                                            <i class="fas fa-lock"></i> Target is locked (set once like
+                                                            baseline dates)
+                                                        </p>
+                                                    @else
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                            Set your goal quantity (will be locked after save)
+                                                        </p>
+                                                    @endif
+                                                </div>
+
+                                                <!-- Unit (Always Editable) -->
+                                                <div>
+                                                    <label
+                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                        Unit <span class="text-red-500">*</span>
+                                                    </label>
+                                                    <input type="text" name="unit"
+                                                        value="{{ old('unit', $assignment->pivot->unit ?? '') }}"
+                                                        list="unit-suggestions"
+                                                        class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+                                                        placeholder="e.g., poles, meters">
+
+                                                    <datalist id="unit-suggestions">
+                                                        <option value="poles">
+                                                        <option value="towers">
+                                                        <option value="meters">
+                                                        <option value="kilometers">
+                                                        <option value="cubic meters">
+                                                        <option value="foundations">
+                                                        <option value="spans">
+                                                        <option value="panels">
+                                                        <option value="transformers">
+                                                        <option value="items">
+                                                    </datalist>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                        e.g., poles, meters, cubic meters
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Progress Display for Quantity Mode -->
+                                            <div
+                                                class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <span
+                                                        class="text-sm font-medium text-gray-700 dark:text-gray-300">Calculated
+                                                        Progress:</span>
+                                                    <span id="quantity-progress-display"
+                                                        class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                                        {{ number_format($assignment->pivot->progress ?? 0, 1) }}%
+                                                    </span>
+                                                </div>
+                                                <div class="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-3">
+                                                    <div id="quantity-progress-bar"
+                                                        class="bg-blue-600 dark:bg-blue-500 h-3 rounded-full transition-all"
+                                                        style="width: {{ $assignment->pivot->progress ?? 0 }}%">
+                                                    </div>
+                                                </div>
+                                                <p class="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                                                    <i class="fas fa-calculator"></i> Progress = (Completed ÷ Target) ×
+                                                    100%
+                                                </p>
+                                            </div>
+
+                                            <!-- Hidden field for calculated progress -->
+                                            <input type="hidden" name="progress_quantity"
+                                                id="progress-quantity-hidden"
+                                                value="{{ old('progress', $assignment->pivot->progress ?? 0) }}">
+                                        </div>
+                                    </div>
+
                                     <!-- Visual Progress Bar -->
                                     <div class="mb-2">
                                         <div
@@ -443,78 +605,6 @@
                             </div>
                         @endif
 
-                        <!-- Add New Revision Form -->
-                        {{-- <div
-                            class="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 overflow-hidden">
-                            <div class="px-6 py-4 bg-green-600 border-b border-green-700">
-                                <h3 class="text-base font-semibold text-white flex items-center">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                    </svg>
-                                    Add New Date Revision
-                                </h3>
-                            </div>
-                            <div class="p-6">
-                                <form
-                                    action="{{ route('admin.projects.schedules.add-date-revision', [$project, $schedule]) }}"
-                                    method="POST">
-                                    @csrf
-
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                                        <div>
-                                            <label
-                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual
-                                                Start Date</label>
-                                            <input type="date" name="actual_start_date"
-                                                class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm p-2.5">
-                                            <small class="text-gray-500 dark:text-gray-400">When did this activity
-                                                actually start?</small>
-                                        </div>
-                                        <div>
-                                            <label
-                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual
-                                                End Date</label>
-                                            <input type="date" name="actual_end_date"
-                                                class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm p-2.5">
-                                            <small class="text-gray-500 dark:text-gray-400">When did/will it actually
-                                                end?</small>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-4">
-                                        <label
-                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason
-                                            for Revision <span class="text-red-500">*</span></label>
-                                        <input type="text" name="revision_reason"
-                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm p-2.5"
-                                            required
-                                            placeholder="e.g., Extension due to weather, Material delay, Design change, etc.">
-                                    </div>
-
-                                    <div class="mb-4">
-                                        <label
-                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Additional
-                                            Remarks</label>
-                                        <textarea name="remarks"
-                                            class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm p-2.5"
-                                            rows="2" placeholder="Any additional details..."></textarea>
-                                    </div>
-
-                                    <button type="submit"
-                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 dark:focus:ring-offset-gray-800">
-                                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                        </svg>
-                                        Add Date Revision
-                                    </button>
-                                </form>
-                            </div>
-                        </div> --}}
-
                     </div>
                 </div>
 
@@ -606,24 +696,31 @@
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const slider = document.getElementById('progress-slider');
+                const quantityRadio = document.querySelector('input[name="tracking_mode"][value="quantity"]');
+
+                // 1. Initialize the main slider visual state
                 if (slider) {
                     updateProgressBar(slider.value);
+                }
+
+                // 2. ONLY run quantity logic if "Quantity Mode" is actually checked
+                // This prevents the JS from overwriting a valid % progress with 0 
+                // just because target quantity is 0.
+                if (quantityRadio && quantityRadio.checked) {
+                    calculateQuantityProgress();
                 }
             });
 
             function updateProgressBar(value) {
                 const progressBar = document.getElementById('progress-bar');
-                // FIXED: Added 'getElementById' and fixed quotes
                 const textDisplay = document.getElementById('progress-text-display');
 
                 if (!progressBar) return;
 
-                // Update width and text
                 progressBar.style.width = value + '%';
                 progressBar.textContent = value + '%';
                 if (textDisplay) textDisplay.textContent = value + '%';
 
-                // Tailwind color classes
                 progressBar.classList.remove('bg-gray-400', 'bg-blue-500', 'bg-yellow-500', 'bg-green-500');
 
                 if (value >= 100) {
@@ -637,6 +734,71 @@
                 }
             }
 
+            function toggleTrackingMode(mode) {
+                const percentageMode = document.getElementById('percentage-mode');
+                const quantityMode = document.getElementById('quantity-mode');
+                const hiddenField = document.getElementById('use_quantity_tracking');
+                const progressSlider = document.getElementById('progress-slider');
+                const progressValue = document.getElementById('progress-value');
+
+                if (mode === 'quantity') {
+                    percentageMode.classList.add('hidden');
+                    quantityMode.classList.remove('hidden');
+                    hiddenField.value = '1';
+
+                    // Disable slider inputs
+                    progressSlider.disabled = true;
+                    progressValue.readOnly = true;
+                    progressSlider.classList.add('opacity-50', 'cursor-not-allowed');
+                    progressValue.classList.add('opacity-50', 'cursor-not-allowed');
+
+                    // Calculate progress immediately when switching to this mode
+                    calculateQuantityProgress();
+                } else {
+                    percentageMode.classList.remove('hidden');
+                    quantityMode.classList.add('hidden');
+                    hiddenField.value = '0';
+
+                    // Enable slider inputs
+                    progressSlider.disabled = false;
+                    progressValue.readOnly = false;
+                    progressSlider.classList.remove('opacity-50', 'cursor-not-allowed');
+                    progressValue.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                    // Optional: Reset to the slider's value when switching back
+                    updateProgressBar(progressSlider.value);
+                }
+            }
+
+            function calculateQuantityProgress() {
+                const completed = parseFloat(document.getElementById('completed-quantity')?.value) || 0;
+                const target = parseFloat(document.getElementById('target-quantity')?.value) || 0;
+
+                let progress = 0;
+
+                // Only calculate if we have a valid target
+                if (target > 0) {
+                    progress = Math.min(100, Math.max(0, (completed / target) * 100));
+
+                    // Only update the main inputs if we successfully calculated from quantity
+                    const progressDisplay = document.getElementById('quantity-progress-display');
+                    const progressBar = document.getElementById('quantity-progress-bar');
+                    const progressHidden = document.getElementById('progress-quantity-hidden');
+                    const mainProgressValue = document.getElementById('progress-value');
+                    const mainProgressSlider = document.getElementById('progress-slider');
+
+                    if (progressDisplay) progressDisplay.textContent = progress.toFixed(1) + '%';
+                    if (progressBar) progressBar.style.width = progress + '%';
+                    if (progressHidden) progressHidden.value = progress;
+
+                    if (mainProgressValue) mainProgressValue.value = progress.toFixed(1);
+                    if (mainProgressSlider) {
+                        mainProgressSlider.value = progress.toFixed(1);
+                        updateProgressBar(progress.toFixed(1));
+                    }
+                }
+            }
+
             function openRevisionModal() {
                 document.getElementById('revisionModal').classList.remove('hidden');
             }
@@ -645,7 +807,6 @@
                 document.getElementById('revisionModal').classList.add('hidden');
             }
 
-            // Close on Escape key
             document.addEventListener('keydown', function(event) {
                 if (event.key === "Escape") {
                     closeRevisionModal();

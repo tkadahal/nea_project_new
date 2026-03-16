@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Event;
 use App\Models\Contract;
 use App\Models\Task;
 use App\Observers\ContractObserver;

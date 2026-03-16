@@ -81,6 +81,10 @@ class ProjectActivitySchedule extends Model
                 'actual_end_date',
                 'remarks',
                 'status',
+                'target_quantity',
+                'completed_quantity',
+                'unit',
+                'use_quantity_tracking',
             ])
             ->withTimestamps();
     }

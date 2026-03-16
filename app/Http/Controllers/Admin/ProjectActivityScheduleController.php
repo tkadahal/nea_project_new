@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use App\Events\ScheduleProgressUpdated;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProjectActivityScheduleController extends Controller
@@ -249,8 +250,25 @@ class ProjectActivityScheduleController extends Controller
 
     public function edit(Project $project, ProjectActivitySchedule $schedule): View
     {
+        if (!$project->activitySchedules->contains($schedule->id)) {
+            abort(404, 'Schedule not assigned to this project');
+        }
+
         $assignment = $project->activitySchedules()
             ->where('schedule_id', $schedule->id)
+            ->withPivot([
+                'progress',
+                'start_date',
+                'end_date',
+                'actual_start_date',
+                'actual_end_date',
+                'remarks',
+                'status',
+                'target_quantity',
+                'completed_quantity',
+                'unit',
+                'use_quantity_tracking',
+            ])
             ->first();
 
         if (!$assignment) {
@@ -280,63 +298,76 @@ class ProjectActivityScheduleController extends Controller
                 ->withInput();
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'progress' => 'required|numeric|min:0|max:100',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'actual_start_date' => 'nullable|date',
             'actual_end_date' => 'nullable|date|after_or_equal:actual_start_date',
             'remarks' => 'nullable|string|max:1000',
+            'use_quantity_tracking' => 'nullable|boolean',
+            'target_quantity' => 'nullable|numeric|min:0',
+            'completed_quantity' => 'nullable|numeric|min:0',
+            'unit' => 'nullable|string|max:50',
         ]);
 
         DB::beginTransaction();
         try {
+            $previousProgress = $pivotData->progress;
+
             $updateData = [
-                'progress' => $request->progress,
+                'progress' => $validated['progress'],
+                'start_date' => $validated['start_date'] ?? $pivotData->start_date,
+                'end_date' => $validated['end_date'] ?? $pivotData->end_date,
+                'actual_start_date' => $validated['actual_start_date'] ?? $pivotData->actual_start_date,
+                'actual_end_date' => $validated['actual_end_date'] ?? $pivotData->actual_end_date,
+                'remarks' => $validated['remarks'] ?? $pivotData->remarks,
                 'updated_at' => now(),
             ];
 
-            if ($request->filled('start_date')) {
-                $updateData['start_date'] = $request->start_date;
+            if ($validated['use_quantity_tracking'] ?? false) {
+                $updateData['use_quantity_tracking'] = true;
+                $updateData['completed_quantity'] = $validated['completed_quantity'] ?? 0;
+                $updateData['unit'] = $validated['unit'] ?? $pivotData->unit;
+
+                if (is_null($pivotData->target_quantity) || $pivotData->target_quantity == 0) {
+                    $updateData['target_quantity'] = $validated['target_quantity'] ?? 0;
+                } else {
+                    $updateData['target_quantity'] = $pivotData->target_quantity;
+                }
+            } else {
+                $updateData['use_quantity_tracking'] = false;
+                $updateData['target_quantity'] = null;
+                $updateData['completed_quantity'] = null;
+                $updateData['unit'] = null;
             }
-            if ($request->filled('end_date')) {
-                $updateData['end_date'] = $request->end_date;
-            }
-            if ($request->filled('actual_start_date')) {
-                $updateData['actual_start_date'] = $request->actual_start_date;
-            }
-            if ($request->filled('actual_end_date')) {
-                $updateData['actual_end_date'] = $request->actual_end_date;
-            }
-            if ($request->filled('remarks')) {
-                $updateData['remarks'] = $request->remarks;
+
+            if ($updateData['progress'] >= 100) {
+                $updateData['status'] = 'completed';
             }
 
             $actualDatesChanged = false;
-
-            if ($request->filled('actual_start_date')) {
-                $updateData['actual_start_date'] = $request->actual_start_date;
-                if ($pivotData->actual_start_date != $request->actual_start_date) {
-                    $actualDatesChanged = true;
-                }
+            if (isset($validated['actual_start_date']) && $pivotData->actual_start_date != $validated['actual_start_date']) {
+                $actualDatesChanged = true;
+            }
+            if (isset($validated['actual_end_date']) && $pivotData->actual_end_date != $validated['actual_end_date']) {
+                $actualDatesChanged = true;
             }
 
-            if ($request->filled('actual_end_date')) {
-                $updateData['actual_end_date'] = $request->actual_end_date;
-                if ($pivotData->actual_end_date != $request->actual_end_date) {
-                    $actualDatesChanged = true;
-                }
-            }
-
-            // Check if just completed
             $wasCompleted = $pivotData->progress >= 100;
-            $nowCompleted = $request->progress >= 100;
+            $nowCompleted = $updateData['progress'] >= 100;
             $justCompleted = !$wasCompleted && $nowCompleted;
 
             $project->activitySchedules()->updateExistingPivot($schedule->id, $updateData);
+
+            if ((float) $previousProgress != (float) $updateData['progress']) {
+                event(new ScheduleProgressUpdated($project, $schedule, array_merge($updateData, [
+                    'previous_progress' => $previousProgress
+                ])));
+            }
+
             $project->updatePhysicalProgress();
 
-            // ✅ ADD: Ripple if dates changed or completed
             if ($actualDatesChanged || $justCompleted) {
                 $this->scheduleService->rippleDates($project->id, $schedule->id);
                 $message = 'Schedule updated and timeline recalculated!';
@@ -348,10 +379,10 @@ class ProjectActivityScheduleController extends Controller
 
             return redirect()
                 ->route('admin.projects.schedules.index', $project)
-                ->with('success', 'Schedule updated successfully');
+                ->with('success', $message);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to update schedule: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to update schedule: ' . $e->getMessage());
         }
     }
 
@@ -361,6 +392,10 @@ class ProjectActivityScheduleController extends Controller
             'schedules' => 'required|array',
             'schedules.*.id' => 'required|exists:project_activity_schedules,id',
             'schedules.*.progress' => 'required|numeric|min:0|max:100',
+            'schedules.*.use_quantity_tracking' => 'nullable|boolean',
+            'schedules.*.target_quantity' => 'nullable|numeric|min:0',
+            'schedules.*.completed_quantity' => 'nullable|numeric|min:0',
+            'schedules.*.unit' => 'nullable|string|max:50',
         ]);
 
         DB::beginTransaction();
@@ -368,11 +403,55 @@ class ProjectActivityScheduleController extends Controller
             $updatedCount = 0;
 
             foreach ($request->schedules as $scheduleData) {
-                if ($project->activitySchedules()->where('schedule_id', $scheduleData['id'])->exists()) {
-                    $project->activitySchedules()->updateExistingPivot($scheduleData['id'], [
-                        'progress' => $scheduleData['progress'],
-                        'updated_at' => now(),
-                    ]);
+                $assignment = DB::table('project_schedule_assignments')
+                    ->where('project_id', $project->id)
+                    ->where('schedule_id', $scheduleData['id'])
+                    ->first();
+
+                if (!$assignment || ($assignment->status ?? 'active') !== 'active') {
+                    continue;
+                }
+
+                $previousProgress = $assignment->progress;
+
+                $updateData = [
+                    'progress' => $scheduleData['progress'],
+                    'updated_at' => now(),
+                ];
+
+                if ($scheduleData['use_quantity_tracking'] ?? false) {
+                    $updateData['use_quantity_tracking'] = true;
+                    $updateData['completed_quantity'] = $scheduleData['completed_quantity'] ?? 0;
+                    $updateData['unit'] = $scheduleData['unit'] ?? $assignment->unit;
+
+                    if (is_null($assignment->target_quantity) || $assignment->target_quantity == 0) {
+                        $updateData['target_quantity'] = $scheduleData['target_quantity'] ?? 0;
+                    } else {
+                        $updateData['target_quantity'] = $assignment->target_quantity;
+                    }
+                } else {
+                    $updateData['use_quantity_tracking'] = false;
+                    $updateData['target_quantity'] = null;
+                    $updateData['completed_quantity'] = null;
+                    $updateData['unit'] = null;
+                }
+
+                if ($updateData['progress'] >= 100) {
+                    $updateData['status'] = 'completed';
+                }
+
+                $updated = DB::table('project_schedule_assignments')
+                    ->where('project_id', $project->id)
+                    ->where('schedule_id', $scheduleData['id'])
+                    ->update($updateData);
+
+                if ($updated) {
+                    if ((float) $previousProgress != (float) $updateData['progress']) {
+                        $schedule = ProjectActivitySchedule::find($scheduleData['id']);
+                        event(new ScheduleProgressUpdated($project, $schedule, array_merge($updateData, [
+                            'previous_progress' => $previousProgress
+                        ])));
+                    }
                     $updatedCount++;
                 }
             }
@@ -383,26 +462,64 @@ class ProjectActivityScheduleController extends Controller
 
             return redirect()
                 ->route('admin.projects.schedules.index', $project)
-                ->with('success', "Successfully updated {$updatedCount} schedules");
+                ->with('success', "Successfully updated {$updatedCount} activities.");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to update schedules: ' . $e->getMessage());
+            return back()
+                ->withInput()
+                ->with('error', 'Failed to update: ' . $e->getMessage());
         }
     }
 
     public function quickUpdate(Project $project): View
     {
-        $leafSchedules = $project->leafSchedules()
-            ->with('parent')
-            ->get()
-            ->map(function ($schedule) {
-                $root = $schedule->getRootParent();
-                $schedule->phase = $root;
-                return $schedule;
-            })
-            ->groupBy(fn($s) => $s->phase->code ?? 'unknown');
+        $allSchedules = $project->activitySchedules()
+            ->select([
+                'project_activity_schedules.id',
+                'code',
+                'name',
+                'description',
+                'level',
+                'weightage',
+                'parent_id'
+            ])
+            ->withPivot([
+                'progress',
+                'start_date',
+                'end_date',
+                'actual_start_date',
+                'actual_end_date',
+                'remarks',
+                'status',
+                'target_quantity',
+                'completed_quantity',
+                'unit',
+                'use_quantity_tracking',
+            ])
+            ->withCount('children')
+            ->orderBy('sort_order')
+            ->get();
 
-        return view('admin.schedules.quick-update', compact('project', 'leafSchedules'));
+        $leafSchedules = $allSchedules
+            ->filter(function ($schedule) {
+                return $schedule->children_count == 0
+                    && ($schedule->pivot->status ?? 'active') === 'active';
+            })
+            ->groupBy(function ($schedule) {
+                return substr($schedule->code, 0, 1);
+            })
+            ->sortKeys();
+
+        foreach ($leafSchedules as $phaseSchedules) {
+            foreach ($phaseSchedules as $schedule) {
+                $schedule->load('parent');
+
+                $phaseCode = substr($schedule->code, 0, 1);
+                $schedule->phase = $allSchedules->firstWhere('code', $phaseCode);
+            }
+        }
+
+        return view('admin.schedules.quick-update', compact('project', 'leafSchedules', 'allSchedules'));
     }
 
     public function createSchedule(Project $project): View
