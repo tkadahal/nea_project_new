@@ -365,58 +365,59 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check for dark mode
-            const isDarkMode = document.documentElement.classList.contains('dark');
+    @push('scripts')
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // ... (Dark mode check remains the same) ...
+                const isDarkMode = document.documentElement.classList.contains('dark');
 
-            const ctx = document.getElementById('completionChart').getContext('2d');
+                const ctx = document.getElementById('completionChart').getContext('2d');
+                Chart.defaults.color = isDarkMode ? '#9ca3af' : '#374151';
+                Chart.defaults.borderColor = isDarkMode ? '#374151' : '#e5e7eb';
 
-            // Set default font colors based on theme
-            Chart.defaults.color = isDarkMode ? '#9ca3af' : '#374151';
-            Chart.defaults.borderColor = isDarkMode ? '#374151' : '#e5e7eb';
-
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Completed', 'In Progress', 'Not Started'],
-                    datasets: [{
-                        data: [
-                            {{ $statistics['completed'] }},
-                            {{ $statistics['in_progress'] }},
-                            {{ $statistics['not_started'] }}
-                        ],
-                        backgroundColor: [
-                            '#22c55e', // green-500
-                            '#3b82f6', // blue-500
-                            '#eab308' // yellow-500
-                        ],
-                        borderWidth: 2,
-                        borderColor: isDarkMode ? '#1f2937' : '#ffffff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Activity Status Distribution',
-                            font: {
-                                size: 16
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completed', 'In Progress', 'Not Started'],
+                        datasets: [{
+                            // USE THE NEW CHART VARIABLES HERE
+                            data: [
+                                {{ $chartCompleted }},
+                                {{ $chartInProgress }},
+                                {{ $chartNotStarted }}
+                            ],
+                            backgroundColor: [
+                                '#22c55e', // green-500
+                                '#3b82f6', // blue-500
+                                '#eab308' // yellow-500
+                            ],
+                            borderWidth: 2,
+                            borderColor: isDarkMode ? '#1f2937' : '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Activity Status Distribution (All Items)',
+                                font: {
+                                    size: 16
+                                }
                             }
                         }
                     }
-                }
+                });
             });
-        });
-    </script>
+        </script>
+    @endpush
 </x-layouts.app>

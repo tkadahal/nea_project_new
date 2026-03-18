@@ -25,10 +25,8 @@ use App\Http\Controllers\Admin\{
     FiscalYearController,
     BudgetHeadingController,
 
-    ProjectController,
     ContractController,
     ProjectActivityController,
-    ProjectActivityScheduleController,
     ProjectExpenseController,
     ContractExtensionController,
 
@@ -176,232 +174,6 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('fiscalYear', FiscalYearController::class);
         Route::resource('budgetHeading', BudgetHeadingController::class);
         Route::resource('library', LibraryController::class);
-
-        // ══════════════════════════════════════════════════════════
-        // GLOBAL SCHEDULE LIBRARY (Not project-specific)
-        // ══════════════════════════════════════════════════════════
-        // Route::prefix('schedules')->name('schedules.')->group(function () {
-        //     Route::get('library', [ProjectActivityScheduleController::class, 'library'])
-        //         ->name('library');
-        //     Route::get('library/create', [ProjectActivityScheduleController::class, 'createGlobal'])
-        //         ->name('library.create');
-        //     Route::post('library/store', [ProjectActivityScheduleController::class, 'storeGlobal'])
-        //         ->name('library.store');
-        //     Route::get('library/{schedule}/edit', [ProjectActivityScheduleController::class, 'editGlobal'])
-        //         ->name('library.edit');
-        //     Route::put('library/{schedule}/update', [ProjectActivityScheduleController::class, 'updateGlobal'])
-        //         ->name('library.update');
-        //     Route::delete('library/{schedule}', [ProjectActivityScheduleController::class, 'destroyGlobal'])
-        //         ->name('library.destroy');
-
-        //     Route::post('library/update-order', [ProjectActivityScheduleController::class, 'updateOrder'])
-        //         ->name('library.update-order');
-
-        //     // Preview changes (GET)
-        //     Route::get('library/preview-renumber', [ProjectActivityScheduleController::class, 'previewRenumber'])
-        //         ->name('library.preview-renumber');
-
-        //     // Actually renumber (POST)
-        //     Route::post('library/renumber', [ProjectActivityScheduleController::class, 'renumberCodes'])
-        //         ->name('library.renumber');
-        // });
-
-        Route::get('schedules/overview', [ProjectActivityScheduleController::class, 'overview'])->name('schedules.overview');
-
-        // Multi-level Schedule Analytics (ALL accessible projects)
-        Route::get('schedules/analytics', [ProjectActivityScheduleController::class, 'analyticsDashboard'])
-            ->name('schedules.analytics');
-
-        // All accessible files
-        Route::get('schedules/all-files', [ProjectActivityScheduleController::class, 'allFiles'])
-            ->name('schedules.all-files');
-
-        // Analytics Charts
-        Route::get('schedules/analytics-charts', [ProjectActivityScheduleController::class, 'analyticsCharts'])
-            ->name('schedules.analytics-charts');
-
-        // API Endpoints for Charts
-        Route::get('schedules/api/projects-comparison', [ProjectActivityScheduleController::class, 'apiProjectsComparison'])
-            ->name('schedules.api.projects-comparison');
-
-        Route::get('schedules/api/directorates-comparison', [ProjectActivityScheduleController::class, 'apiDirectoratesComparison'])
-            ->name('schedules.api.directorates-comparison');
-
-        Route::get('schedules/api/top-projects', [ProjectActivityScheduleController::class, 'apiTopProjects'])
-            ->name('schedules.api.top-projects');
-
-        Route::get('schedules/api/projects-by-directorate', [ProjectActivityScheduleController::class, 'apiProjectsByDirectorate'])
-            ->name('schedules.api.projects-by-directorate');
-
-        Route::get('schedules/api/project-attention-counts', [ProjectActivityScheduleController::class, 'apiProjectAttentionCounts'])
-            ->name('schedules.api.project-attention-counts');
-        Route::get('schedules/api/progress-buckets', [ProjectActivityScheduleController::class, 'apiProgressBuckets'])
-            ->name('schedules.api.progress-buckets');
-        Route::get('schedules/api/activity-extremes', [ProjectActivityScheduleController::class, 'apiActivityExtremes'])
-            ->name('schedules.api.activity-extremes');
-        Route::get('schedules/api/slippages', [ProjectActivityScheduleController::class, 'apiSlippages'])
-            ->name('schedules.api.slippages');
-
-        // Projects
-        Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
-            Route::get('analytics', 'analytics')->name('analytics');
-            Route::get('users/{directorate_id}', 'getUsers')->name('users');
-            Route::get('departments/{directorate_id}', 'getDepartments')->name('departments');
-            Route::get('budget/create', 'createBudget')->name('budget.create');
-            Route::get('{project}/progress/chart', 'progressChart')->name('progress.chart');
-
-            Route::get('{project}/chart', [ChartController::class, 'activityTree'])->name('chart');
-
-            /*
-            |--------------------------------------------------------------------------
-            | PROJECT ACTIVITY SCHEDULES - Complete Routes
-            |--------------------------------------------------------------------------
-            */
-
-            // Main schedule management page
-            Route::get('{project}/schedules', [ProjectActivityScheduleController::class, 'index'])
-                ->name('schedules.index');
-
-            // Schedule tree view
-            Route::get('{project}/schedules/tree', [ProjectActivityScheduleController::class, 'tree'])
-                ->name('schedules.tree');
-
-            // Progress dashboard
-            Route::get('{project}/schedules/dashboard', [ProjectActivityScheduleController::class, 'dashboard'])
-                ->name('schedules.dashboard');
-
-            // Quick update page (for leaf schedules only)
-            Route::get('{project}/schedules/quick-update', [ProjectActivityScheduleController::class, 'quickUpdate'])
-                ->name('schedules.quick-update');
-
-            // ══════════════════════════════════════════════════════════
-            // CHARTS - View Analytics (NEW)
-            // ══════════════════════════════════════════════════════════
-
-            // Charts page (Burn Chart, S-Curve, Activity Chart)
-            Route::get('{project}/schedules/schedule-charts', [ProjectActivityScheduleController::class, 'charts'])
-                ->name('schedules.charts');
-
-            // ─── CHARTS DATA ENDPOINTS (JSON) ───
-
-            // Burn Chart Data
-            Route::get('{project}/schedules/api/burn-chart', [ProjectActivityScheduleController::class, 'burnChartData'])
-                ->name('schedules.api.burn-chart');
-
-            // S-Curve Data
-            Route::get('{project}/schedules/api/s-curve', [ProjectActivityScheduleController::class, 'sCurveData'])
-                ->name('schedules.api.s-curve');
-
-            // Activity Chart Data
-            Route::get('{project}/schedules/api/activity-chart', [ProjectActivityScheduleController::class, 'activityChartData'])
-                ->name('schedules.api.activity-chart');
-
-            // Gantt Chart Data (Critical Path Analysis)
-            Route::get('{project}/schedules/api/gantt-data', [ProjectActivityScheduleController::class, 'ganttData'])
-                ->name('schedules.api.gantt-data');
-
-            // ══════════════════════════════════════════════════════════
-            // SCHEDULE CRUD - Create, Edit, Delete (NEW)
-            // ══════════════════════════════════════════════════════════
-
-            // Create custom schedule
-            Route::get('{project}/schedules/create-schedule', [ProjectActivityScheduleController::class, 'createSchedule'])
-                ->name('schedules.create-schedule');
-
-            Route::post('{project}/schedules/store-schedule', [ProjectActivityScheduleController::class, 'storeSchedule'])
-                ->name('schedules.store-schedule');
-
-            // Edit schedule definition
-            Route::get('{project}/schedules/{schedule}/edit-schedule', [ProjectActivityScheduleController::class, 'editSchedule'])
-                ->name('schedules.edit-schedule');
-
-            Route::put('{project}/schedules/{schedule}/update-schedule', [ProjectActivityScheduleController::class, 'updateSchedule'])
-                ->name('schedules.update-schedule');
-
-            Route::post('{project}/schedules/{schedule}/mark-not-needed', [ProjectActivityScheduleController::class, 'markAsNotNeeded'])
-                ->name('schedules.mark-not-needed');
-
-            Route::post('{project}/schedules/{schedule}/mark-active', [ProjectActivityScheduleController::class, 'markAsActive'])
-                ->name('schedules.mark-active');
-
-            Route::post('{project}/schedules/bulk-mark-status', [ProjectActivityScheduleController::class, 'bulkMarkStatus'])
-                ->name('schedules.bulk-mark-status');
-
-            // Delete schedule
-            Route::delete('{project}/schedules/{schedule}/destroy-schedule', [ProjectActivityScheduleController::class, 'destroySchedule'])
-                ->name('schedules.destroy-schedule');
-
-            Route::post('{project}/schedules/recalculate-timeline', [ProjectActivityScheduleController::class, 'recalculateTimeline'])
-                ->name('schedules.recalculate-timeline');
-
-            Route::get('{project}/schedules/{schedule}/dependencies', [ProjectActivityScheduleController::class, 'showDependencies'])
-                ->name('schedules.dependencies');
-
-            Route::get('{project}/schedules/critical-path', [ProjectActivityScheduleController::class, 'criticalPath'])
-                ->name('schedules.critical-path');
-
-            // ══════════════════════════════════════════════════════════
-            // ASSIGNMENT - Assign Schedules to Project
-            // ══════════════════════════════════════════════════════════
-
-            // Assign schedules form
-            Route::get('{project}/schedules/assign', [ProjectActivityScheduleController::class, 'assignForm'])
-                ->name('schedules.assign-form');
-
-            // Assign schedules (POST)
-            Route::post('{project}/schedules/assign', [ProjectActivityScheduleController::class, 'assign'])
-                ->name('schedules.assign');
-
-            // ══════════════════════════════════════════════════════════
-            // PROGRESS UPDATE - Edit & Update Progress
-            // ══════════════════════════════════════════════════════════
-
-            // Edit single schedule progress
-            Route::get('{project}/schedules/{schedule}/edit', [ProjectActivityScheduleController::class, 'edit'])
-                ->name('schedules.edit');
-
-            // Update single schedule progress
-            Route::put('{project}/schedules/{schedule}', [ProjectActivityScheduleController::class, 'update'])
-                ->name('schedules.update');
-
-            // Bulk update schedules
-            Route::post('{project}/schedules/bulk-update', [ProjectActivityScheduleController::class, 'bulkUpdate'])
-                ->name('schedules.bulk-update');
-
-            // ══════════════════════════════════════════════════════════
-            // DATE REVISIONS - Track Multiple Actual Dates (NEW)
-            // ══════════════════════════════════════════════════════════
-
-            // Add date revision
-            Route::post('{project}/schedules/{schedule}/date-revision', [ProjectActivityScheduleController::class, 'addDateRevision'])
-                ->name('schedules.add-date-revision');
-
-            // Delete date revision
-            Route::delete('{project}/schedules/date-revision/{revision}', [ProjectActivityScheduleController::class, 'deleteDateRevision'])
-                ->name('schedules.delete-date-revision');
-
-
-            // ══════════════════════════════════════════════════════════
-            // REFERENCE FILES - Separate Page for File Management (NEW)
-            // ══════════════════════════════════════════════════════════
-
-            // Files management page
-            Route::get('{project}/schedules/files', [ProjectActivityScheduleController::class, 'filesPage'])
-                ->name('schedules.files');
-
-            // Upload file (from files page)
-            Route::post('{project}/schedules/upload-file', [ProjectActivityScheduleController::class, 'uploadFile'])
-                ->name('schedules.upload-file');
-
-            // Download file
-            Route::get('{project}/schedules/files/{file}/download', [ProjectActivityScheduleController::class, 'downloadFile'])
-                ->name('schedules.download-file');
-
-            // Delete file
-            Route::delete('{project}/schedules/files/{file}', [ProjectActivityScheduleController::class, 'deleteFile'])
-                ->name('schedules.delete-file');
-        });
-        Route::resource('project', ProjectController::class);
 
         // Project Activities
         Route::prefix('projectActivity')->name('projectActivity.')->group(function () {
@@ -615,6 +387,9 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+
+        require __DIR__ . '/admin/schedule.php';
+        require __DIR__ . '/admin/project.php';
     });
 });
 
