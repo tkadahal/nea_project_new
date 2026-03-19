@@ -24,7 +24,7 @@ class ProjectActivitySchedule extends Model
         'description',
         'parent_id',
         'weightage',
-        'project_type',
+        'project_type_id',
         'level',
         'sort_order',
     ];
@@ -33,6 +33,7 @@ class ProjectActivitySchedule extends Model
         'weightage'  => 'decimal:2',
         'level'      => 'integer',
         'sort_order' => 'integer',
+        'project_type_id' => 'integer',
     ];
 
     /*
@@ -40,6 +41,11 @@ class ProjectActivitySchedule extends Model
     | Relationships
     |--------------------------------------------------------------------------
     */
+
+    public function projectType(): BelongsTo
+    {
+        return $this->belongsTo(ProjectType::class, 'project_type_id');
+    }
 
     public function parent(): BelongsTo
     {
@@ -383,11 +389,13 @@ class ProjectActivitySchedule extends Model
         return $query->whereDoesntHave('children');
     }
 
-    public function scopeForProjectType(
-        Builder $query,
-        string $projectType
-    ): Builder {
-        return $query->where('project_type', $projectType);
+    public function scopeForProjectType(Builder $query, $projectType): Builder
+    {
+        if ($projectType instanceof ProjectType) {
+            return $query->where('project_type_id', $projectType->id);
+        }
+
+        return $query->where('project_type_id', $projectType);
     }
 
     public function scopeOrdered(Builder $query): Builder
@@ -453,5 +461,10 @@ class ProjectActivitySchedule extends Model
             $q->where('project_id', $projectId)
                 ->where('status', 'not_needed');
         });
+    }
+
+    public function getProjectTypeNameAttribute(): ?string
+    {
+        return $this->projectType?->name;
     }
 }

@@ -74,21 +74,21 @@
                         <!-- Project Type Selection -->
                         <div
                             class="mb-6 p-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg">
-                            <label for="project_type"
+                            <label for="project_type_id"
                                 class="block text-sm font-bold text-purple-900 dark:text-purple-300 mb-3 uppercase tracking-wide">
                                 🏗️ Project Type *
                             </label>
-                            <select name="project_type" id="project_type" required
-                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border @error('project_type') border-red-500 @enderror">
+                            <select name="project_type_id" id="project_type_id" required
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border @error('project_type_id') border-red-500 @enderror">
                                 <option value="">-- Select Project Type --</option>
                                 @foreach ($projectTypes as $key => $label)
                                     <option value="{{ $key }}"
-                                        {{ old('project_type') == $key ? 'selected' : '' }}>
+                                        {{ old('project_type_id') == $key ? 'selected' : '' }}>
                                         {{ $label }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('project_type')
+                            @error('project_type_id')
                                 <p class="mt-2 text-sm text-red-600 dark:text-red-400 font-medium">{{ $message }}</p>
                             @enderror
                             <p class="mt-2 text-xs text-purple-700 dark:text-purple-400 font-medium">
@@ -363,7 +363,7 @@
                 const projectTypeParam = urlParams.get('project_type');
 
                 if (projectTypeParam) {
-                    const projectTypeSelect = document.getElementById('project_type');
+                    const projectTypeSelect = document.getElementById('project_type_id');
                     projectTypeSelect.value = projectTypeParam;
 
                     // Trigger change event to load schedules
@@ -372,7 +372,7 @@
             });
 
             // Load schedules when project type changes
-            document.getElementById('project_type').addEventListener('change', function() {
+            document.getElementById('project_type_id').addEventListener('change', function() {
                 const projectType = this.value;
                 const parentSelect = document.getElementById('parent_id');
                 const schedulesList = document.getElementById('schedules-list');

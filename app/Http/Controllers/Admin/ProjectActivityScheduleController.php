@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Directorate;
 use App\Models\Project;
+use App\Models\ProjectType;
 use App\Models\ProjectActivitySchedule;
 use App\Models\ProjectScheduleDateRevision;
 use App\Models\ProjectScheduleFile;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use App\Events\ScheduleProgressUpdated;
+use App\Models\ProjectScheduleProgressSnapshot;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProjectActivityScheduleController extends Controller
@@ -293,20 +295,25 @@ class ProjectActivityScheduleController extends Controller
 
     public function assignForm(Project $project): View
     {
+        $projectTypes = ProjectType::orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+
         $hasSchedules = $project->activitySchedules()->exists();
 
-        return view('admin.schedules.assign', compact('project', 'hasSchedules'));
+        return view('admin.schedules.assign', compact('project', 'hasSchedules', 'projectTypes'));
     }
 
     public function assign(Request $request, Project $project): RedirectResponse
     {
         $request->validate([
-            'project_type' => 'required|in:transmission_line,substation',
+            'project_type_id' => 'required|exists:project_types,id',
         ]);
 
         DB::beginTransaction();
         try {
-            $schedules = ProjectActivitySchedule::forProjectType($request->project_type)
+            $schedules = ProjectActivitySchedule::forProjectType($request->project_type_id)
                 ->ordered()
                 ->get();
 
@@ -2396,5 +2403,86 @@ class ProjectActivityScheduleController extends Controller
             DB::rollBack();
             return back()->with('error', 'Failed: ' . $e->getMessage());
         }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // DEPENDENCY MANAGEMENT (CPM/PERT)
+    // ════════════════════════════════════════════════════════════
+
+    // Controller method
+    public function progressHistory(Request $request, Project $project, ProjectActivitySchedule $schedule)
+    {
+        // Start the query
+        $query = ProjectScheduleProgressSnapshot::where('project_id', $project->id)
+            ->where('schedule_id', $schedule->id)
+            ->with('recordedBy');
+
+        // Apply Start Date Filter
+        if ($request->filled('start_date')) {
+            $query->where('snapshot_date', '>=', $request->start_date);
+        }
+
+        // Apply End Date Filter (include the whole end day)
+        if ($request->filled('end_date')) {
+            $query->where('snapshot_date', '<=', $request->end_date . ' 23:59:59');
+        }
+
+        // Execute the query
+        $snapshots = $query->orderBy('snapshot_date', 'desc')->get();
+
+        // Group by month for monthly view (optional, still useful)
+        $monthlyProgress = $snapshots->groupBy(function ($snapshot) {
+            return $snapshot->snapshot_date->format('Y-m');
+        });
+
+        // Calculate velocity based on the FILTERED data
+        $weeklyVelocity = $this->calculateWeeklyVelocity($snapshots);
+
+        return view('admin.schedules.progress-history', compact(
+            'project',
+            'schedule',
+            'snapshots',
+            'monthlyProgress',
+            'weeklyVelocity'
+        ))->with('filters', $request->only(['start_date', 'end_date']));
+    }
+
+    private function calculateWeeklyVelocity($snapshots)
+    {
+        if ($snapshots->count() < 2) {
+            return null;
+        }
+
+        $first = $snapshots->last(); // Oldest
+        $last = $snapshots->first(); // Newest
+
+        $days = $first->snapshot_date->diffInDays($last->snapshot_date);
+        $weeks = max(1, $days / 7);
+
+        $progressGain = $last->progress - $first->progress;
+        $velocityPerWeek = $progressGain / $weeks;
+
+        return [
+            'progress_gain' => round($progressGain, 2),
+            'weeks' => round($weeks, 1),
+            'velocity_per_week' => round($velocityPerWeek, 2),
+            'estimated_completion' => $this->estimateCompletion($last, $velocityPerWeek),
+        ];
+    }
+
+    private function estimateCompletion($lastSnapshot, $velocityPerWeek)
+    {
+        if ($velocityPerWeek <= 0) {
+            return null;
+        }
+
+        $remainingProgress = 100 - $lastSnapshot->progress;
+        $weeksNeeded = $remainingProgress / $velocityPerWeek;
+
+        return [
+            'remaining_progress' => round($remainingProgress, 2),
+            'weeks_needed' => round($weeksNeeded, 1),
+            'estimated_date' => now()->addWeeks($weeksNeeded)->format('M d, Y'),
+        ];
     }
 }

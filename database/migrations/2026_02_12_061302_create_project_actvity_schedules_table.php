@@ -16,20 +16,20 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->foreignId('parent_id')->nullable()->constrained('project_activity_schedules')->onDelete('cascade');
+            $table->foreignId('project_type_id')->nullable()->constrained('project_types')->onDelete('restrict');
             $table->decimal('weightage', 5, 2)->nullable();
             $table->string('default_unit', 50)->nullable();
             $table->text('unit_suggestions')->nullable();
-            $table->enum('project_type', ['transmission_line', 'substation', 'generation']);
             $table->integer('level')->default(1);
             $table->integer('sort_order')->default(0);
             $table->boolean('auto_assign_to_projects')->default(true);
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['project_type', 'level']);
+            $table->index(['project_type_id', 'level']);
             $table->index('parent_id');
 
-            $table->unique(['code', 'project_type']);
+            $table->unique(['code', 'project_type_id']);
         });
 
         Schema::create('schedule_auto_assignments', function (Blueprint $table) {

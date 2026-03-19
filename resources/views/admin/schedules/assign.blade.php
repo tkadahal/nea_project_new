@@ -96,7 +96,8 @@
                                     </h3>
                                     <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
                                         <p>This project already has schedules assigned. Assigning new schedules will
-                                            <strong>replace all existing schedules and their progress data</strong>.</p>
+                                            <strong>replace all existing schedules and their progress data</strong>.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -108,75 +109,79 @@
                         @csrf
 
                         <div class="mb-6">
-                            <label for="project_type"
+                            <label for="project_type_id"
                                 class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200">
                                 Select Project Type <span class="text-red-500">*</span>
                             </label>
                             <div class="mt-2">
-                                <select id="project_type" name="project_type" required
+                                <select id="project_type_id" name="project_type_id" required
                                     onchange="showSchedulePreview(this.value)"
                                     class="block w-full rounded-md border-0 py-2.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 bg-white dark:bg-gray-700">
                                     <option value="">-- Select Project Type --</option>
-                                    <option value="transmission_line">Transmission Line</option>
-                                    <option value="substation">Substation</option>
+                                    @foreach ($projectTypes as $key => $label)
+                                        <option value="{{ $key }}"
+                                            {{ old('project_type_id') == $key ? 'selected' : '' }}>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
                                 </select>
-                                @error('project_type')
+                                @error('project_type_id')
                                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                 @enderror
                             </div>
                         </div>
 
                         <!-- Schedule Preview Area -->
-                        <div id="schedule-preview" class="hidden">
-                            <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Schedule Structure
+                        <div id="schedule-preview" class="hidden mt-8">
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Schedule Structure
                                 Preview:</h4>
 
                             <!-- Transmission Line Preview -->
                             <div id="transmission-line-preview" class="preview-content hidden">
                                 <div
-                                    class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
+                                    class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-5 border border-gray-200 dark:border-gray-700">
                                     <h5 class="text-base font-bold text-blue-700 dark:text-blue-400 mb-4">Transmission
                                         Line Project Structure</h5>
-                                    <ul class="space-y-3">
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                    <ul class="space-y-4 text-sm">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase A:</span>
                                             Pre-Construction & Procurement (15%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>13 activities (Desk Study, Survey, Land Acquisition, etc.)</li>
                                             </ul>
                                         </li>
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase B:</span>
                                             Detailed Design & Engineering (10%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>Civil Design (4 activities)</li>
                                                 <li>Electrical Design (5 activities)</li>
                                             </ul>
                                         </li>
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase C:</span>
                                             Construction (65%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>Civil Construction (2 activities)</li>
                                                 <li>Factory Testing & Dispatch (2 activities)</li>
                                                 <li>Tower Erection & Stringing (4 activities)</li>
                                             </ul>
                                         </li>
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
-                                            <span class="font-semibold text-gray-900 dark:text-gray-100">Phase
-                                                D:</span> Testing, Commissioning & Handover (10%)
+                                        <li class="text-gray-700 dark:text-gray-300">
+                                            <span class="font-semibold text-gray-900 dark:text-gray-100">Phase D:</span>
+                                            Testing, Commissioning & Handover (10%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>4 activities</li>
                                             </ul>
                                         </li>
                                     </ul>
                                     <div
-                                        class="mt-4 rounded-md bg-blue-50 dark:bg-blue-900/20 p-3 text-sm text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                                        <strong>Total:</strong> ~30-35 leaf activities to track
+                                        class="mt-5 rounded-md bg-blue-50 dark:bg-blue-900/20 p-3.5 text-sm text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-800/40">
+                                        <strong>Total:</strong> ≈ 30–35 leaf-level activities to track
                                     </div>
                                 </div>
                             </div>
@@ -184,49 +189,49 @@
                             <!-- Substation Preview -->
                             <div id="substation-preview" class="preview-content hidden">
                                 <div
-                                    class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
+                                    class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-5 border border-gray-200 dark:border-gray-700">
                                     <h5 class="text-base font-bold text-blue-700 dark:text-blue-400 mb-4">Substation
                                         Project Structure</h5>
-                                    <ul class="space-y-3">
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                    <ul class="space-y-4 text-sm">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase
                                                 A:</span> Pre-Construction & Procurement (10%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>12 activities</li>
                                             </ul>
                                         </li>
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase
                                                 B:</span> Detailed Design & Engineering (15%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
-                                                <li>Electrical Design (Multiple sub-activities)</li>
-                                                <li>Civil & Structural Design (Multiple sub-activities)</li>
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
+                                                <li>Electrical Design (multiple sub-activities)</li>
+                                                <li>Civil & Structural Design (multiple sub-activities)</li>
                                             </ul>
                                         </li>
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase
                                                 C:</span> Construction & Installation (65%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>Civil Construction</li>
                                                 <li>Factory Testing & Dispatch</li>
                                                 <li>Installation Phase</li>
                                             </ul>
                                         </li>
-                                        <li class="text-sm text-gray-700 dark:text-gray-300">
+                                        <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase
                                                 D:</span> Testing, Commissioning & Handover (10%)
                                             <ul
-                                                class="mt-1 ml-4 space-y-1 list-disc list-inside text-gray-600 dark:text-gray-400">
+                                                class="mt-2 ml-5 space-y-1.5 list-disc text-gray-600 dark:text-gray-400">
                                                 <li>6 activities</li>
                                             </ul>
                                         </li>
                                     </ul>
                                     <div
-                                        class="mt-4 rounded-md bg-blue-50 dark:bg-blue-900/20 p-3 text-sm text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                                        <strong>Total:</strong> ~40-50 leaf activities to track
+                                        class="mt-5 rounded-md bg-blue-50 dark:bg-blue-900/20 p-3.5 text-sm text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-800/40">
+                                        <strong>Total:</strong> ≈ 40–50 leaf-level activities to track
                                     </div>
                                 </div>
                             </div>
@@ -309,31 +314,36 @@
     </div>
 
     <script>
-        function showSchedulePreview(projectType) {
-            const preview = document.getElementById('schedule-preview');
+        function showSchedulePreview(value) {
+            const previewContainer = document.getElementById('schedule-preview');
             const tlPreview = document.getElementById('transmission-line-preview');
             const ssPreview = document.getElementById('substation-preview');
             const submitBtn = document.getElementById('submit-btn');
 
-            if (projectType === '') {
-                preview.classList.add('hidden');
-                tlPreview.classList.add('hidden');
-                ssPreview.classList.add('hidden');
-                submitBtn.disabled = true;
-                submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                preview.classList.remove('hidden');
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            // Reset visibility
+            previewContainer.classList.add('hidden');
+            tlPreview.classList.add('hidden');
+            ssPreview.classList.add('hidden');
 
-                if (projectType === 'transmission_line') {
-                    tlPreview.classList.remove('hidden');
-                    ssPreview.classList.add('hidden');
-                } else {
-                    tlPreview.classList.add('hidden');
-                    ssPreview.classList.remove('hidden');
-                }
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            if (!value) {
+                return; // nothing selected → stay hidden / disabled
             }
+
+            // Show preview area
+            previewContainer.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            // Show correct preview
+            if (value === '1') {
+                tlPreview.classList.remove('hidden');
+            } else if (value === '2') {
+                ssPreview.classList.remove('hidden');
+            }
+            // → add more else if (value === '3') ... for future project types
         }
     </script>
 </x-layouts.app>
