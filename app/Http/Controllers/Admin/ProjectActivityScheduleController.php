@@ -2485,4 +2485,52 @@ class ProjectActivityScheduleController extends Controller
             'estimated_date' => now()->addWeeks($weeksNeeded)->format('M d, Y'),
         ];
     }
+
+    public function weeklyReport(Request $request, Project $project)
+    {
+        $weekStart = now()->startOfWeek();
+        $weekEnd = now()->endOfWeek();
+
+        $snapshots = ProjectScheduleProgressSnapshot::where('project_id', $project->id)
+            ->whereBetween('snapshot_date', [$weekStart, $weekEnd])
+            ->with('schedule')
+            ->get();
+
+        $summary = [
+            'activities_updated' => $snapshots->unique('schedule_id')->count(),
+            'avg_progress_gain' => $snapshots->avg('progress'),
+            'completed_this_week' => $snapshots->where('progress', 100)->count(),
+        ];
+
+        return view('admin.schedules.weekly-progress', compact('project', 'snapshots', 'summary'));
+    }
+
+    public function velocityDashboard(Project $project)
+    {
+        $leafSchedules = $project->activitySchedules()
+            ->whereDoesntHave('children')
+            ->get();
+
+        $velocityData = [];
+
+        foreach ($leafSchedules as $schedule) {
+            $snapshots = ProjectScheduleProgressSnapshot::where('project_id', $project->id)
+                ->where('schedule_id', $schedule->id)
+                ->orderBy('snapshot_date')
+                ->get();
+
+            if ($snapshots->count() >= 2) {
+                $velocity = $this->calculateWeeklyVelocity($snapshots);
+                $velocityData[] = [
+                    'schedule' => $schedule,
+                    'velocity' => $velocity,
+                ];
+            }
+        }
+
+        // Sort by velocity (slowest first)
+        $velocityData = collect($velocityData)->sortBy('velocity.velocity_per_week');
+
+        return view('admin.schedules.velocity-dashboard', compact('project', 'velocityData'));
+    }
 }

@@ -39,6 +39,7 @@ return new class extends Migration
             $table->timestamp('assigned_at');
             $table->string('assigned_by')->nullable();
             $table->text('notes')->nullable();
+            $table->timestamps();
 
             $table->index(['schedule_id', 'project_id']);
         });

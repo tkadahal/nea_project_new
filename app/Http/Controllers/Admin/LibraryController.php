@@ -9,6 +9,7 @@ use App\Models\ProjectActivitySchedule;
 use App\Models\ProjectType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class LibraryController extends Controller
@@ -142,6 +143,8 @@ class LibraryController extends Controller
 
         $projectTypeName = $schedule->projectType?->name ?? 'Unknown Type';
 
+        $assignedCount = $this->autoAssignToProjects($schedule);
+
         activity()
             ->performedOn($schedule)
             ->causedBy(Auth::user())
@@ -153,9 +156,14 @@ class LibraryController extends Controller
             ])
             ->log('Global schedule template created');
 
+        $message = "Schedule template '{$schedule->code} - {$schedule->name}' created successfully for {$projectTypeName} projects!";
+        if ($assignedCount > 0) {
+            $message .= " Auto-assigned to {$assignedCount} existing projects.";
+        }
+
         return redirect()
             ->route('admin.library.index')
-            ->with('success', "Schedule template '{$schedule->code} - {$schedule->name}' created successfully for {$projectTypeName} projects!");
+            ->with('success', $message);
     }
 
     public function show(string $id)
@@ -318,5 +326,92 @@ class LibraryController extends Controller
         return redirect()
             ->route('admin.library.index')
             ->with('success', "Schedule template '{$code} - {$name}' deleted successfully!");
+    }
+
+    /**
+     * Auto-assign a schedule to projects that have the same project type
+     */
+    private function autoAssignToProjects(ProjectActivitySchedule $schedule): int
+    {
+        // Get all projects with existing schedules, grouped by project_type_id
+        $projectsByType = DB::table('project_schedule_assignments as psa')
+            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->select('psa.project_id', 'pas.project_type_id')
+            ->distinct()
+            ->get()
+            ->groupBy('project_id');
+
+        if ($projectsByType->isEmpty()) {
+            return 0;
+        }
+
+        $projectsToAssign = [];
+
+        // For each project, check if it has schedules of the same project_type
+        foreach ($projectsByType as $projectId => $schedules) {
+            // Get all unique project types this project has
+            $projectTypes = $schedules->pluck('project_type_id')->unique();
+
+            // ✅ Only assign if this project has schedules of the same type
+            if ($projectTypes->contains($schedule->project_type_id)) {
+                // Check if not already assigned
+                $exists = DB::table('project_schedule_assignments')
+                    ->where('project_id', $projectId)
+                    ->where('schedule_id', $schedule->id)
+                    ->exists();
+
+                if (!$exists) {
+                    $projectsToAssign[] = $projectId;
+                }
+            }
+        }
+
+        if (empty($projectsToAssign)) {
+            return 0;
+        }
+
+        $now = now();
+
+        // Bulk insert
+        $assignments = [];
+        foreach ($projectsToAssign as $projectId) {
+            $assignments[] = [
+                'project_id' => $projectId,
+                'schedule_id' => $schedule->id,
+                'progress' => 0,
+                'status' => 'active',
+                'start_date' => null,
+                'end_date' => null,
+                'actual_start_date' => null,
+                'actual_end_date' => null,
+                'remarks' => 'Auto-assigned by system',
+                'target_quantity' => null,
+                'completed_quantity' => null,
+                'unit' => null,
+                'use_quantity_tracking' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        DB::table('project_schedule_assignments')->insert($assignments);
+
+        // Optional: Log audit trail
+        $auditRecords = [];
+        foreach ($projectsToAssign as $projectId) {
+            $auditRecords[] = [
+                'schedule_id' => $schedule->id,
+                'project_id' => $projectId,
+                'assigned_at' => $now,
+                'assigned_by' => Auth::id() ?? 'system',
+                'notes' => "Auto-assigned {$schedule->code}: {$schedule->name}",
+            ];
+        }
+
+        if (!empty($auditRecords)) {
+            DB::table('schedule_auto_assignments')->insert($auditRecords);
+        }
+
+        return count($assignments);
     }
 }

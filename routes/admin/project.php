@@ -51,6 +51,8 @@ Route::controller(ProjectController::class)->prefix('projects')->name('projects.
         Route::get('files/{file}/download', 'downloadFile')->name('download-file');
         Route::delete('files/{file}', 'deleteFile')->name('delete-file');
         Route::get('progressHistory', 'progressHistory')->name('progressHistory');
+        Route::get('weeklyReport', 'weeklyReport')->name('weeklyReport');
+        Route::get('velocityDashboard', 'velocityDashboard')->name('velocityDashboard');
     });
 });
 Route::resource('project', ProjectController::class);
