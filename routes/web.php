@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Route;
 */
 use App\Http\Controllers\Admin\{
     DashboardController,
-    AnalyticalDashboardController,
 
     UserController,
     RoleController,
@@ -25,21 +24,10 @@ use App\Http\Controllers\Admin\{
     FiscalYearController,
     BudgetHeadingController,
 
-    ContractController,
     ProjectActivityController,
-    ProjectExpenseController,
-    ContractExtensionController,
 
-    BudgetController,
-    BudgetQuaterAllocationController,
-    ProjectExpenseFundingAllocationController,
-
-    CommentController,
     EventController,
 
-    ExpenseController,
-    FileController,
-    ReportController,
     NotificationController,
     ChartController,
     LibraryController,
@@ -132,15 +120,6 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
             ->name('preBudget.export');
         Route::resource('preBudget', PreBudgetController::class);
 
-        // Analytics & Summary
-        Route::controller(AnalyticalDashboardController::class)->group(function () {
-            Route::get('summary', 'summary')->name('summary');
-            Route::get('analytics/task', 'taskAnalytics')->name('analytics.task');
-            Route::get('analytics/project', 'projectAnalytics')->name('analytics.project');
-            Route::get('tasks/analytics/export', 'exportTaskAnalytics')->name('tasks.analytics.export');
-            Route::get('projects/analytics/export', 'exportProjectAnalytics')->name('projects.analytics.export');
-        });
-
         // Users
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {
             Route::get('projects/{directorate_id}', 'getProjects')->name('projects');
@@ -177,202 +156,80 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('projectType', ProjectTypeController::class);
 
         // Project Activities
-        Route::prefix('projectActivity')->name('projectActivity.')->group(function () {
+        Route::controller(ProjectActivityController::class)->prefix('projectActivity')->name('projectActivity.')->group(function () {
 
             // Standard CRUD
-            Route::get('/', [ProjectActivityController::class, 'index'])->name('index');
-            Route::get('create', [ProjectActivityController::class, 'create'])->name('create');
-            Route::post('/', [ProjectActivityController::class, 'store'])->name('store');
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
 
             // AJAX endpoints
-            Route::post('add-row', [ProjectActivityController::class, 'addRow'])->name('addRow');
-            Route::delete('delete-row/{id}', [ProjectActivityController::class, 'deleteRow'])->name('deleteRow');
-            Route::post('update-field', [ProjectActivityController::class, 'updateField'])->name('updateField');
-            Route::get('get-activities', [ProjectActivityController::class, 'getActivities'])->name('getActivities');
-            Route::get('rows', [ProjectActivityController::class, 'getRows'])->name('getRows');
-            Route::get('budgetData', [ProjectActivityController::class, 'getBudgetData'])->name('budgetData');
+            Route::post('add-row', 'addRow')->name('addRow');
+            Route::delete('delete-row/{id}', 'deleteRow')->name('deleteRow');
+            Route::post('update-field', 'updateField')->name('updateField');
+            Route::get('get-activities', 'getActivities')->name('getActivities');
+            Route::get('rows', 'getRows')->name('getRows');
+            Route::get('budgetData', 'getBudgetData')->name('budgetData');
 
             // Excel
-            Route::get('template', [ProjectActivityController::class, 'downloadTemplate'])->name('template');
-            Route::get('upload-form', [ProjectActivityController::class, 'showUploadForm'])->name('uploadForm');
-            Route::post('upload', [ProjectActivityController::class, 'uploadExcel'])->name('upload');
-            Route::post('upload/confirm', [ProjectActivityController::class, 'confirmExcelUpload'])
+            Route::get('template', 'downloadTemplate')->name('template');
+            Route::get('upload-form', 'showUploadForm')->name('uploadForm');
+            Route::post('upload', 'uploadExcel')->name('upload');
+            Route::post('upload/confirm', 'confirmExcelUpload')
                 ->name('upload.confirm');
 
-            Route::post('upload/cancel', [ProjectActivityController::class, 'cancelExcelUpload'])
+            Route::post('upload/cancel', 'cancelExcelUpload')
                 ->name('upload.cancel');
 
             // Show / Edit / Update / Download
-            Route::get('show/{projectId}/{fiscalYearId}/{version?}', [ProjectActivityController::class, 'show'])->name('show');
-            Route::get('edit/{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'edit'])->name('edit');
-            Route::put('{projectId}/{fiscalYearId}', [ProjectActivityController::class, 'update'])->name('update');
-            Route::get('{projectId}/{fiscalYearId}/download', [ProjectActivityController::class, 'downloadActivities'])
+            Route::get('show/{projectId}/{fiscalYearId}/{version?}', 'show')->name('show');
+            Route::get('edit/{projectId}/{fiscalYearId}', 'edit')->name('edit');
+            Route::put('{projectId}/{fiscalYearId}', 'update')->name('update');
+            Route::get('{projectId}/{fiscalYearId}/download', 'downloadActivities')
                 ->name('downloadActivities');
 
-            Route::delete('{id}', [ProjectActivityController::class, 'destroy'])->name('destroy');
+            Route::delete('{id}', 'destroy')->name('destroy');
 
             // === WORKFLOW ACTIONS ===
-            Route::get('/project-activities/{projectId}/{fiscalYearId}/log', [ProjectActivityController::class, 'showLog'])
+            Route::get('/project-activities/{projectId}/{fiscalYearId}/log', 'showLog')
                 ->name('log');
 
-            Route::post('{projectId}/{fiscalYearId}/send-for-review', [ProjectActivityController::class, 'sendForReview'])
+            Route::post('{projectId}/{fiscalYearId}/send-for-review', 'sendForReview')
                 ->name('sendForReview');
 
-            Route::post('{projectId}/{fiscalYearId}/review', [ProjectActivityController::class, 'review'])
+            Route::post('{projectId}/{fiscalYearId}/review', 'review')
                 ->name('review');
 
-            Route::post('{projectId}/{fiscalYearId}/approve', [ProjectActivityController::class, 'approve'])
+            Route::post('{projectId}/{fiscalYearId}/approve', 'approve')
                 ->name('approve');
 
-            Route::post('{projectId}/{fiscalYearId}/reject', [ProjectActivityController::class, 'reject'])
+            Route::post('{projectId}/{fiscalYearId}/reject', 'reject')
                 ->name('reject');
 
-            Route::post('{projectId}/{fiscalYearId}/returnToDraft', [ProjectActivityController::class, 'returnToDraft'])
+            Route::post('{projectId}/{fiscalYearId}/returnToDraft', 'returnToDraft')
                 ->name('returnToDraft');
         });
 
-        // Contracts
-        Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
-            Route::get('projects/{directorate_id}', 'getProjects')->name('projects');
-            Route::get('get-project-budget/{projectId}', [ContractController::class, 'getProjectBudget'])
-                ->name('get-project-budget');
-        });
-        Route::resource('contract', ContractController::class);
-
-        // Contract Extensions
-        Route::prefix('contract/{contract}/extensions')->name('contract.extensions.')->controller(ContractExtensionController::class)->group(function () {
-            Route::get('create', 'create')->name('create');
-            Route::post('/', 'store')->name('store');
-            Route::get('{extension}/edit', 'edit')->name('edit');
-            Route::put('{extension}', 'update')->name('update');
-            Route::delete('{extension}', 'destroy')->name('destroy');
-        });
-
         // Comments
-        Route::controller(CommentController::class)->group(function () {
-            Route::post('projects/{project}/comments', 'storeForProject')->name('projects.comments.store');
-            Route::post('tasks/{task}/comments', 'storeForTask')->name('tasks.comments.store');
-        });
+
 
         // Events
         Route::resource('event', EventController::class);
 
-        // Budgets
-        Route::controller(BudgetController::class)->prefix('budget')->name('budget.')->group(function () {
-            Route::get('download-template', 'downloadTemplate')->name('download-template');
-            Route::get('upload', 'uploadIndex')->name('upload.index');
-            Route::post('upload', 'upload')->name('upload');
-            Route::get('{budget}/remaining', 'remaining')->name('remaining');
-            Route::get('filter-projects', [BudgetController::class, 'filterProjects'])
-                ->name('filter-projects');
-        });
-        Route::prefix('budgets')->name('budget.')->group(function () {
-            Route::get('duplicates', [BudgetController::class, 'listDuplicates'])->name('duplicates');
-            Route::post('clean-duplicates', [BudgetController::class, 'cleanDuplicates'])->name('cleanDuplicates');
-        });
-        Route::resource('budget', BudgetController::class);
-
-        // Budget Quarter Allocations
-        Route::controller(BudgetQuaterAllocationController::class)
-            ->prefix('budget-quater-allocation')
-            ->name('budgetQuaterAllocation.')
-            ->group(function () {
-                Route::get('download-template', 'downloadTemplate')
-                    ->name('download-template');
-
-                Route::get('upload-template', 'uploadIndex')
-                    ->name('uploadIndex');
-
-                Route::post('upload-template', 'uploadTemplate')
-                    ->name('uploadTemplate');
-            });
-
-        // Separate route for AJAX load budgets
-        Route::post(
-            'budget-quater-allocations/load-budgets',
-            [BudgetQuaterAllocationController::class, 'loadBudgets']
-        )->name('budgetQuaterAllocations.loadBudgets');
-
-        // Resource routes
-        Route::resource('budgetQuaterAllocation', BudgetQuaterAllocationController::class);
-
-        // Project Expense Funding Allocations
-        Route::post('project-expense-funding-allocations/load-data', [ProjectExpenseFundingAllocationController::class, 'loadData'])->name('projectExpenseFundingAllocations.loadData');
-        Route::resource('project-expense-funding-allocation', ProjectExpenseFundingAllocationController::class)
-            ->names('projectExpenseFundingAllocation')
-            ->only(['index', 'create', 'store']);
-
-        // Expenses
-        Route::controller(ExpenseController::class)->group(function () {
-            Route::get('fiscal-years/by-date', 'byDate')->name('fiscal-years.by-date');
-            Route::get('budgets/available', 'availableBudget')->name('budgets.available');
-            Route::get('expenses/0', 'testShow')->name('expense.testShow');
-        });
-        Route::resource('expense', ExpenseController::class);
-
-        // Project Expenses
-        Route::controller(ProjectExpenseController::class)->prefix('projectExpense')->name('projectExpense.')->group(function () {
-            Route::get('downloadExcel/{projectId}/{fiscalYearId}', 'downloadTemplate')->name('template.download');
-            Route::get('{project}/{fiscalYear}/upload', 'uploadView')->name('upload.view');
-            Route::post('{project}/{fiscalYear}/upload', 'upload')->name('upload');
-            Route::get('download/excel/{projectId}/{fiscalYearId}', 'downloadExcel')->name('excel.download');
-            Route::get('show/{projectId}/{fiscalYearId}', 'show')->name('show');
-
-            Route::get(
-                'next-quarter/{project}/{fiscalYear}',
-                [ProjectExpenseController::class, 'nextQuarterAjax']
-            )
-                ->name('nextQuarter');
-
-            Route::get('{projectId}/{fiscalYearId}', 'getForProject')->name('getForProject');
-        });
-        Route::resource('projectExpense', ProjectExpenseController::class)->except(['show', 'edit', 'update']);
-
-        // Files
-        Route::controller(FileController::class)->group(function () {
-            Route::get('files', 'index')->name('file.index');
-            Route::post('{model}/{id}/files', 'store')->name('files.store');
-            Route::get('files/{file}/download', 'download')->name('files.download');
-            Route::delete('files/{file}', 'destroy')->name('files.destroy');
-        });
-
-        // Reports
-        Route::prefix('reports')->name('reports.')->group(function () {
-            // Show progress report generation view
-            Route::get('consolidated-annual', [ReportController::class, 'showConsolidatedAnnualReport'])
-                ->name('consolidatedAnnual.view');
-
-            // Generate and download progress report
-            Route::get('consolidated-annual/download', [ReportController::class, 'consolidatedAnnualReport'])
-                ->name('consolidatedAnnual');
-
-            // Show budget report generation view
-            Route::get('budgetReport', [ReportController::class, 'showBudgetReportView'])
-                ->name('budgetReport.view');
-
-            // Generate and download budget report
-            Route::get('budgetReport/download', [ReportController::class, 'budgetReport'])
-                ->name('budgetReport');
-
-            // Show budget report generation view
-            Route::get('preBudgetReport', [ReportController::class, 'showPreBudgetReportView'])
-                ->name('preBudgetReport.view');
-
-            // Generate and download budget report
-            Route::get('preBudgetReport/download', [ReportController::class, 'preBudgetReport'])
-                ->name('preBudgetReport');
-
-            // Get project count for preview
-            Route::get('project-count', [ReportController::class, 'getProjectCount'])
-                ->name('projectCount');
-        });
-
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
 
+        require __DIR__ . '/admin/analytics.php';
         require __DIR__ . '/admin/schedule.php';
         require __DIR__ . '/admin/project.php';
+        require __DIR__ . '/admin/contract.php';
         require __DIR__ . '/admin/task.php';
+        require __DIR__ . '/admin/file.php';
+        require __DIR__ . '/admin/reports.php';
+        require __DIR__ . '/admin/projectExpense.php';
+        require __DIR__ . '/admin/expense.php';
+        require __DIR__ . '/admin/comment.php';
+        require __DIR__ . '/admin/budget.php';
     });
 });
 

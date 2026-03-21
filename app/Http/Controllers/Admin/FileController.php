@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class FileController extends Controller
@@ -21,21 +22,16 @@ class FileController extends Controller
         private readonly FileService $fileService
     ) {}
 
-    /**
-     * Display a listing of files based on user role.
-     */
-    public function index(Request $request)
+    public function index(Request $request): View | JsonResponse
     {
         $user = Auth::user();
 
-        // Get filters
         $directorateId = $request->input('directorate_id');
         $projectId = $request->input('project_id');
         $search = $request->input('search');
         $view = $request->input('view', 'grid');
         $perPage = $request->input('per_page', 20);
 
-        // Get files with filters and pagination
         $files = $this->fileService->getFilesForUser($user, [
             'directorate_id' => $directorateId,
             'project_id' => $projectId,
@@ -44,12 +40,10 @@ class FileController extends Controller
             'per_page' => $perPage,
         ]);
 
-        // Group files
         $groupedFiles = collect($files->items())->groupBy(function ($file) {
             return $file->fileable_type . '|' . $file->fileable_id;
         });
 
-        // Handle AJAX request
         if ($request->ajax() || $request->input('ajax')) {
             $html = view('admin.files.components.files-grid', compact('groupedFiles'))->render();
             $paginationHtml = $files->links('admin.files.components.pagination')->render();
@@ -63,16 +57,12 @@ class FileController extends Controller
             ]);
         }
 
-        // Get directorates and projects for filters
         $directorates = $this->fileService->getDirectoratesForUser($user);
         $projects = $this->fileService->getProjectsForUser($user);
 
         return view('admin.files.index', compact('files', 'groupedFiles', 'directorates', 'projects'));
     }
 
-    /**
-     * Store a newly uploaded file.
-     */
     public function store(Request $request, string $model, int $id): RedirectResponse
     {
         $validated = $request->validate([
@@ -101,9 +91,6 @@ class FileController extends Controller
         }
     }
 
-    /**
-     * Download a file from storage.
-     */
     public function download(File $file): BinaryFileResponse
     {
         try {
@@ -117,9 +104,6 @@ class FileController extends Controller
         }
     }
 
-    /**
-     * Delete a file from storage and database.
-     */
     public function destroy(File $file): RedirectResponse
     {
         try {

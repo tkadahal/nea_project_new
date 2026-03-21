@@ -396,7 +396,6 @@ class LibraryController extends Controller
 
         DB::table('project_schedule_assignments')->insert($assignments);
 
-        // Optional: Log audit trail
         $auditRecords = [];
         foreach ($projectsToAssign as $projectId) {
             $auditRecords[] = [

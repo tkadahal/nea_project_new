@@ -1344,17 +1344,49 @@ class ProjectActivityScheduleController extends Controller
         $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
 
         $projects = Project::whereIn('id', $accessibleProjectIds)
-            ->with(['directorate', 'topLevelSchedules.children'])
+            ->with([
+                'directorate',
+                'activitySchedules' => function ($q) {
+                    $q->select([
+                        'project_activity_schedules.id',
+                        'project_activity_schedules.code',
+                        'project_activity_schedules.name',
+                        'project_activity_schedules.level',
+                        'project_activity_schedules.weightage',
+                        'project_activity_schedules.parent_id',
+                    ])
+                        ->withPivot(['progress', 'status'])
+                        ->withCount('children');
+                }
+            ])
             ->get();
 
         $data = $projects->map(function ($project) {
-            $breakdown = $project->getScheduleProgressBreakdown();
+            $overallProgress = $this->calculateProjectProgressFromLoaded($project);
+
+            $allSchedules = $project->activitySchedules;
+            $activeSchedules = $allSchedules->where('pivot.status', 'active');
+            $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
+
+            $phases = [];
+            foreach ($topLevel as $schedule) {
+                $leaves = $this->collectLeavesFromCollection($schedule, $activeSchedules);
+                $phaseProgress = $leaves->isEmpty()
+                    ? 0
+                    : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+
+                $phases[] = [
+                    'code' => $schedule->code,
+                    'name' => $schedule->name,
+                    'progress' => round($phaseProgress, 2),
+                ];
+            }
 
             return [
                 'project' => $project->title,
                 'directorate' => $project->directorate?->title ?? 'N/A',
-                'overall_progress' => $project->calculatePhysicalProgress(),
-                'phases' => $breakdown
+                'overall_progress' => $overallProgress,
+                'phases' => $phases,
             ];
         });
 
@@ -1411,7 +1443,21 @@ class ProjectActivityScheduleController extends Controller
         $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
 
         $projects = Project::whereIn('id', $accessibleProjectIds)
-            ->with(['directorate', 'activitySchedules'])
+            ->with([
+                'directorate',
+                'activitySchedules' => function ($q) {
+                    $q->select([
+                        'project_activity_schedules.id',
+                        'project_activity_schedules.code',
+                        'project_activity_schedules.name',
+                        'project_activity_schedules.level',
+                        'project_activity_schedules.weightage',
+                        'project_activity_schedules.parent_id',
+                    ])
+                        ->withPivot(['progress', 'status'])
+                        ->withCount('children');
+                }
+            ])
             ->get();
 
         $projectData = $projects->map(function ($project) {
@@ -1419,7 +1465,7 @@ class ProjectActivityScheduleController extends Controller
                 'id' => $project->id,
                 'title' => $project->title,
                 'directorate' => $project->directorate?->title ?? 'N/A',
-                'progress' => $project->calculatePhysicalProgress(),
+                'progress' => $this->calculateProjectProgressFromLoaded($project),
             ];
         });
 
@@ -2051,15 +2097,16 @@ class ProjectActivityScheduleController extends Controller
 
         $progressSubquery = DB::table('project_schedule_assignments as psa')
             ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->where('psa.status', 'active')
             ->select(
                 'psa.project_id',
                 DB::raw('
-                    COALESCE(
-                        SUM(psa.progress * COALESCE(pas.weightage, 1)) /
-                        SUM(COALESCE(pas.weightage, 1)),
-                        0
-                    ) as overall_progress
-                ')
+                COALESCE(
+                    SUM(psa.progress * COALESCE(pas.weightage, 1)) /
+                    NULLIF(SUM(COALESCE(pas.weightage, 1)), 0),
+                    0
+                ) as overall_progress
+            ')
             )
             ->whereIn('psa.project_id', $accessibleProjectIds)
             ->groupBy('psa.project_id');
@@ -2107,15 +2154,16 @@ class ProjectActivityScheduleController extends Controller
 
         $progressSubquery = DB::table('project_schedule_assignments as psa')
             ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->where('psa.status', 'active')
             ->select(
                 'psa.project_id',
                 DB::raw('
-                    COALESCE(
-                        SUM(psa.progress * COALESCE(pas.weightage, 1)) /
-                        SUM(COALESCE(pas.weightage, 1)),
-                        0
-                    ) as overall_progress
-                ')
+                COALESCE(
+                    SUM(psa.progress * COALESCE(pas.weightage, 1)) /
+                    NULLIF(SUM(COALESCE(pas.weightage, 1)), 0),
+                    0
+                ) as overall_progress
+            ')
             )
             ->whereIn('psa.project_id', $accessibleProjectIds)
             ->groupBy('psa.project_id');
@@ -2156,6 +2204,7 @@ class ProjectActivityScheduleController extends Controller
 
         $stats = DB::table('project_schedule_assignments as psa')
             ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->where('psa.status', 'active')
             ->whereIn('psa.project_id', $accessibleProjectIds)
             ->select(
                 'pas.name',
@@ -2195,6 +2244,7 @@ class ProjectActivityScheduleController extends Controller
 
         $results = DB::table('project_schedule_assignments as psa')
             ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->where('psa.status', 'active')
             ->whereIn('psa.project_id', $accessibleProjectIds)
             ->whereNotNull('psa.end_date')
             ->whereNotNull('psa.actual_end_date')
