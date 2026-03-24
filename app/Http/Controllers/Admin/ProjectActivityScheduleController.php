@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use App\Events\ScheduleProgressUpdated;
+use Illuminate\Support\Facades\Storage;
 use App\Models\ProjectScheduleProgressSnapshot;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -2582,5 +2583,90 @@ class ProjectActivityScheduleController extends Controller
         $velocityData = collect($velocityData)->sortBy('velocity.velocity_per_week');
 
         return view('admin.schedules.velocity-dashboard', compact('project', 'velocityData'));
+    }
+
+    /**
+     * Show dedicated files management page
+     */
+    public function filesPage(Project $project)
+    {
+        $schedules = $project->activitySchedules()
+            ->orderBy('sort_order')
+            ->get();
+
+        $files = ProjectScheduleFile::where('project_id', $project->id)
+            ->with(['schedule', 'uploadedBy'])
+            ->latest()
+            ->get();
+
+        return view('admin.schedules.file', compact('project', 'schedules', 'files'));
+    }
+
+    /**
+     * Upload file (from dedicated files page)
+     */
+    public function uploadFile(Request $request, Project $project)
+    {
+        $request->validate([
+            'schedule_id' => 'nullable|exists:project_activity_schedules,id',
+            'file' => 'required|max:51200', // Max 50MB
+            'description' => 'nullable|string|max:500',
+        ]);
+
+
+        try {
+            $file = $request->file('file');
+            $originalName = $file->getClientOriginalName();
+            $extension = $file->getClientOriginalExtension();
+
+            // Generate unique filename
+            $fileName = time() . '_' . $request->schedule_id . '_' . str_replace(' ', '_', pathinfo($originalName, PATHINFO_FILENAME)) . '.' . $extension;
+
+            // Store file
+            $path = $file->storeAs('project_schedules/' . $project->id, $fileName, 'public');
+
+            // Create database record
+            ProjectScheduleFile::create([
+                'project_id' => $project->id,
+                'schedule_id' => $request->schedule_id,
+                'file_name' => $fileName,
+                'file_path' => $path,
+                'file_type' => strtolower($extension),
+                'original_name' => $originalName,
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'description' => $request->description,
+                'uploaded_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'File uploaded successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to upload file: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download file
+     */
+    public function downloadFile(Project $project, ProjectScheduleFile $file)
+    {
+        if (!$file->fileExists()) {
+            abort(404, 'File not found');
+        }
+
+        return Storage::download($file->file_path, $file->original_name);
+    }
+
+    /**
+     * Delete file
+     */
+    public function deleteFile(Project $project, ProjectScheduleFile $file)
+    {
+        try {
+            $file->delete(); // Will auto-delete file from storage
+            return back()->with('success', 'File deleted successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to delete file: ' . $e->getMessage());
+        }
     }
 }
