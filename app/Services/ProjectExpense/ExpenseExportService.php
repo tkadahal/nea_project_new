@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\ProjectExpense;
 
-use App\Models\Project;
+use App\Exports\Reports\ProgramExpenseReportExport;
+use App\Exports\Templates\ExpenseTemplateExport;
 use App\Models\FiscalYear;
+use App\Models\Project;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Templates\ExpenseTemplateExport;
-use App\Exports\Reports\ProgramExpenseReportExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ExpenseExportService
@@ -25,7 +25,7 @@ class ExpenseExportService
     ): BinaryFileResponse {
         $quarterNumber = $this->quarterService->extractQuarterNumber($quarter);
 
-        if (!in_array($quarterNumber, [1, 2, 3, 4])) {
+        if (! in_array($quarterNumber, [1, 2, 3, 4])) {
             abort(400, 'Invalid quarter selected.');
         }
 
@@ -50,7 +50,7 @@ class ExpenseExportService
     ): BinaryFileResponse {
         $quarterNumber = $this->quarterService->extractQuarterNumber($quarter);
 
-        if (!in_array($quarterNumber, [1, 2, 3, 4])) {
+        if (! in_array($quarterNumber, [1, 2, 3, 4])) {
             $quarterNumber = 1;
         }
 

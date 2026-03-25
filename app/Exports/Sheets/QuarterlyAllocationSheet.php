@@ -3,25 +3,18 @@
 namespace App\Exports\Sheets;
 
 use App\Models\PreBudget;
-use Maatwebsite\Excel\Concerns\{
-    FromCollection,
-    WithMapping,
-    WithTitle,
-    ShouldAutoSize,
-    WithEvents
-};
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class QuarterlyAllocationSheet implements
-    FromCollection,
-    WithMapping,
-    WithTitle,
-    ShouldAutoSize,
-    WithEvents
+class QuarterlyAllocationSheet implements FromCollection, ShouldAutoSize, WithEvents, WithMapping, WithTitle
 {
     public $fiscalYearTitle = 'N/A';
 
@@ -35,20 +28,19 @@ class QuarterlyAllocationSheet implements
         }
 
         return $data
-            ->sortBy(fn($pb) => $pb->project->title ?? 'ZZZ')
+            ->sortBy(fn ($pb) => $pb->project->title ?? 'ZZZ')
             ->flatMap(function ($pb) {
                 return $pb->quarterAllocations->sortBy('quarter')->map(function ($q) use ($pb) {
                     return [
                         'project' => $pb->project->title ?? 'Unknown Project',
-                        'quarter' => 'Q' . $q->quarter,
+                        'quarter' => 'Q'.$q->quarter,
                         'internal' => $q->internal_budget,
                         'gov_share' => $q->government_share,
                         'gov_loan' => $q->government_loan,
                         'foreign_loan' => $q->foreign_loan_budget,
                         'foreign_subsidy' => $q->foreign_subsidy_budget,
                         'company' => $q->company_budget,
-                        'total' =>
-                        $q->internal_budget +
+                        'total' => $q->internal_budget +
                             $q->government_share +
                             $q->government_loan +
                             $q->foreign_loan_budget +
@@ -96,7 +88,7 @@ class QuarterlyAllocationSheet implements
                 $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
 
                 // 3. Set Subtitle
-                $sheet->setCellValue('A2', 'Fiscal Year: ' . $this->fiscalYearTitle);
+                $sheet->setCellValue('A2', 'Fiscal Year: '.$this->fiscalYearTitle);
                 $sheet->mergeCells('A2:I2');
                 $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11);
                 $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
@@ -131,29 +123,29 @@ class QuarterlyAllocationSheet implements
                     'borders' => [
                         'outline' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']],
                         'inside' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']],
-                    ]
+                    ],
                 ];
 
                 $catStyle = array_merge($headerStyle, [
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                        'color' => ['rgb' => '4472C4']
-                    ]
+                        'color' => ['rgb' => '4472C4'],
+                    ],
                 ]);
                 $sheet->getStyle('A3:I3')->applyFromArray($catStyle);
 
                 $subStyle = array_merge($headerStyle, [
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                        'color' => ['rgb' => '5B9BD5']
-                    ]
+                        'color' => ['rgb' => '5B9BD5'],
+                    ],
                 ]);
                 $sheet->getStyle('A4:I4')->applyFromArray($subStyle);
 
                 // 7. Format Data Columns
                 $highestRow = $sheet->getHighestRow();
                 if ($highestRow > 4) {
-                    $sheet->getStyle('C5:I' . $highestRow)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
+                    $sheet->getStyle('C5:I'.$highestRow)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
                 }
 
                 // 8. Perform Project Merging
@@ -164,7 +156,9 @@ class QuarterlyAllocationSheet implements
 
     protected function mergeProjectGroup(Worksheet $sheet, $startRow, $endRow)
     {
-        if ($endRow < $startRow) return;
+        if ($endRow < $startRow) {
+            return;
+        }
 
         $currentProject = null;
         $groupStart = $startRow;
@@ -187,6 +181,7 @@ class QuarterlyAllocationSheet implements
     {
         if ($startRow === $endRow) {
             $sheet->getStyle("I{$startRow}")->getFont()->setBold(true);
+
             return;
         }
 
@@ -216,7 +211,7 @@ class QuarterlyAllocationSheet implements
         $sheet->getStyle("A{$startRow}:I{$endRow}")->applyFromArray([
             'borders' => [
                 'outline' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']],
-            ]
+            ],
         ]);
     }
 }

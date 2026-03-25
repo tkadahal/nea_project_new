@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,6 +25,7 @@ class TempUpload extends Model
     ];
 
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     /**
@@ -49,14 +50,14 @@ class TempUpload extends Model
 
     public function getFullPath(): string
     {
-        return storage_path('app/' . $this->path);
+        return storage_path('app/'.$this->path);
     }
 
     public function toUploadedFile(): \Illuminate\Http\UploadedFile
     {
         $fullPath = $this->getFullPath();
 
-        if (!file_exists($fullPath)) {
+        if (! file_exists($fullPath)) {
             throw new \RuntimeException(
                 'Temporary file no longer exists. Please upload again.'
             );

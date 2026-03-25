@@ -14,8 +14,8 @@ class ProjectIndexData
     {
         return [
             'directorates' => Directorate::pluck('title', 'id'),
-            'fiscalYears'  => FiscalYear::pluck('title', 'id'),
-            'statuses'     => Status::pluck('title', 'id'),
+            'fiscalYears' => FiscalYear::pluck('title', 'id'),
+            'statuses' => Status::pluck('title', 'id'),
         ];
     }
 }

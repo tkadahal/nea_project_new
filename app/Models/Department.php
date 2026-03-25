@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Support\Facades\Auth;
 
 class Department extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $dates = [
         'created_at',
@@ -56,6 +56,7 @@ class Department extends Model
             ->useLogName('department')
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
+
                 return "Department {$eventName} by {$user}";
             });
     }

@@ -9,9 +9,13 @@ use Illuminate\Support\Collection;
 class ProjectDataTransformer
 {
     private array $directorateColors;
+
     private array $priorityColors;
+
     private string $progressColor;
+
     private string $budgetColor;
+
     private array $budgetHeadingColors;
 
     public function __construct()
@@ -46,11 +50,11 @@ class ProjectDataTransformer
             'description' => $project->description ?? trans('global.noRecords'),
             'directorate' => [
                 'title' => $directorateTitle,
-                'id' => $directorateId
+                'id' => $directorateId,
             ],
             'budget_heading' => [
                 'title' => $budgetHeadingTitle,
-                'id' => $budgetHeadingId
+                'id' => $budgetHeadingId,
             ],
             'budget_heading_color' => $budgetHeadingColor,
             'fields' => $this->buildCardFields($project, $priorityValue, $priorityColor),
@@ -67,7 +71,7 @@ class ProjectDataTransformer
      */
     public function transformForCards(Collection $projects): array
     {
-        return $projects->map(fn($project) => $this->transformProjectForCard($project))->all();
+        return $projects->map(fn ($project) => $this->transformProjectForCard($project))->all();
     }
 
     /**
@@ -116,33 +120,33 @@ class ProjectDataTransformer
             [
                 'label' => trans('global.project.fields.start_date'),
                 'key' => 'start_date',
-                'value' => $project->start_date?->format('Y-m-d') ?? 'N/A'
+                'value' => $project->start_date?->format('Y-m-d') ?? 'N/A',
             ],
             [
                 'label' => trans('global.project.fields.end_date'),
                 'key' => 'end_date',
-                'value' => $project->end_date?->format('Y-m-d') ?? 'N/A'
+                'value' => $project->end_date?->format('Y-m-d') ?? 'N/A',
             ],
             [
                 'label' => trans('global.project.fields.priority_id'),
                 'key' => 'priority',
                 'value' => $priorityValue,
-                'color' => $priorityColor
+                'color' => $priorityColor,
             ],
             [
                 'label' => trans('global.project.fields.physical_progress'),
                 'key' => 'progress',
-                'value' => is_numeric($project->progress) ? $project->progress . '%' : 'N/A'
+                'value' => is_numeric($project->progress) ? $project->progress.'%' : 'N/A',
             ],
             [
                 'label' => trans('global.project.fields.project_manager'),
                 'key' => 'project_manager',
-                'value' => $project->project_manager ?? 'N/A'
+                'value' => $project->project_manager ?? 'N/A',
             ],
             [
                 'label' => 'Location',
                 'key' => 'location',
-                'value' => $project->location ?? 'N/A'
+                'value' => $project->location ?? 'N/A',
             ],
         ];
     }
@@ -154,33 +158,33 @@ class ProjectDataTransformer
     {
         return [
             [
-                'title' => trans('global.project.fields.start_date') . ': ' .
+                'title' => trans('global.project.fields.start_date').': '.
                     ($project->start_date?->format('Y-m-d') ?? 'N/A'),
-                'color' => 'gray'
+                'color' => 'gray',
             ],
             [
-                'title' => trans('global.project.fields.end_date') . ': ' .
+                'title' => trans('global.project.fields.end_date').': '.
                     ($project->end_date?->format('Y-m-d') ?? 'N/A'),
-                'color' => 'gray'
+                'color' => 'gray',
             ],
             [
-                'title' => trans('global.project.fields.latest_budget') . ': ' .
+                'title' => trans('global.project.fields.latest_budget').': '.
                     (is_numeric($project->budget) ? number_format((float) $project->budget, 2) : 'N/A'),
-                'color' => $this->budgetColor
+                'color' => $this->budgetColor,
             ],
             [
-                'title' => trans('global.project.fields.priority_id') . ': ' . $priorityValue,
-                'color' => $priorityDisplayColor
+                'title' => trans('global.project.fields.priority_id').': '.$priorityValue,
+                'color' => $priorityDisplayColor,
             ],
             [
-                'title' => trans('global.project.fields.physical_progress') . ': ' .
-                    (is_numeric($project->progress) ? $project->progress . '%' : 'N/A'),
-                'color' => $this->progressColor
+                'title' => trans('global.project.fields.physical_progress').': '.
+                    (is_numeric($project->progress) ? $project->progress.'%' : 'N/A'),
+                'color' => $this->progressColor,
             ],
             [
-                'title' => trans('global.project.fields.project_manager') . ': ' .
+                'title' => trans('global.project.fields.project_manager').': '.
                     ($project->projectManager->name ?? 'N/A'),
-                'color' => 'gray'
+                'color' => 'gray',
             ],
         ];
     }

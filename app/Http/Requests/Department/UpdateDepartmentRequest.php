@@ -16,6 +16,7 @@ class UpdateDepartmentRequest extends FormRequest
     public function authorize(): bool
     {
         abort_if(Gate::denies('department_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
         return true;
     }
 
@@ -55,7 +56,7 @@ class UpdateDepartmentRequest extends FormRequest
         return [
             'title.required' => 'Department Title is required',
             'directorate_id.required' => 'Please select a directorate.',
-            'directorate_id.exists'   => 'Selected directorate does not exist.',
+            'directorate_id.exists' => 'Selected directorate does not exist.',
         ];
     }
 }

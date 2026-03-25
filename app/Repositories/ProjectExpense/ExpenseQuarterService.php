@@ -32,7 +32,7 @@ class ExpenseQuarterService
         }
 
         for ($i = 1; $i <= 4; $i++) {
-            if (!isset($completed[$i])) {
+            if (! isset($completed[$i])) {
                 return "q{$i}";
             }
         }

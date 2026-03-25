@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\View\View;
-use App\Models\BudgetHeading;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Gate;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use App\Http\Requests\BudgetHeading\StoreBudgetHeadingRequest;
 use App\Http\Requests\BudgetHeading\UpdateBudgetHeadingRequest;
+use App\Models\BudgetHeading;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class BudgetHeadingController extends Controller
 {

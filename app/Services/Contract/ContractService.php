@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Contract;
 
-use App\Models\User;
-use App\Models\Status;
-use App\Models\Priority;
-use App\Models\Contract;
-use App\Models\Directorate;
 use App\DTOs\Contract\ContractDTO;
 use App\Helpers\Contract\ContractHelper;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Contract;
+use App\Models\Directorate;
+use App\Models\Priority;
+use App\Models\Status;
+use App\Models\User;
 use App\Repositories\Contract\ContractRepository;
+use Illuminate\Support\Facades\Auth;
 
 class ContractService
 {
@@ -65,7 +65,7 @@ class ContractService
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error loading contracts', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
@@ -77,7 +77,7 @@ class ContractService
                 'deleteConfirmationMessage' => 'Are you sure you want to delete this contract?',
                 'arrayColumnColor' => [],
                 'headers' => [],
-                'error' => 'Unable to load contracts due to an unexpected error. Please try again later.'
+                'error' => 'Unable to load contracts due to an unexpected error. Please try again later.',
             ];
         }
     }
@@ -134,7 +134,7 @@ class ContractService
         $projects = $allAccessibleProjects->map(function ($project) {
             return [
                 'id' => $project->id,
-                'title' => $project->title
+                'title' => $project->title,
             ];
         });
 
@@ -147,7 +147,7 @@ class ContractService
                 $selectedProject = $projectData;
                 $selectedDirectorate = Directorate::find($projectData['directorate_id'] ?? null);
 
-                $projects = $projects->filter(fn($p) => $p['id'] == $projectId)->values();
+                $projects = $projects->filter(fn ($p) => $p['id'] == $projectId)->values();
             }
         } elseif ($projects->count() === 1) {
             $singleProject = $projects->first();
@@ -181,12 +181,14 @@ class ContractService
     public function createContract(array $validatedData): Contract
     {
         $dto = ContractDTO::fromArray($validatedData);
+
         return $this->contractRepository->create($dto);
     }
 
     public function updateContract(Contract $contract, array $validatedData): Contract
     {
         $dto = ContractDTO::fromArray($validatedData);
+
         return $this->contractRepository->update($contract, $dto);
     }
 
@@ -213,7 +215,7 @@ class ContractService
     {
         $project = $this->contractRepository->getProjectWithBudget($projectId, $excludeContractId);
 
-        if (!$project) {
+        if (! $project) {
             throw new \Exception('Project not found');
         }
 

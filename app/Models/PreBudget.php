@@ -16,7 +16,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class PreBudget extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity, RoleBasedAccess;
+    use HasFactory, LogsActivity, RoleBasedAccess, SoftDeletes;
 
     protected $fillable = [
         'project_id',
@@ -82,6 +82,7 @@ class PreBudget extends Model
             ->useLogName('pre_budget')
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
+
                 return "PreBudget {$eventName} by {$user}";
             });
     }

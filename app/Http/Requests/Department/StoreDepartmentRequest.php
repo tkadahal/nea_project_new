@@ -56,7 +56,7 @@ class StoreDepartmentRequest extends FormRequest
         return [
             'title.required' => 'Department Title is required',
             'directorate_id.required' => 'Please select a directorate.',
-            'directorate_id.exists'   => 'The selected directorate does not exist.',
+            'directorate_id.exists' => 'The selected directorate does not exist.',
         ];
     }
 }

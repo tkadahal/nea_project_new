@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\BudgetController;
 use App\Http\Controllers\Admin\BudgetQuaterAllocationController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(BudgetController::class)->prefix('budget')->name('budget.')->group(function () {
     Route::get('download-template', 'downloadTemplate')->name('download-template');

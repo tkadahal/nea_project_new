@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Illuminate\Support\Collection;
 use App\Models\ProjectActivityPlan;
+use Illuminate\Support\Collection;
 
 class ProjectActivityRowBuilder
 {
@@ -18,7 +18,7 @@ class ProjectActivityRowBuilder
         $rows = [];
         $this->buildRowsRecursive($definitions, $rows, $plans);
 
-        return array_map(fn($row) => (object) $row, $rows);
+        return array_map(fn ($row) => (object) $row, $rows);
     }
 
     private function collectAllDefinitionIds(Collection $definitions): Collection
@@ -42,12 +42,13 @@ class ProjectActivityRowBuilder
                 $ids = $ids->merge($this->collectChildIds($child->children));
             }
         }
+
         return $ids;
     }
 
     private function loadPlans(Collection $definitionIds, ?int $fiscalYearId): Collection
     {
-        if (!$fiscalYearId || $definitionIds->isEmpty()) {
+        if (! $fiscalYearId || $definitionIds->isEmpty()) {
             return collect();
         }
 

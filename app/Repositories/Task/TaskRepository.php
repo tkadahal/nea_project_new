@@ -52,6 +52,7 @@ class TaskRepository
             if ($directorateId) {
                 $query->where('directorate_id', $directorateId);
             }
+
             return $query;
         }
 
@@ -67,28 +68,28 @@ class TaskRepository
             return $this->applyProjectUserFilter($query, $user);
         }
 
-        return $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+        return $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
     }
 
     public function applyFilters(Builder $query, array $filters): Builder
     {
-        if (!empty($filters['department_id'])) {
+        if (! empty($filters['department_id'])) {
             $query->where('department_id', $filters['department_id']);
         }
 
-        if (!empty($filters['priority_id'])) {
+        if (! empty($filters['priority_id'])) {
             $query->where('priority_id', $filters['priority_id']);
         }
 
-        if (!empty($filters['project_id'])) {
+        if (! empty($filters['project_id'])) {
             if ($filters['project_id'] === 'none') {
                 $query->whereDoesntHave('projects');
             } else {
-                $query->whereHas('projects', fn($q) => $q->where('projects.id', $filters['project_id']));
+                $query->whereHas('projects', fn ($q) => $q->where('projects.id', $filters['project_id']));
             }
         }
 
-        if (!empty($filters['date_start']) && !empty($filters['date_end'])) {
+        if (! empty($filters['date_start']) && ! empty($filters['date_end'])) {
             $this->applyDateRangeFilter($query, $filters['date_start'], $filters['date_end']);
         }
 
@@ -144,7 +145,7 @@ class TaskRepository
     {
         $departmentIds = \App\Models\Department::whereHas(
             'directorates',
-            fn($q) => $q->where('directorates.id', $user->directorate_id)
+            fn ($q) => $q->where('directorates.id', $user->directorate_id)
         )->pluck('id');
 
         if ($departmentIds->isEmpty()) {
@@ -164,7 +165,7 @@ class TaskRepository
 
         return $query->whereHas(
             'projects',
-            fn($q) => $q->whereIn('projects.id', $projectIds)->whereNull('deleted_at')
+            fn ($q) => $q->whereIn('projects.id', $projectIds)->whereNull('deleted_at')
         );
     }
 

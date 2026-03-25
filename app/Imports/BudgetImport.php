@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Imports;
 
-use Normalizer;
 use Illuminate\Support\Facades\Log;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Normalizer;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class BudgetImport implements WithHeadingRow, SkipsEmptyRows
+class BudgetImport implements SkipsEmptyRows, WithHeadingRow
 {
     public function collection($rows)
     {
@@ -110,6 +109,7 @@ class BudgetImport implements WithHeadingRow, SkipsEmptyRows
                         'index' => $index + 1,
                         'row' => $row,
                     ]);
+
                     continue;
                 }
 
@@ -143,7 +143,7 @@ class BudgetImport implements WithHeadingRow, SkipsEmptyRows
 
                 foreach ($numericFields as $colKey => $dbField) {
                     if (isset($columnIndices[$colKey])) {
-                        $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($columnIndices[$colKey] + 1) . $rowNumber;
+                        $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($columnIndices[$colKey] + 1).$rowNumber;
                         $calculatedValue = $worksheet->getCell($cellCoordinate)->getCalculatedValue();
                         $budgetData[$dbField] = round(floatval($calculatedValue ?? 0), 2);
                     }
@@ -180,12 +180,13 @@ class BudgetImport implements WithHeadingRow, SkipsEmptyRows
         } catch (\Exception $e) {
             Log::error('Error processing Excel file', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
 
         Log::info('Import completed', ['total_records' => count($filtered)]);
+
         return collect($filtered);
     }
 

@@ -4,28 +4,28 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Exception;
-use App\Models\Role;
-use App\Models\Budget;
-use App\Models\Project;
-use Illuminate\View\View;
-use App\Models\FiscalYear;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\ProjectActivityPlan;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ProjectActivityExport;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use App\Models\ProjectActivityDefinition;
 use App\Exports\ProjectActivityTemplateExport;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\Response;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ProjectActivity\StoreProjectActivityRequest;
 use App\Http\Requests\ProjectActivity\UpdateProjectActivityRequest;
+use App\Models\Budget;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use App\Models\Role;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProjectActivityController extends Controller
 {
@@ -52,7 +52,7 @@ class ProjectActivityController extends Controller
         try {
             $roleIds = $user->roles->pluck('id')->toArray();
 
-            if (!in_array(Role::SUPERADMIN, $roleIds) && !in_array(Role::ADMIN, $roleIds)) {
+            if (! in_array(Role::SUPERADMIN, $roleIds) && ! in_array(Role::ADMIN, $roleIds)) {
                 if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
                     $directorateId = $user->directorate ? [$user->directorate->id] : [];
                     $activityQuery->whereHas('activityDefinition.project', function ($query) use ($directorateId) {
@@ -118,12 +118,11 @@ class ProjectActivityController extends Controller
 
         $selectedFiscalYearId = $request->input('fiscal_year_id') ?? array_key_last($fiscalYears);
 
-        $projectOptions = $projects->map(fn(Project $project) => [
+        $projectOptions = $projects->map(fn (Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
             'selected' => $project->id === $selectedProjectId,
         ])->toArray();
-
 
         $capitalDefinitions = collect();
         $recurrentDefinitions = collect();
@@ -317,7 +316,7 @@ class ProjectActivityController extends Controller
                     }
                 }
                 $levelOneCounts[$parentNumber] = ($levelOneCounts[$parentNumber] ?? 0) + 1;
-                $row['number'] = $parentNumber . '.' . $levelOneCounts[$parentNumber];
+                $row['number'] = $parentNumber.'.'.$levelOneCounts[$parentNumber];
                 $levelTwoCounts[$row['number']] = 0;
             } elseif ($depth === 2) {
                 // Find parent's number
@@ -329,7 +328,7 @@ class ProjectActivityController extends Controller
                     }
                 }
                 $levelTwoCounts[$parentNumber] = ($levelTwoCounts[$parentNumber] ?? 0) + 1;
-                $row['number'] = $parentNumber . '.' . $levelTwoCounts[$parentNumber];
+                $row['number'] = $parentNumber.'.'.$levelTwoCounts[$parentNumber];
             }
         }
     }
@@ -351,7 +350,7 @@ class ProjectActivityController extends Controller
         throw_if(
             $totalPlannedBudget > $remainingBudget,
             ValidationException::withMessages([
-                'total_planned_budget' => 'Planned budget is greater than the remaining budget for this fiscal year.'
+                'total_planned_budget' => 'Planned budget is greater than the remaining budget for this fiscal year.',
             ])
         );
 
@@ -374,7 +373,8 @@ class ProjectActivityController extends Controller
             throw $e; // Re-throw for request handling
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to save project activities: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Failed to save project activities: '.$e->getMessage()]);
         }
     }
 
@@ -571,7 +571,7 @@ class ProjectActivityController extends Controller
             ->where('fiscal_year_id', $fiscalYearId)
             ->first();
 
-        if (!$parentPlan) {
+        if (! $parentPlan) {
             return; // Parent plan not yet created? (Shouldn't happen with order)
         }
 
@@ -621,7 +621,7 @@ class ProjectActivityController extends Controller
         $project = Project::findOrFail($projectId);
 
         // Assuming user-project relation check
-        if (!$project->users->contains($user->id)) {
+        if (! $project->users->contains($user->id)) {
             abort(Response::HTTP_FORBIDDEN, '403 Forbidden');
         }
 
@@ -633,13 +633,13 @@ class ProjectActivityController extends Controller
             ->whereNull('parent_id')
             ->where('expenditure_id', 1)
             ->with([
-                'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
-                'children' => fn($childQ) => $childQ->active()->with([
-                    'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
-                    'children' => fn($grandQ) => $grandQ->active()->with([
-                        'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active()
-                    ])
-                ])
+                'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
+                'children' => fn ($childQ) => $childQ->active()->with([
+                    'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
+                    'children' => fn ($grandQ) => $grandQ->active()->with([
+                        'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
+                    ]),
+                ]),
             ])
             ->get();
 
@@ -648,13 +648,13 @@ class ProjectActivityController extends Controller
             ->whereNull('parent_id')
             ->where('expenditure_id', 2)
             ->with([
-                'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
-                'children' => fn($childQ) => $childQ->active()->with([
-                    'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
-                    'children' => fn($grandQ) => $grandQ->active()->with([
-                        'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active()
-                    ])
-                ])
+                'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
+                'children' => fn ($childQ) => $childQ->active()->with([
+                    'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
+                    'children' => fn ($grandQ) => $grandQ->active()->with([
+                        'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)->active(),
+                    ]),
+                ]),
             ])
             ->get();
 
@@ -713,7 +713,7 @@ class ProjectActivityController extends Controller
         $project = Project::findOrFail($projectId);
 
         // Assuming user-project relation check
-        if (!$project->users->contains($user->id)) {
+        if (! $project->users->contains($user->id)) {
             abort(Response::HTTP_FORBIDDEN, '403 Forbidden');
         }
 
@@ -722,7 +722,7 @@ class ProjectActivityController extends Controller
         $projects = $user->projects;
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        $projectOptions = $projects->map(fn(Project $project) => [
+        $projectOptions = $projects->map(fn (Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
         ])->toArray();
@@ -800,7 +800,8 @@ class ProjectActivityController extends Controller
             throw $e; // Re-throw for request handling
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update project activities: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Failed to update project activities: '.$e->getMessage()]);
         }
     }
 
@@ -821,7 +822,7 @@ class ProjectActivityController extends Controller
         ]);
 
         $fiscalYearId = $request->integer('fiscal_year_id');
-        if (!$fiscalYearId) {
+        if (! $fiscalYearId) {
             $fiscalYears = FiscalYear::getFiscalYearOptions();
             foreach ($fiscalYears as $option) {
                 if (($option['selected'] ?? false) === true) {
@@ -829,7 +830,7 @@ class ProjectActivityController extends Controller
                     break;
                 }
             }
-            if (!$fiscalYearId) {
+            if (! $fiscalYearId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No fiscal year selected or available.',
@@ -838,7 +839,7 @@ class ProjectActivityController extends Controller
             }
         }
 
-        if (!FiscalYear::where('id', $fiscalYearId)->exists()) {
+        if (! FiscalYear::where('id', $fiscalYearId)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid fiscal year.',
@@ -851,7 +852,7 @@ class ProjectActivityController extends Controller
             ->where('fiscal_year_id', $fiscalYearId)
             ->first();
 
-        if (!$budget) {
+        if (! $budget) {
             return response()->json([
                 'success' => false,
                 'message' => 'No budget found.',
@@ -888,7 +889,7 @@ class ProjectActivityController extends Controller
 
         $user = Auth::user();
         $project = Project::findOrFail($projectId);
-        if (!$project->users->contains($user->id)) {
+        if (! $project->users->contains($user->id)) {
             return response()->json(['success' => false, 'message' => 'Access denied to project.'], 403);
         }
 
@@ -910,14 +911,14 @@ class ProjectActivityController extends Controller
         $capitalPlans = ProjectActivityPlan::forProject($projectId)
             ->active()
             ->where('fiscal_year_id', $fiscalYearId)
-            ->whereHas('activityDefinition', fn($q) => $q->where('expenditure_id', 1))
-            ->with(['activityDefinition' => fn($q) => $q->active()->with('children.plans')])
+            ->whereHas('activityDefinition', fn ($q) => $q->where('expenditure_id', 1))
+            ->with(['activityDefinition' => fn ($q) => $q->active()->with('children.plans')])
             ->get();
         $recurrentPlans = ProjectActivityPlan::forProject($projectId)
             ->active()
             ->where('fiscal_year_id', $fiscalYearId)
-            ->whereHas('activityDefinition', fn($q) => $q->where('expenditure_id', 2))
-            ->with(['activityDefinition' => fn($q) => $q->active()->with('children.plans')])
+            ->whereHas('activityDefinition', fn ($q) => $q->where('expenditure_id', 2))
+            ->with(['activityDefinition' => fn ($q) => $q->active()->with('children.plans')])
             ->get();
 
         $isEditMode = $capitalPlans->isNotEmpty() || $recurrentPlans->isNotEmpty();
@@ -967,12 +968,15 @@ class ProjectActivityController extends Controller
             // Recurse for children
             $this->addChildRowsFromPlans($def->children, $rows, end($rows)['index'], 1, $fiscalYearId);
         }
+
         return $rows;
     }
 
     private function addChildRowsFromPlans($children, &$rows, $parentIndex, $depth, $fiscalYearId): void
     {
-        if ($children->isEmpty()) return;
+        if ($children->isEmpty()) {
+            return;
+        }
         foreach ($children as $child) {
             $plan = $child->plans->where('fiscal_year_id', $fiscalYearId)->first();
             $rows[] = [
@@ -1014,19 +1018,19 @@ class ProjectActivityController extends Controller
         $fiscalYearId = $request->integer('fiscal_year_id');
 
         $selectedProject = Project::where('id', $projectId)->first();
-        if (!$selectedProject) {
+        if (! $selectedProject) {
             throw new Exception('Selected project not found.');
         }
 
         $selectedFiscalYear = FiscalYear::where('id', $fiscalYearId)->first();
-        if (!$selectedFiscalYear) {
+        if (! $selectedFiscalYear) {
             throw new Exception('Selected fiscal year not found.');
         }
 
         // Pass selected values to export
         return Excel::download(
             new ProjectActivityTemplateExport($selectedProject->title, $selectedFiscalYear->title),
-            'project_activity_' . $selectedProject->title . '_template.xlsx'
+            'project_activity_'.$selectedProject->title.'_template.xlsx'
         );
     }
 
@@ -1053,7 +1057,7 @@ class ProjectActivityController extends Controller
 
             // Read project and FY from Capital sheet (A1 and H1)
             $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
-            if (!$capitalSheet) {
+            if (! $capitalSheet) {
                 throw new Exception('Capital sheet not found. Expected "पूँजीगत खर्च".');
             }
 
@@ -1068,17 +1072,17 @@ class ProjectActivityController extends Controller
             }
 
             $project = Project::where('title', $projectName)->first();
-            if (!$project) {
+            if (! $project) {
                 throw new Exception("Project '{$projectName}' not found in database (check exact title match).");
             }
 
             $user = Auth::user();
-            if (!$project->users->contains($user->id)) {
+            if (! $project->users->contains($user->id)) {
                 throw new Exception('You do not have access to the selected project.');
             }
 
             $fiscalYear = FiscalYear::where('title', $fiscalYearName)->first(); // Assumes 'title' field for label
-            if (!$fiscalYear) {
+            if (! $fiscalYear) {
                 throw new Exception("Fiscal Year '{$fiscalYearName}' not found in database (check exact title match).");
             }
 
@@ -1114,7 +1118,7 @@ class ProjectActivityController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
 
-            return back()->withErrors(['excel_file' => 'Upload failed: ' . $e->getMessage()]);
+            return back()->withErrors(['excel_file' => 'Upload failed: '.$e->getMessage()]);
         }
     }
 
@@ -1124,7 +1128,7 @@ class ProjectActivityController extends Controller
         $index = 0;
 
         for ($rowNum = $startRow; $rowNum <= 100; $rowNum++) {
-            $cellA = $sheet->getCell('A' . $rowNum);
+            $cellA = $sheet->getCell('A'.$rowNum);
             $hash = trim((string) ($cellA->getCalculatedValue() ?? ''));
 
             // Skip empty or total row
@@ -1134,7 +1138,7 @@ class ProjectActivityController extends Controller
 
             // Skip if not a valid numeric hierarchy
             $cleanHash = str_replace('.', '', $hash);
-            if (!is_numeric($cleanHash)) {
+            if (! is_numeric($cleanHash)) {
                 continue;
             }
 
@@ -1142,23 +1146,23 @@ class ProjectActivityController extends Controller
             $level = count($parts) - 1;
             $parentHash = $level > 0 ? implode('.', array_slice($parts, 0, -1)) : null;
 
-            $program = trim((string) ($sheet->getCell('B' . $rowNum)->getCalculatedValue() ?? '')); // Cast for safety
+            $program = trim((string) ($sheet->getCell('B'.$rowNum)->getCalculatedValue() ?? '')); // Cast for safety
 
             // Read quantities (odd columns: C,E,G,I,K,M,O) and amounts (even: D,F,H,J,L,N,P)
-            $total_budget_qty = (float) ($sheet->getCell('C' . $rowNum)->getCalculatedValue() ?? 0);
-            $total_budget = (float) ($sheet->getCell('D' . $rowNum)->getCalculatedValue() ?? 0);
-            $total_expense_qty = (float) ($sheet->getCell('E' . $rowNum)->getCalculatedValue() ?? 0);
-            $total_expense = (float) ($sheet->getCell('F' . $rowNum)->getCalculatedValue() ?? 0);
-            $planned_budget_qty = (float) ($sheet->getCell('G' . $rowNum)->getCalculatedValue() ?? 0);
-            $planned_budget = (float) ($sheet->getCell('H' . $rowNum)->getCalculatedValue() ?? 0);
-            $q1_qty = (float) ($sheet->getCell('I' . $rowNum)->getCalculatedValue() ?? 0);
-            $q1 = (float) ($sheet->getCell('J' . $rowNum)->getCalculatedValue() ?? 0);
-            $q2_qty = (float) ($sheet->getCell('K' . $rowNum)->getCalculatedValue() ?? 0);
-            $q2 = (float) ($sheet->getCell('L' . $rowNum)->getCalculatedValue() ?? 0);
-            $q3_qty = (float) ($sheet->getCell('M' . $rowNum)->getCalculatedValue() ?? 0);
-            $q3 = (float) ($sheet->getCell('N' . $rowNum)->getCalculatedValue() ?? 0);
-            $q4_qty = (float) ($sheet->getCell('O' . $rowNum)->getCalculatedValue() ?? 0);
-            $q4 = (float) ($sheet->getCell('P' . $rowNum)->getCalculatedValue() ?? 0);
+            $total_budget_qty = (float) ($sheet->getCell('C'.$rowNum)->getCalculatedValue() ?? 0);
+            $total_budget = (float) ($sheet->getCell('D'.$rowNum)->getCalculatedValue() ?? 0);
+            $total_expense_qty = (float) ($sheet->getCell('E'.$rowNum)->getCalculatedValue() ?? 0);
+            $total_expense = (float) ($sheet->getCell('F'.$rowNum)->getCalculatedValue() ?? 0);
+            $planned_budget_qty = (float) ($sheet->getCell('G'.$rowNum)->getCalculatedValue() ?? 0);
+            $planned_budget = (float) ($sheet->getCell('H'.$rowNum)->getCalculatedValue() ?? 0);
+            $q1_qty = (float) ($sheet->getCell('I'.$rowNum)->getCalculatedValue() ?? 0);
+            $q1 = (float) ($sheet->getCell('J'.$rowNum)->getCalculatedValue() ?? 0);
+            $q2_qty = (float) ($sheet->getCell('K'.$rowNum)->getCalculatedValue() ?? 0);
+            $q2 = (float) ($sheet->getCell('L'.$rowNum)->getCalculatedValue() ?? 0);
+            $q3_qty = (float) ($sheet->getCell('M'.$rowNum)->getCalculatedValue() ?? 0);
+            $q3 = (float) ($sheet->getCell('N'.$rowNum)->getCalculatedValue() ?? 0);
+            $q4_qty = (float) ($sheet->getCell('O'.$rowNum)->getCalculatedValue() ?? 0);
+            $q4 = (float) ($sheet->getCell('P'.$rowNum)->getCalculatedValue() ?? 0);
 
             $data[] = [
                 'index' => $index++,
@@ -1185,7 +1189,7 @@ class ProjectActivityController extends Controller
         }
 
         // Sort for tree order
-        usort($data, fn(array $a, array $b) => strcmp($a['hash'], $b['hash']));
+        usort($data, fn (array $a, array $b) => strcmp($a['hash'], $b['hash']));
 
         return $data;
     }
@@ -1242,20 +1246,19 @@ class ProjectActivityController extends Controller
             }
 
             // Parent existence (for non-top-level)
-            if ($row['level'] > 0 && !isset($hashToIndex[$row['parent_hash']])) {
+            if ($row['level'] > 0 && ! isset($hashToIndex[$row['parent_hash']])) {
                 $errors[] = "Row #{$row['hash']}: Invalid parent #{$row['parent_hash']} (not found).";
             }
         }
 
-
         // Parent-child sums for amounts (only for rows WITH children)
         foreach ($hashToChildren as $parentHash => $children) {
-            $parentRow = current(array_filter($data, fn(array $r) => $r['hash'] === $parentHash));
-            if (!$parentRow) {
+            $parentRow = current(array_filter($data, fn (array $r) => $r['hash'] === $parentHash));
+            if (! $parentRow) {
                 continue;
             }
 
-            $childrenAmountSum = array_reduce($children, fn(array $carry, array $child) => [
+            $childrenAmountSum = array_reduce($children, fn (array $carry, array $child) => [
                 'total_budget' => $carry['total_budget'] + $child['total_budget'],
                 'total_expense' => $carry['total_expense'] + $child['total_expense'],
                 'planned_budget' => $carry['planned_budget'] + $child['planned_budget'],
@@ -1273,7 +1276,7 @@ class ProjectActivityController extends Controller
             }
 
             // Parent-child sums for quantities
-            $childrenQtySum = array_reduce($children, fn(array $carry, array $child) => [
+            $childrenQtySum = array_reduce($children, fn (array $carry, array $child) => [
                 'total_quantity' => $carry['total_quantity'] + $child['total_quantity'],
                 'completed_quantity' => $carry['completed_quantity'] + $child['completed_quantity'],
                 'planned_quantity' => $carry['planned_quantity'] + $child['planned_quantity'],
@@ -1297,7 +1300,7 @@ class ProjectActivityController extends Controller
             $errors[] = "Maximum hierarchy depth is 2 (found level {$maxLevel}).";
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw new Exception(implode(' ', $errors));
         }
     }
@@ -1386,7 +1389,7 @@ class ProjectActivityController extends Controller
         $fiscalYear = FiscalYear::findOrFail($fiscalYearId);
 
         // Check access (reuse your logic)
-        if (!$project->users->contains(Auth::user()->id)) {
+        if (! $project->users->contains(Auth::user()->id)) {
             abort(Response::HTTP_FORBIDDEN, '403 Forbidden');
         }
 
@@ -1398,7 +1401,7 @@ class ProjectActivityController extends Controller
         $slugProjectTitle = $project->title;
         $slugFiscalYearTitle = Str::slug($safeFiscalYearTitle);
 
-        $filename = 'AnnualProgram_' . $slugProjectTitle . '_' . $slugFiscalYearTitle . '.xlsx';
+        $filename = 'AnnualProgram_'.$slugProjectTitle.'_'.$slugFiscalYearTitle.'.xlsx';
 
         // Export as single combined sheet (update export to use new models if needed)
         return Excel::download(

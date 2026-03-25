@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\ProjectActivity;
 
+use App\Models\ProjectActivityDefinition;
 use Closure;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use App\Models\ProjectActivityDefinition;
-use Illuminate\Foundation\Http\FormRequest;
 use Symfony\Component\HttpFoundation\Response;
 
 class UpdateProjectActivityRequest extends FormRequest
 {
     private const AMOUNT_FIELDS = ['total_budget', 'total_expense', 'planned_budget', 'q1', 'q2', 'q3', 'q4'];
+
     private const QTY_FIELDS = ['total_budget_quantity', 'total_expense_quantity', 'planned_budget_quantity', 'q1_quantity', 'q2_quantity', 'q3_quantity', 'q4_quantity'];
 
     private const NUMERIC_FIELDS = [
@@ -31,15 +32,17 @@ class UpdateProjectActivityRequest extends FormRequest
         'q3',
         'q3_quantity',
         'q4',
-        'q4_quantity'
+        'q4_quantity',
     ];
 
     private const FLOAT_PRECISION = 0.01;
+
     private const MAX_HIERARCHY_DEPTH = 2;
 
     public function authorize(): bool
     {
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
         return true;
     }
 
@@ -55,15 +58,15 @@ class UpdateProjectActivityRequest extends FormRequest
                 foreach ($data as $id => $row) {
                     foreach (self::NUMERIC_FIELDS as $field) {
                         if (isset($row[$field])) {
-                            $data[$id][$field] = str_replace(',', '', (string)$row[$field]);
+                            $data[$id][$field] = str_replace(',', '', (string) $row[$field]);
                         }
                     }
                 }
 
                 // Remove completely empty rows
                 $filtered = array_filter($data, function ($row) {
-                    return !empty(trim($row['program'] ?? '')) ||
-                        collect(self::NUMERIC_FIELDS)->some(fn($f) => ($row[$f] ?? 0) > 0);
+                    return ! empty(trim($row['program'] ?? '')) ||
+                        collect(self::NUMERIC_FIELDS)->some(fn ($f) => ($row[$f] ?? 0) > 0);
                 });
 
                 $this->merge([$section => $filtered]);
@@ -93,7 +96,7 @@ class UpdateProjectActivityRequest extends FormRequest
             $expenditureId = $section === 'capital' ? 1 : 2;
 
             $rules["{$section}.*.program"] = 'required|string|max:255';
-            $rules["{$section}.*.depth"] = 'nullable|integer|min:0|max:' . self::MAX_HIERARCHY_DEPTH;
+            $rules["{$section}.*.depth"] = 'nullable|integer|min:0|max:'.self::MAX_HIERARCHY_DEPTH;
             $rules["{$section}.*.sort_index"] = 'required|string|regex:/^\d+(\.\d+)*$/';
 
             // Validate parent_id: must be null or a valid activity in the same project and section
@@ -111,8 +114,8 @@ class UpdateProjectActivityRequest extends FormRequest
                         ->where('is_current', true)
                         ->exists();
 
-                    if (!$exists) {
-                        $fail("The selected parent activity is invalid or does not belong to this project/section.");
+                    if (! $exists) {
+                        $fail('The selected parent activity is invalid or does not belong to this project/section.');
                     }
                 },
             ];
@@ -137,7 +140,7 @@ class UpdateProjectActivityRequest extends FormRequest
                 $section = $attribute;
 
                 $this->validatePlannedEqualsQuarters($value, $section, $fail);
-                //$this->validateParentEqualsChildrenSum($value, $section, $fail);
+                // $this->validateParentEqualsChildrenSum($value, $section, $fail);
             },
         ];
     }
@@ -145,8 +148,8 @@ class UpdateProjectActivityRequest extends FormRequest
     private function validatePlannedEqualsQuarters(array $data, string $section, Closure $fail): void
     {
         foreach ($data as $id => $row) {
-            $quarterSum = (float)($row['q1'] ?? 0) + (float)($row['q2'] ?? 0) + (float)($row['q3'] ?? 0) + (float)($row['q4'] ?? 0);
-            $planned = (float)($row['planned_budget'] ?? 0);
+            $quarterSum = (float) ($row['q1'] ?? 0) + (float) ($row['q2'] ?? 0) + (float) ($row['q3'] ?? 0) + (float) ($row['q4'] ?? 0);
+            $planned = (float) ($row['planned_budget'] ?? 0);
 
             if (abs($quarterSum - $planned) > self::FLOAT_PRECISION) {
                 $fail("The sum of quarters for row '{$row['program']}' must equal its Planned Budget.");
@@ -166,8 +169,8 @@ class UpdateProjectActivityRequest extends FormRequest
 
         foreach ($childrenMap as $parentId => $childIds) {
             foreach (self::AMOUNT_FIELDS as $field) {
-                $parentVal = (float)($data[$parentId][$field] ?? 0);
-                $childSum = collect($childIds)->sum(fn($cid) => (float)($data[$cid][$field] ?? 0));
+                $parentVal = (float) ($data[$parentId][$field] ?? 0);
+                $childSum = collect($childIds)->sum(fn ($cid) => (float) ($data[$cid][$field] ?? 0));
 
                 if (abs($parentVal - $childSum) > self::FLOAT_PRECISION) {
                     $fail("Parent '{$data[$parentId]['program']}' {$field} must equal the sum of its sub-activities.");

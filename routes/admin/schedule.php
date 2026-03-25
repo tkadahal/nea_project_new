@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\ProjectActivityScheduleController;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('schedules')
     ->name('schedules.')

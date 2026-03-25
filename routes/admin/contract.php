@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\ContractController;
 use App\Http\Controllers\Admin\ContractExtensionController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
     Route::get('projects/{directorate_id}', 'getProjects')->name('projects');

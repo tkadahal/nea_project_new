@@ -6,7 +6,6 @@ namespace App\Http\Requests\Task;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class StoreTaskRequest extends FormRequest
@@ -33,7 +32,7 @@ class StoreTaskRequest extends FormRequest
             ],
             'parent_id' => [
                 'nullable',
-                'exists:tasks,id'
+                'exists:tasks,id',
             ],
             'title' => [
                 'required',
@@ -89,17 +88,19 @@ class StoreTaskRequest extends FormRequest
                     $decoded = json_decode($value, true);
                     if (json_last_error() !== JSON_ERROR_NONE) {
                         $fail('The subtasks field must be a valid JSON string.');
+
                         return;
                     }
-                    if (!is_array($decoded)) {
+                    if (! is_array($decoded)) {
                         $fail('The subtasks field must be a JSON array.');
+
                         return;
                     }
                     foreach ($decoded as $index => $subtask) {
-                        if (!is_array($subtask) || !isset($subtask['title']) || !is_string($subtask['title']) || empty(trim($subtask['title']))) {
+                        if (! is_array($subtask) || ! isset($subtask['title']) || ! is_string($subtask['title']) || empty(trim($subtask['title']))) {
                             $fail("The subtasks.{$index}.title field is required and must be a non-empty string.");
                         }
-                        if (!isset($subtask['completed']) || !is_bool($subtask['completed'])) {
+                        if (! isset($subtask['completed']) || ! is_bool($subtask['completed'])) {
                             $fail("The subtasks.{$index}.completed field must be a boolean.");
                         }
                     }

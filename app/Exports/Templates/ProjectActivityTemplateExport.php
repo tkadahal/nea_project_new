@@ -4,26 +4,24 @@ declare(strict_types=1);
 
 namespace App\Exports\Templates;
 
-use App\Models\Project;
 use App\Models\FiscalYear;
+use App\Models\Project;
 use App\Models\ProjectActivityDefinition;
 use App\Models\ProjectActivityPlan;
 use App\Models\ProjectExpense;
-use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Protection;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 class ProjectActivityTemplateExport implements WithMultipleSheets
 {
@@ -36,7 +34,7 @@ class ProjectActivityTemplateExport implements WithMultipleSheets
     public static function getCurrentDefinitionCounts(Project $project): array
     {
         return [
-            'capital'   => ProjectActivityDefinition::forProject($project->id)
+            'capital' => ProjectActivityDefinition::forProject($project->id)
                 ->current()
                 ->where('expenditure_id', 1)
                 ->count(),
@@ -53,7 +51,7 @@ class ProjectActivityTemplateExport implements WithMultipleSheets
         return [
             'Instructions' => new InstructionsSheet($this->project, $this->fiscalYear, $this->isNewVersion),
             'पूँजीगत खर्च' => new ExpenditureSheet('पूँजीगत', $this->project, $this->fiscalYear, $this->isNewVersion),
-            'चालू खर्च'     => new ExpenditureSheet('चालू', $this->project, $this->fiscalYear, $this->isNewVersion),
+            'चालू खर्च' => new ExpenditureSheet('चालू', $this->project, $this->fiscalYear, $this->isNewVersion),
         ];
     }
 }
@@ -128,10 +126,12 @@ class InstructionsSheet implements FromCollection, WithColumnWidths, WithEvents
     }
 }
 
-class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, WithEvents
+class ExpenditureSheet implements FromCollection, WithColumnWidths, WithEvents, WithTitle
 {
     private bool $hasRealData = false;
+
     private bool $isDraft = true;
+
     private bool $isNewVersion = false;
 
     public function __construct(
@@ -143,7 +143,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
 
     public function title(): string
     {
-        return $this->type . ' खर्च';
+        return $this->type.' खर्च';
     }
 
     public function collection()
@@ -178,7 +178,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
             $headers,             // 3. Headers (Updated)
             array_fill(0, 16, 0), // 4. Spacer
             ...$this->getDataRows(),
-            ['कुल जम्मा']
+            ['कुल जम्मा'],
         ]);
     }
 
@@ -224,7 +224,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
 
             $planIds = $previousPlans->pluck('id');
             $quarterSums = ProjectExpense::whereIn('project_activity_plan_id', $planIds)
-                ->whereHas('quarters', fn($q) => $q->where('status', 'finalized'))
+                ->whereHas('quarters', fn ($q) => $q->where('status', 'finalized'))
                 ->withSum('quarters as total_amount', 'amount')
                 ->withSum('quarters as total_quantity', 'quantity')
                 ->get()
@@ -239,7 +239,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
 
                 $previousDataMap[$defId] = [
                     'expense' => $baseExpense + $quarterExpense,
-                    'qty' => $baseQuantity + $quarterQuantity
+                    'qty' => $baseQuantity + $quarterQuantity,
                 ];
             }
         }
@@ -275,7 +275,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                 0, // M (Q3 Qty)
                 0, // N (Q3 Amt)
                 0, // O (Q4 Qty)
-                0  // P (Q4 Amt)
+                0,  // P (Q4 Amt)
             ];
 
             $rows = array_merge($rows, $this->buildChildren($def->children, (string) $index, $previousDataMap));
@@ -313,7 +313,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                 0,
                 0,
                 0,
-                0 // 10 zeros for Annual + Q1-Q4 inputs
+                0, // 10 zeros for Annual + Q1-Q4 inputs
             ];
 
             $rows = array_merge($rows, $this->buildChildren($child->children, $code, $previousDataMap));
@@ -371,7 +371,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                     $formula = '=SUMPRODUCT(
                         (ISNUMBER(A5:INDEX(A:A,ROW()-1))) *
                         (ISERROR(SEARCH(".",A5:INDEX(A:A,ROW()-1)))),
-                        ' . $col . '5:INDEX(' . $col . ':' . $col . ',ROW()-1)
+                        '.$col.'5:INDEX('.$col.':'.$col.',ROW()-1)
                     )';
                     $sheet->setCellValueByColumnAndRow($colIndex, $totalRow, $formula);
                 }
@@ -451,7 +451,7 @@ class ExpenditureSheet implements FromCollection, WithTitle, WithColumnWidths, W
                 $validation->setError('केवल अंक (numeric) मान मात्र अनुमति छ।');
 
                 // === PROTECTION LOGIC ===
-                $applyProtection = $this->hasRealData && !$this->isDraft;
+                $applyProtection = $this->hasRealData && ! $this->isDraft;
 
                 if ($applyProtection) {
                     $sheet->getProtection()->setSheet(true);

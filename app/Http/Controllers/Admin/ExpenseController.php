@@ -4,22 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Budget;
-use App\Models\Expense;
-use App\Models\Project;
-use Illuminate\View\View;
-use App\Models\FiscalYear;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use App\Models\ProjectActivity;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Http\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
 use App\Http\Requests\Expense\StoreExpenseRequest;
 use App\Http\Requests\Expense\UpdateExpenseRequest;
+use App\Models\Budget;
+use App\Models\Expense;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ExpenseController extends Controller
 {
@@ -73,14 +71,14 @@ class ExpenseController extends Controller
                     [
                         trans('global.budget.fields.internal_budget'),
                         trans('global.budget.fields.foreign_loan_budget'),
-                        trans('global.budget.fields.foreign_subsidy_budget')
+                        trans('global.budget.fields.foreign_subsidy_budget'),
                     ],
                     $expense->budget_type
                 ),
                 'amount' => $expense->amount,
                 'description' => Str::limit($expense->description, 50, '...'),
                 'date' => $expense->date->format('M d, Y'),
-                'quarter' => 'Q' . $expense->quarter,
+                'quarter' => 'Q'.$expense->quarter,
             ];
         })->all();
 
@@ -125,7 +123,7 @@ class ExpenseController extends Controller
         $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
 
         // Preload activities if both project and fiscal year are selected
-        $preloadActivities = !empty($selectedProjectId) && !empty($selectedFiscalYearId);
+        $preloadActivities = ! empty($selectedProjectId) && ! empty($selectedFiscalYearId);
 
         return view('admin.expenses.newfile2', compact(
             'projects',
@@ -149,7 +147,7 @@ class ExpenseController extends Controller
             ->where('fiscal_year_id', $validatedData['fiscal_year_id'])
             ->first();
 
-        if (!$budget) {
+        if (! $budget) {
             return back()->withErrors(['budget_type' => 'No budget allocated for this project and fiscal year.'])->withInput();
         }
 
@@ -168,7 +166,7 @@ class ExpenseController extends Controller
 
         if ($validatedData['amount'] > $availableBudget) {
             return back()->withErrors([
-                'amount' => "The expense amount ({$validatedData['amount']}) exceeds the available {$validatedData['budget_type']} budget ({$availableBudget})."
+                'amount' => "The expense amount ({$validatedData['amount']}) exceeds the available {$validatedData['budget_type']} budget ({$availableBudget}).",
             ])->withInput();
         }
 
@@ -191,6 +189,7 @@ class ExpenseController extends Controller
         abort_if(Gate::denies('expense_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $expense->load(['project', 'fiscalYear', 'user']);
+
         return view('admin.expenses.show', compact('expense'));
     }
 
@@ -206,6 +205,7 @@ class ExpenseController extends Controller
         $user = Auth::user();
         $projects = $user->projects()->get();
         $fiscalYears = FiscalYear::all();
+
         return view('admin.expenses.edit', compact('expense', 'projects', 'fiscalYears'));
     }
 
@@ -220,7 +220,7 @@ class ExpenseController extends Controller
             ->where('fiscal_year_id', $validatedData['fiscal_year_id'])
             ->first();
 
-        if (!$budget) {
+        if (! $budget) {
             return back()->withErrors(['budget_type' => 'No budget allocated for this project and fiscal year.'])->withInput();
         }
 
@@ -240,7 +240,7 @@ class ExpenseController extends Controller
 
         if ($validatedData['amount'] > $availableBudget) {
             return back()->withErrors([
-                'amount' => "The expense amount ({$validatedData['amount']}) exceeds the available {$validatedData['budget_type']} budget ({$availableBudget})."
+                'amount' => "The expense amount ({$validatedData['amount']}) exceeds the available {$validatedData['budget_type']} budget ({$availableBudget}).",
             ])->withInput();
         }
 
@@ -262,6 +262,7 @@ class ExpenseController extends Controller
         abort_if(Gate::denies('expense_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $expense->delete();
+
         return redirect()->route('admin.expense.index')->with('success', 'Expense deleted successfully.');
     }
 
@@ -293,7 +294,7 @@ class ExpenseController extends Controller
             ->where('fiscal_year_id', $validated['fiscal_year_id'])
             ->first();
 
-        if (!$budget) {
+        if (! $budget) {
             return response()->json(['available' => null]);
         }
 
@@ -313,8 +314,8 @@ class ExpenseController extends Controller
     /**
      * Fetch project activities for capital and recurrent expenses.
      *
-     * @param int $projectId
-     * @param int $fiscalYearId
+     * @param  int  $projectId
+     * @param  int  $fiscalYearId
      * @return \Illuminate\Http\JsonResponse
      */
     public function getForProject($projectId, $fiscalYearId)
@@ -356,7 +357,7 @@ class ExpenseController extends Controller
             $totalBudget = $totalCapitalBudget + $totalRecurrentBudget;
 
             $budgetDetails = sprintf(
-                "Total Budget: NPR %s (Capital: NPR %s, Recurrent: NPR %s) for FY %s",
+                'Total Budget: NPR %s (Capital: NPR %s, Recurrent: NPR %s) for FY %s',
                 number_format($totalBudget, 2),
                 number_format($totalCapitalBudget, 2),
                 number_format($totalRecurrentBudget, 2),
@@ -375,7 +376,7 @@ class ExpenseController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error loading activities: ' . $e->getMessage(),
+                'message' => 'Error loading activities: '.$e->getMessage(),
                 'capital' => [],
                 'recurrent' => [],
                 'budgetDetails' => 'Error loading budget details',
@@ -387,7 +388,7 @@ class ExpenseController extends Controller
      * Format Eloquent collection of root activities to array with additional fields (e.g., depth).
      * Recursively applies to children for consistency.
      *
-     * @param \Illuminate\Database\Eloquent\Collection $roots
+     * @param  \Illuminate\Database\Eloquent\Collection  $roots
      * @return array
      */
     private function formatActivityTree($roots)
@@ -424,7 +425,7 @@ class ExpenseController extends Controller
     /**
      * Recursively format children collection to array.
      *
-     * @param \Illuminate\Database\Eloquent\Collection $children
+     * @param  \Illuminate\Database\Eloquent\Collection  $children
      * @return array
      */
     private function formatChildren($children)

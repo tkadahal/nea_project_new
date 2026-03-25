@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProjectActivityDefinition extends Model
 {
@@ -38,15 +38,15 @@ class ProjectActivityDefinition extends Model
     ];
 
     protected $casts = [
-        'project_id'         => 'integer',
-        'expenditure_id'     => 'integer',
-        'parent_id'          => 'integer',
-        'depth'              => 'integer',
-        'version'            => 'integer',
-        'is_current'         => 'boolean',
-        'versioned_at'       => 'datetime',
-        'total_budget'       => 'decimal:2',
-        'total_quantity'     => 'decimal:2',
+        'project_id' => 'integer',
+        'expenditure_id' => 'integer',
+        'parent_id' => 'integer',
+        'depth' => 'integer',
+        'version' => 'integer',
+        'is_current' => 'boolean',
+        'versioned_at' => 'datetime',
+        'total_budget' => 'decimal:2',
+        'total_quantity' => 'decimal:2',
     ];
 
     /* -----------------------------------------------------------------
@@ -121,8 +121,9 @@ class ProjectActivityDefinition extends Model
 
     public function getDescendants(): Collection
     {
-        $descendants = new Collection();
+        $descendants = new Collection;
         $this->loadDescendants($descendants);
+
         return $descendants;
     }
 
@@ -215,7 +216,7 @@ class ProjectActivityDefinition extends Model
 
         if ($versions->count() > 1) {
             throw new \LogicException(
-                "Data corruption: Project {$projectId} has multiple current versions: " . $versions->implode(', ')
+                "Data corruption: Project {$projectId} has multiple current versions: ".$versions->implode(', ')
             );
         }
     }
@@ -260,13 +261,11 @@ class ProjectActivityDefinition extends Model
      * Sum the quarterly amount (q1_amount, q2_amount, etc.) across the entire subtree
      * for a given fiscal year.
      *
-     * @param string $quarter  'q1', 'q2', 'q3', or 'q4'
-     * @param int    $fiscalYearId
-     * @return float
+     * @param  string  $quarter  'q1', 'q2', 'q3', or 'q4'
      */
     public function subtreeQuarterSum(string $quarter, int $fiscalYearId): float
     {
-        $field = $quarter . '_amount';
+        $field = $quarter.'_amount';
 
         return $this->subtreeSum($field, $fiscalYearId);
     }
@@ -282,8 +281,7 @@ class ProjectActivityDefinition extends Model
             ->logOnlyDirty()
             ->useLogName('project_activity_definition')
             ->setDescriptionForEvent(
-                fn($event) =>
-                "Project Activity Definition {$event} by " . (Auth::user()?->name ?? 'System')
+                fn ($event) => "Project Activity Definition {$event} by ".(Auth::user()?->name ?? 'System')
             );
     }
 }

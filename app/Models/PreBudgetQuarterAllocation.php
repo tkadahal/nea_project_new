@@ -14,7 +14,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class PreBudgetQuarterAllocation extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'pre_budget_id',
@@ -53,7 +53,7 @@ class PreBudgetQuarterAllocation extends Model
 
             if ($model->quarter < 1 || $model->quarter > 4) {
                 throw ValidationException::withMessages([
-                    'quarter' => 'Quarter must be between 1 and 4'
+                    'quarter' => 'Quarter must be between 1 and 4',
                 ]);
             }
         });

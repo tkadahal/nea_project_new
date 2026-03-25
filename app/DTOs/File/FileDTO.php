@@ -74,7 +74,7 @@ class FileDTO
 
     public function isProjectUser(): bool
     {
-        return !$this->isSuperAdmin() && !$this->isDirectorateUser();
+        return ! $this->isSuperAdmin() && ! $this->isDirectorateUser();
     }
 
     public function hasDirectorate(): bool

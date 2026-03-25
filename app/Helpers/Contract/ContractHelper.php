@@ -26,7 +26,7 @@ class ContractHelper
             'agreement_effective_date' => $contract->agreement_effective_date?->format('Y-m-d') ?? 'N/A',
             'agreement_completion_date' => $contract->agreement_completion_date?->format('Y-m-d') ?? 'N/A',
             'contract_amount' => number_format((float) ($contract->contract_amount ?? 0), 2),
-            'progress' => is_numeric($contract->progress) ? $contract->progress . '%' : 'N/A',
+            'progress' => is_numeric($contract->progress) ? $contract->progress.'%' : 'N/A',
             'progress_value' => (float) ($contract->progress ?? 0),
         ];
     }
@@ -41,28 +41,28 @@ class ContractHelper
             'title' => $contract->title ?? 'Untitled',
             'fields' => [
                 [
-                    'title' => trans('global.contract.fields.contract_agreement_date') . ': ' .
+                    'title' => trans('global.contract.fields.contract_agreement_date').': '.
                         ($contract->contract_agreement_date?->format('Y-m-d') ?? 'N/A'),
-                    'color' => 'gray'
+                    'color' => 'gray',
                 ],
                 [
-                    'title' => trans('global.contract.fields.agreement_completion_date') . ': ' .
+                    'title' => trans('global.contract.fields.agreement_completion_date').': '.
                         ($contract->agreement_completion_date?->format('Y-m-d') ?? 'N/A'),
-                    'color' => 'gray'
+                    'color' => 'gray',
                 ],
                 [
-                    'title' => trans('global.contract.fields.contract_amount') . ': ' .
+                    'title' => trans('global.contract.fields.contract_amount').': '.
                         number_format((float) ($contract->contract_amount ?? 0), 2),
-                    'color' => 'blue'
+                    'color' => 'blue',
                 ],
                 [
-                    'title' => trans('global.contract.fields.progress') . ': ' .
-                        (is_numeric($contract->progress) ? $contract->progress . '%' : 'N/A'),
-                    'color' => 'green'
+                    'title' => trans('global.contract.fields.progress').': '.
+                        (is_numeric($contract->progress) ? $contract->progress.'%' : 'N/A'),
+                    'color' => 'green',
                 ],
                 [
-                    'title' => trans('global.contract.fields.priority_id') . ': ' . $priorityValue,
-                    'color' => $priorityColor
+                    'title' => trans('global.contract.fields.priority_id').': '.$priorityValue,
+                    'color' => $priorityColor,
                 ],
             ],
         ];
@@ -86,54 +86,54 @@ class ContractHelper
                     'label' => trans('global.contract.fields.contract_agreement_date'),
                     'key' => 'contract_agreement_date',
                     'value' => $contract->contract_agreement_date?->format('Y-m-d') ?? 'N/A',
-                    'color' => 'yellow'
+                    'color' => 'yellow',
                 ],
                 [
                     'label' => trans('global.contract.fields.agreement_effective_date'),
                     'key' => 'agreement_effective_date',
                     'value' => $contract->agreement_effective_date?->format('Y-m-d') ?? 'N/A',
-                    'color' => 'green'
+                    'color' => 'green',
                 ],
                 [
                     'label' => trans('global.contract.fields.agreement_completion_date'),
                     'key' => 'agreement_completion_date',
                     'value' => $contract->agreement_completion_date?->format('Y-m-d') ?? 'N/A',
-                    'color' => 'red'
+                    'color' => 'red',
                 ],
                 [
                     'label' => trans('global.contract.fields.contract_amount'),
                     'key' => 'contract_amount',
                     'value' => number_format((float) ($contract->contract_amount ?? 0), 2),
-                    'color' => 'orange'
+                    'color' => 'orange',
                 ],
                 [
                     'label' => trans('global.contract.fields.progress'),
                     'key' => 'progress',
-                    'value' => is_numeric($contract->progress) ? $contract->progress . '%' : 'N/A',
-                    'color' => 'yellow'
+                    'value' => is_numeric($contract->progress) ? $contract->progress.'%' : 'N/A',
+                    'color' => 'yellow',
                 ],
                 [
                     'label' => trans('global.contract.fields.status_id'),
                     'key' => 'status',
-                    'value' => $contract->status?->title ?? 'N/A'
+                    'value' => $contract->status?->title ?? 'N/A',
                 ],
                 [
                     'label' => trans('global.contract.fields.priority_id'),
                     'key' => 'priority',
                     'value' => $priorityValue,
-                    'color' => $priorityColor
+                    'color' => $priorityColor,
                 ],
                 [
                     'label' => trans('global.contract.fields.directorate_id'),
                     'key' => 'directorate',
                     'value' => $directorateTitle,
-                    'color' => $directorateColors[$directorateId] ?? 'gray'
+                    'color' => $directorateColors[$directorateId] ?? 'gray',
                 ],
                 [
                     'label' => trans('global.contract.fields.project_id'),
                     'key' => 'project',
                     'value' => $projectTitle,
-                    'color' => 'yellow'
+                    'color' => 'yellow',
                 ],
             ],
         ];
@@ -152,10 +152,11 @@ class ContractHelper
     public static function ensureAllDirectoratesHaveColors(array $directorateColors, array $allDirectorateIds): array
     {
         foreach ($allDirectorateIds as $id) {
-            if (!isset($directorateColors[$id])) {
+            if (! isset($directorateColors[$id])) {
                 $directorateColors[$id] = 'gray';
             }
         }
+
         return $directorateColors;
     }
 }

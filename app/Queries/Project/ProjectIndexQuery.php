@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Queries\Project;
 
 use App\Models\Project;
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 
 class ProjectIndexQuery
 {
@@ -18,7 +18,7 @@ class ProjectIndexQuery
             'projectManager',
             'status',
             'budgets',
-            'comments'
+            'comments',
         ])->withCount('comments')->latest();
 
         $roleIds = $user->roles->pluck('id')->toArray();
@@ -27,7 +27,7 @@ class ProjectIndexQuery
             if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
                 $query->where('directorate_id', $user->directorate_id ?? 0);
             } else {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
         }
 

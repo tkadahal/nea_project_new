@@ -16,7 +16,9 @@ class ExpenseTreeBuilder
     ): array {
         return $roots->map(function ($definition) use ($currentPlans, $expenses, $fiscalYearId) {
             $plan = $currentPlans->get($definition->id);
-            if (!$plan) return null;
+            if (! $plan) {
+                return null;
+            }
 
             $planId = $plan->id;
             $expense = $expenses->get($planId);
@@ -56,7 +58,9 @@ class ExpenseTreeBuilder
     ): array {
         return $children->map(function ($child) use ($currentPlans, $expenses, $fiscalYearId) {
             $plan = $currentPlans->get($child->id);
-            if (!$plan) return null;
+            if (! $plan) {
+                return null;
+            }
 
             $planId = $plan->id;
             $expense = $expenses->get($planId);

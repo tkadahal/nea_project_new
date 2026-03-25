@@ -21,11 +21,11 @@ return new class extends Migration
 
             $table->enum('type', ['FS', 'SS', 'FF', 'SF'])->default('FS')
                 ->comment(
-                    "Dependency / relationship type between activities:\n" .
-                        "FS → Finish-to-Start (default)\n" .
-                        "SS → Start-to-Start\n" .
-                        "FF → Finish-to-Finish\n" .
-                        "SF → Start-to-Finish (uncommon)"
+                    "Dependency / relationship type between activities:\n".
+                        "FS → Finish-to-Start (default)\n".
+                        "SS → Start-to-Start\n".
+                        "FF → Finish-to-Finish\n".
+                        'SF → Start-to-Finish (uncommon)'
                 );
 
             $table->integer('lag_days')->default(0)

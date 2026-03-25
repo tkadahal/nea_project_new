@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\ProjectExpenseController;
 use App\Http\Controllers\Admin\ProjectExpenseFundingAllocationController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(ProjectExpenseController::class)->prefix('projectExpense')->name('projectExpense.')->group(function () {
     Route::get('downloadExcel/{projectId}/{fiscalYearId}', 'downloadTemplate')->name('template.download');

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Repositories\ProjectExpense;
 
-use App\Models\ProjectExpense;
 use App\Models\ProjectActivityPlan;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Collection;
+use App\Models\ProjectExpense;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ProjectExpenseRepository
 {
@@ -43,17 +43,17 @@ class ProjectExpenseRepository
             ->whereIn('p.id', $accessibleProjectIds);
 
         // Apply Filters from AJAX Request
-        if (!empty($filters['directorate_filter'])) {
-            $query->where('p.directorate_id', (int)$filters['directorate_filter']);
+        if (! empty($filters['directorate_filter'])) {
+            $query->where('p.directorate_id', (int) $filters['directorate_filter']);
         }
-        if (!empty($filters['project_filter'])) {
-            $query->where('p.id', (int)$filters['project_filter']);
+        if (! empty($filters['project_filter'])) {
+            $query->where('p.id', (int) $filters['project_filter']);
         }
-        if (!empty($filters['fiscal_year_filter'])) {
-            $query->where('fy.id', (int)$filters['fiscal_year_filter']);
+        if (! empty($filters['fiscal_year_filter'])) {
+            $query->where('fy.id', (int) $filters['fiscal_year_filter']);
         }
-        if (!empty($filters['search'])) {
-            $query->where('p.title', 'like', '%' . $filters['search'] . '%');
+        if (! empty($filters['search'])) {
+            $query->where('p.title', 'like', '%'.$filters['search'].'%');
         }
 
         // IMPORTANT: Use paginate() instead of get()
@@ -65,14 +65,14 @@ class ProjectExpenseRepository
 
     public function getAllHistoricalPlanIds(int $projectId, int $fiscalYearId): Collection
     {
-        return ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
+        return ProjectActivityPlan::whereHas('definitionVersion', fn ($q) => $q->where('project_id', $projectId))
             ->where('fiscal_year_id', $fiscalYearId)
             ->pluck('id');
     }
 
     public function getExpensesByPlanIds(Collection $planIds): Collection
     {
-        return ProjectExpense::with(['quarters' => fn($q) => $q->finalized()])
+        return ProjectExpense::with(['quarters' => fn ($q) => $q->finalized()])
             ->whereIn('project_activity_plan_id', $planIds)
             ->get()
             ->keyBy('project_activity_plan_id');
@@ -88,7 +88,7 @@ class ProjectExpenseRepository
             [
                 'user_id' => $userId,
                 'description' => $description,
-                'effective_date' => now()
+                'effective_date' => now(),
             ]
         );
     }
@@ -104,7 +104,7 @@ class ProjectExpenseRepository
             [
                 'quantity' => $quantity,
                 'amount' => $amount,
-                'status' => 'draft'
+                'status' => 'draft',
             ]
         );
     }

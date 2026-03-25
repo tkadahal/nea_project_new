@@ -4,33 +4,32 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Role;
-use App\Models\Project;
-use Illuminate\View\View;
-use App\Models\FiscalYear;
-use App\Models\TempUpload;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use App\Models\ProjectActivityPlan;
-use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Http\RedirectResponse;
-use App\Services\ProjectActivityService;
-use App\Models\ProjectActivityDefinition;
-use App\Services\ProjectActivityExcelService;
-use App\Exports\Reports\ProjectActivityExport;
-use Symfony\Component\HttpFoundation\Response;
-use App\Repositories\ProjectActivityRepository;
-use App\Exports\Templates\ProjectActivityTemplateExport;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Exceptions\StructuralChangeRequiresConfirmationException;
-use App\Http\Requests\ProjectActivity\StoreProjectActivityRequest;
+use App\Exports\Reports\ProjectActivityExport;
+use App\Exports\Templates\ProjectActivityTemplateExport;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ProjectActivity\UpdateProjectActivityRequest;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use App\Models\Role;
+use App\Models\TempUpload;
+use App\Repositories\ProjectActivityRepository;
+use App\Services\ProjectActivityExcelService;
+use App\Services\ProjectActivityService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProjectActivityController extends Controller
 {
@@ -70,9 +69,9 @@ class ProjectActivityController extends Controller
             $perPage = (int) request('per_page', 20);
             $filters = [
                 'directorate_id' => request('directorate_filter'),
-                'project_id'     => request('project_filter'),
+                'project_id' => request('project_filter'),
                 'fiscal_year_id' => request('fiscal_year_filter'),
-                'search'         => request('search'),
+                'search' => request('search'),
             ];
 
             $activities = $this->repository->getPaginatedFilteredActivities($filters, $perPage, Auth::user());
@@ -98,22 +97,22 @@ class ProjectActivityController extends Controller
                 $fiscalYear = $fiscalYears->get($activity->fiscal_year_id);
 
                 return [
-                    'project_id'       => $activity->project_id,
-                    'fiscal_year_id'   => $activity->fiscal_year_id,
-                    'project_title'    => $project ? $project->title : 'N/A',
+                    'project_id' => $activity->project_id,
+                    'fiscal_year_id' => $activity->fiscal_year_id,
+                    'project_title' => $project ? $project->title : 'N/A',
                     'fiscal_year_title' => $fiscalYear ? $fiscalYear->title : 'N/A',
-                    'current_version'  => $activity->current_version ?? '1',
-                    'total_budget'     => number_format((float)($activity->total_budget ?? 0), 2),
-                    'capital_budget'   => number_format((float)($activity->capital_budget ?? 0), 2),
-                    'recurrent_budget' => number_format((float)($activity->recurrent_budget ?? 0), 2),
-                    'status'           => $activity->status ?? 'draft',
-                    'reviewed_at'      => $activity->reviewed_at,
-                    'approved_at'      => $activity->approved_at,
+                    'current_version' => $activity->current_version ?? '1',
+                    'total_budget' => number_format((float) ($activity->total_budget ?? 0), 2),
+                    'capital_budget' => number_format((float) ($activity->capital_budget ?? 0), 2),
+                    'recurrent_budget' => number_format((float) ($activity->recurrent_budget ?? 0), 2),
+                    'status' => $activity->status ?? 'draft',
+                    'reviewed_at' => $activity->reviewed_at,
+                    'approved_at' => $activity->approved_at,
 
-                    'can_edit'           => $this->canUserEdit($activity),
-                    'can_review'         => $this->canUserReview($activity),
-                    'can_approve'        => $this->canUserApprove($activity),
-                    'can_reject'         => $this->canUserReject($activity),
+                    'can_edit' => $this->canUserEdit($activity),
+                    'can_review' => $this->canUserReview($activity),
+                    'can_approve' => $this->canUserApprove($activity),
+                    'can_reject' => $this->canUserReject($activity),
                     'can_return_to_draft' => $this->canUserReturnToDraft($activity),
                 ];
             })->values()->toArray();
@@ -127,6 +126,7 @@ class ProjectActivityController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Error loading project activities via AJAX', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => 'Failed to load'], 500);
         }
     }
@@ -216,7 +216,7 @@ class ProjectActivityController extends Controller
             return redirect()->route('admin.projectActivity.show', [
                 $projectId,
                 $fiscalYearId,
-                $currentVersion
+                $currentVersion,
             ]);
         }
 
@@ -224,7 +224,7 @@ class ProjectActivityController extends Controller
             return redirect()->route('admin.projectActivity.show', [
                 $projectId,
                 $fiscalYearId,
-                $currentVersion
+                $currentVersion,
             ]);
         }
 
@@ -252,14 +252,14 @@ class ProjectActivityController extends Controller
     // CREATION
     // ============================================================
 
-    public function create(Request $request): View | RedirectResponse
+    public function create(Request $request): View|RedirectResponse
     {
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $user = Auth::user();
         $currentFiscalYear = FiscalYear::currentFiscalYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             abort(404, 'No active fiscal year available.');
         }
 
@@ -286,12 +286,11 @@ class ProjectActivityController extends Controller
         $selectedFiscalYearId = $currentFiscalYear->id;
         $previousFiscalYearId = $selectedFiscalYearId - 1;
 
-        $projectOptions = $availableProjects->map(fn(Project $project) => [
+        $projectOptions = $availableProjects->map(fn (Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
             'selected' => $project->id === $selectedProjectId,
         ])->toArray();
-
 
         $capitalActivities = collect();
         $recurrentActivities = collect();
@@ -328,7 +327,7 @@ class ProjectActivityController extends Controller
         abort_if(Gate::denies('projectActivity_create'), 403);
 
         $validated = $request->validate([
-            'project_id'     => 'required|integer',
+            'project_id' => 'required|integer',
             'fiscal_year_id' => 'required|integer',
         ]);
 
@@ -343,8 +342,8 @@ class ProjectActivityController extends Controller
             DB::commit();
 
             return response()->json([
-                'success'  => true,
-                'message'  => 'Project activities saved successfully.',
+                'success' => true,
+                'message' => 'Project activities saved successfully.',
                 'redirect' => route('admin.projectActivity.index'),
             ]);
         } catch (StructuralChangeRequiresConfirmationException $e) {
@@ -353,8 +352,8 @@ class ProjectActivityController extends Controller
 
             Log::warning('Structure change requires confirmation', [
                 'project_id' => $request->project_id,
-                'message'    => $e->getMessage(),
-                'is_ajax'    => $request->ajax(),
+                'message' => $e->getMessage(),
+                'is_ajax' => $request->ajax(),
             ]);
 
             return response()->json([
@@ -377,7 +376,6 @@ class ProjectActivityController extends Controller
         }
     }
 
-
     // ============================================================
     // EDITING
     // ============================================================
@@ -398,14 +396,14 @@ class ProjectActivityController extends Controller
         }
 
         $user = Auth::user();
-        if (!$user->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER)) {
+        if (! $user->roles->pluck('id')->contains(\App\Models\Role::PROJECT_USER)) {
             abort(403, 'Only project users can edit draft activities.');
         }
 
         $projects = Auth::user()->projects;
         $fiscalYears = FiscalYear::getFiscalYearOptions();
 
-        $projectOptions = $projects->map(fn(Project $project) => [
+        $projectOptions = $projects->map(fn (Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
         ])->toArray();
@@ -427,7 +425,7 @@ class ProjectActivityController extends Controller
         ));
     }
 
-    public function update(UpdateProjectActivityRequest $request, int $projectId, int $fiscalYearId): RedirectResponse | JsonResponse
+    public function update(UpdateProjectActivityRequest $request, int $projectId, int $fiscalYearId): RedirectResponse|JsonResponse
     {
         abort_if(Gate::denies('projectActivity_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
@@ -457,7 +455,7 @@ class ProjectActivityController extends Controller
 
             return back()
                 ->withInput()
-                ->withErrors(['error' => 'Failed to save: ' . $e->getMessage()]);
+                ->withErrors(['error' => 'Failed to save: '.$e->getMessage()]);
         }
     }
 
@@ -483,7 +481,7 @@ class ProjectActivityController extends Controller
 
             // 1. Authorization Check
             $project = Auth::user()->projects()->find($activity->project_id);
-            if (!$project) {
+            if (! $project) {
                 return response()->json(['error' => 'Unauthorized: No access to project for this activity'], 403);
             }
 
@@ -498,7 +496,7 @@ class ProjectActivityController extends Controller
             // 2. Find all Definition IDs (Parent + Descendants)
             $definitionIds = ProjectActivityDefinition::where('project_id', $activity->project_id)
                 ->where('expenditure_id', $activity->expenditure_id)
-                ->where('sort_index', 'like', $activity->sort_index . '%')
+                ->where('sort_index', 'like', $activity->sort_index.'%')
                 ->pluck('id');
 
             // 3. HARD DELETE PLANS
@@ -522,11 +520,12 @@ class ProjectActivityController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('DeleteRow Error: ' . $e->getMessage(), [
+            Log::error('DeleteRow Error: '.$e->getMessage(), [
                 'id' => $id,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            return response()->json(['error' => 'Failed to delete: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Failed to delete: '.$e->getMessage()], 500);
         }
     }
 
@@ -542,12 +541,12 @@ class ProjectActivityController extends Controller
         ]);
 
         $project = Auth::user()->projects->find($validated['project_id']);
-        if (!$project) {
+        if (! $project) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $currentFiscalYear = FiscalYear::currentFiscalYear();
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return response()->json(['error' => 'No active fiscal year'], 400);
         }
 
@@ -583,7 +582,6 @@ class ProjectActivityController extends Controller
     {
         abort_if(Gate::denies('projectActivity_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-
         $validated = $request->validate([
             'project_id' => 'required|integer|exists:projects,id',
             'expenditure_id' => 'required|integer|in:1,2',
@@ -594,7 +592,7 @@ class ProjectActivityController extends Controller
         $expenditureId = (int) $validated['expenditure_id'];
         $parentId = $validated['parent_id'] !== null ? (int) $validated['parent_id'] : null;
 
-        if (!Auth::user()->projects()->where('id', $projectId)->exists()) {
+        if (! Auth::user()->projects()->where('id', $projectId)->exists()) {
             return response()->json(['error' => 'Unauthorized: No access to project'], 403);
         }
 
@@ -609,7 +607,7 @@ class ProjectActivityController extends Controller
 
                 if ($parent->depth >= 2) {
                     return response()->json([
-                        'error' => 'Maximum depth (2 levels) reached. Cannot add sub-rows beyond level 2.'
+                        'error' => 'Maximum depth (2 levels) reached. Cannot add sub-rows beyond level 2.',
                     ], 400);
                 }
             }
@@ -633,12 +631,12 @@ class ProjectActivityController extends Controller
 
                 if ($hasPlanInOtherFY) {
                     return response()->json([
-                        'error' => 'Cannot add activity: Plans already exist in other fiscal years for this version.'
+                        'error' => 'Cannot add activity: Plans already exist in other fiscal years for this version.',
                     ], 403);
                 }
             }
 
-            $previousVersion = $currentVersion > 1 ? $currentVersion - 1 : NULL;
+            $previousVersion = $currentVersion > 1 ? $currentVersion - 1 : null;
 
             $sortIndex = $this->calculateNextIndex($projectId, $expenditureId, $parentId);
             $depth = substr_count($sortIndex, '.');
@@ -700,6 +698,7 @@ class ProjectActivityController extends Controller
             return $activities->map(function (ProjectActivityDefinition $activity) {
                 $activity->previous_total_expense = 0.0;
                 $activity->previous_completed_quantity = 0.0;
+
                 return $activity;
             });
         }
@@ -758,7 +757,7 @@ class ProjectActivityController extends Controller
 
     private function calculateNextIndex(int $projectId, int $expenditureId, ?int $parentId): string
     {
-        $parentId = $parentId !== null ? (int)$parentId : null;
+        $parentId = $parentId !== null ? (int) $parentId : null;
         if ($parentId === null) {
             // 1. Get all indices for this level
             $indices = ProjectActivityDefinition::where('project_id', $projectId)
@@ -771,7 +770,7 @@ class ProjectActivityController extends Controller
             sort($indices, SORT_NUMERIC);
 
             // 3. Get the highest value
-            $max = !empty($indices) ? (int) end($indices) : 0;
+            $max = ! empty($indices) ? (int) end($indices) : 0;
 
             // 4. Return next
             return (string) ($max + 1);
@@ -799,7 +798,7 @@ class ProjectActivityController extends Controller
             }
         }
 
-        return $parentPrefix . '.' . ($maxChildNum + 1);
+        return $parentPrefix.'.'.($maxChildNum + 1);
     }
 
     private function reIndexAfterDeletion(int $projectId, int $expenditureId, ?int $parentId, string $deletedSortIndex): void
@@ -828,7 +827,9 @@ class ProjectActivityController extends Controller
             }
         } else {
             $parent = ProjectActivityDefinition::find($parentId);
-            if (!$parent) return;
+            if (! $parent) {
+                return;
+            }
 
             // 1. Get children
             $siblings = ProjectActivityDefinition::where('project_id', $projectId)
@@ -842,7 +843,7 @@ class ProjectActivityController extends Controller
             $newIndex = 1;
             foreach ($siblings as $sibling) {
                 $oldIndex = $sibling->sort_index;
-                $newSortIndex = $parent->sort_index . '.' . $newIndex;
+                $newSortIndex = $parent->sort_index.'.'.$newIndex;
 
                 if ($oldIndex !== $newSortIndex) {
                     $sibling->sort_index = $newSortIndex;
@@ -858,11 +859,11 @@ class ProjectActivityController extends Controller
     {
         $descendants = ProjectActivityDefinition::where('project_id', $projectId)
             ->where('expenditure_id', $expenditureId)
-            ->where('sort_index', 'like', $oldPrefix . '.%')
+            ->where('sort_index', 'like', $oldPrefix.'.%')
             ->get();
 
         foreach ($descendants as $descendant) {
-            $descendant->sort_index = preg_replace('/^' . preg_quote($oldPrefix, '/') . '/', $newPrefix, $descendant->sort_index);
+            $descendant->sort_index = preg_replace('/^'.preg_quote($oldPrefix, '/').'/', $newPrefix, $descendant->sort_index);
             $descendant->depth = substr_count($descendant->sort_index, '.');
             $descendant->save();
         }
@@ -927,29 +928,29 @@ class ProjectActivityController extends Controller
                 ->route('admin.projectActivity.index')
                 ->with('success', 'Excel uploaded and processed successfully!');
         } catch (StructuralChangeRequiresConfirmationException $e) {
-            if (!$uploadedFile->isValid()) {
+            if (! $uploadedFile->isValid()) {
                 throw new \Exception('Invalid file upload. Please try again.');
             }
 
             $originalName = $uploadedFile->getClientOriginalName();
             $extension = $uploadedFile->getClientOriginalExtension() ?: 'xlsx';
-            $safeFilename = 'temp_upload_' . time() . '_' . Str::random(16) . '.' . $extension;
+            $safeFilename = 'temp_upload_'.time().'_'.Str::random(16).'.'.$extension;
             $tempDirectory = storage_path('app/temp/excel-uploads');
-            $fullTempPath = $tempDirectory . DIRECTORY_SEPARATOR . $safeFilename;
+            $fullTempPath = $tempDirectory.DIRECTORY_SEPARATOR.$safeFilename;
 
-            if (!is_dir($tempDirectory)) {
+            if (! is_dir($tempDirectory)) {
                 mkdir($tempDirectory, 0755, true);
             }
 
             $tmpName = $uploadedFile->getRealPath();
-            if (!move_uploaded_file($tmpName, $fullTempPath)) {
+            if (! move_uploaded_file($tmpName, $fullTempPath)) {
                 throw new \Exception('Failed to save uploaded file. Please try again.');
             }
 
             $mime = $uploadedFile->getClientMimeType()
                 ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-            $relativePath = 'temp/excel-uploads/' . $safeFilename;
+            $relativePath = 'temp/excel-uploads/'.$safeFilename;
 
             $tempUpload = TempUpload::create([
                 'path' => $relativePath,
@@ -968,7 +969,7 @@ class ProjectActivityController extends Controller
             $message = $e->getMessage();
 
             if (str_contains($message, 'उदाहरण') || str_contains($message, 'क्रियाकलापमा उपयोगी जानकारी')) {
-                $message = 'टेम्प्लेटमा रहेका उदाहरणहरू हटाउनुहोस् र वास्तविक जानकारी भर्नुहोस्। ' . $message;
+                $message = 'टेम्प्लेटमा रहेका उदाहरणहरू हटाउनुहोस् र वास्तविक जानकारी भर्नुहोस्। '.$message;
             }
 
             return back()->withInput()->with('error', $message);
@@ -981,14 +982,15 @@ class ProjectActivityController extends Controller
 
         $tempId = session('temp_upload_id');
 
-        if (!$tempId) {
+        if (! $tempId) {
             return back()->withErrors(['excel_file' => 'No pending upload found.']);
         }
 
         $tempUpload = TempUpload::find($tempId);
 
-        if (!$tempUpload) {
+        if (! $tempUpload) {
             session()->forget(['temp_upload_id', 'temp_original_name']);
+
             return back()->withErrors(['excel_file' => 'Upload session expired. Please try again.']);
         }
 
@@ -996,7 +998,7 @@ class ProjectActivityController extends Controller
             $file = $tempUpload->toUploadedFile();
             $this->excelService->processUpload($file, force: true);
 
-            $fullPath = storage_path('app/' . $tempUpload->path);
+            $fullPath = storage_path('app/'.$tempUpload->path);
             if (file_exists($fullPath)) {
                 unlink($fullPath);
             }
@@ -1008,7 +1010,7 @@ class ProjectActivityController extends Controller
                 ->route('admin.projectActivity.index')
                 ->with('success', 'New version created successfully!');
         } catch (\Exception $e) {
-            $fullPath = storage_path('app/' . $tempUpload->path);
+            $fullPath = storage_path('app/'.$tempUpload->path);
             if (file_exists($fullPath)) {
                 unlink($fullPath);
             }
@@ -1016,7 +1018,7 @@ class ProjectActivityController extends Controller
             session()->forget(['temp_upload_id', 'temp_original_name']);
 
             return back()->withErrors([
-                'excel_file' => 'Processing failed: ' . $e->getMessage()
+                'excel_file' => 'Processing failed: '.$e->getMessage(),
             ]);
         }
     }
@@ -1027,7 +1029,7 @@ class ProjectActivityController extends Controller
             $tempUpload = TempUpload::find(session('temp_upload_id'));
 
             if ($tempUpload) {
-                $fullPath = storage_path('app/' . $tempUpload->path);
+                $fullPath = storage_path('app/'.$tempUpload->path);
                 if (file_exists($fullPath)) {
                     unlink($fullPath);
                 }
@@ -1048,7 +1050,7 @@ class ProjectActivityController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->roles->pluck('id')->contains(Role::PROJECT_USER)) {
+        if (! $user->roles->pluck('id')->contains(Role::PROJECT_USER)) {
             abort(403, 'Only project users can submit plans for review.');
         }
 
@@ -1087,7 +1089,7 @@ class ProjectActivityController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->roles->pluck('id')->contains(Role::DIRECTORATE_USER)) {
+        if (! $user->roles->pluck('id')->contains(Role::DIRECTORATE_USER)) {
             abort(403, 'Only directorate users can mark as reviewed.');
         }
 
@@ -1125,7 +1127,7 @@ class ProjectActivityController extends Controller
         $user = Auth::user();
         $isAdmin = $user->roles->pluck('id')->intersect([Role::ADMIN, Role::SUPERADMIN])->isNotEmpty();
 
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             abort(403, 'Only administrators can approve.');
         }
 
@@ -1172,7 +1174,7 @@ class ProjectActivityController extends Controller
         $user = Auth::user();
 
         $allowedRoles = [Role::DIRECTORATE_USER, Role::ADMIN, Role::SUPERADMIN];
-        if (!$user->roles->pluck('id')->intersect($allowedRoles)->count()) {
+        if (! $user->roles->pluck('id')->intersect($allowedRoles)->count()) {
             abort(403, 'You are not authorized to reject this program.');
         }
 
@@ -1215,7 +1217,7 @@ class ProjectActivityController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->roles->pluck('id')->contains(Role::SUPERADMIN)) {
+        if (! $user->roles->pluck('id')->contains(Role::SUPERADMIN)) {
             abort(403, 'Only Superadmin can return an approved program to draft.');
         }
 
@@ -1304,7 +1306,7 @@ class ProjectActivityController extends Controller
 
         $fiscalYearId = $this->resolveFiscalYearId($request->integer('fiscal_year_id'));
 
-        if (!$fiscalYearId) {
+        if (! $fiscalYearId) {
             return response()->json([
                 'success' => false,
                 'message' => 'No fiscal year selected or available.',
@@ -1317,7 +1319,7 @@ class ProjectActivityController extends Controller
             $fiscalYearId
         );
 
-        if (!$budgetData) {
+        if (! $budgetData) {
             return response()->json([
                 'success' => false,
                 'message' => 'No budget found.',
@@ -1346,7 +1348,7 @@ class ProjectActivityController extends Controller
 
     private function formatActivitiesForTable($activities): array
     {
-        return $activities->map(fn($activity) => [
+        return $activities->map(fn ($activity) => [
             'project_id' => $activity->project_id,
             'fiscal_year_id' => $activity->fiscal_year_id,
             'project' => $activity->project_title ?? 'N/A',
@@ -1378,6 +1380,6 @@ class ProjectActivityController extends Controller
         $safeProject = preg_replace('/[\/\\\\:*?"<>|]/', '_', $projectTitle);
         $safeFiscalYear = preg_replace('/[\/\\\\:*?"<>|]/', '_', $fiscalYearTitle);
 
-        return 'AnnualProgram_' . $safeProject . '_' . $safeFiscalYear . '.xlsx';
+        return 'AnnualProgram_'.$safeProject.'_'.$safeFiscalYear.'.xlsx';
     }
 }

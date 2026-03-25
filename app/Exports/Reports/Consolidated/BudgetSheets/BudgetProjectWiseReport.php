@@ -6,30 +6,24 @@ namespace App\Exports\Reports\Consolidated\BudgetSheets;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithCustomStartCell;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class BudgetProjectWiseReport implements
-    FromCollection,
-    WithHeadings,
-    WithCustomStartCell,
-    WithStyles,
-    WithColumnWidths,
-    WithEvents,
-    WithTitle
+class BudgetProjectWiseReport implements FromCollection, WithColumnWidths, WithCustomStartCell, WithEvents, WithHeadings, WithStyles, WithTitle
 {
     protected Collection $projects;
+
     protected string $fiscalYear;
 
     public function __construct(Collection $projects, string $fiscalYear = '२०८१/८२')
@@ -55,22 +49,24 @@ class BudgetProjectWiseReport implements
 
     public function collection(): Collection
     {
-        if ($this->projects->isEmpty()) return collect([]);
+        if ($this->projects->isEmpty()) {
+            return collect([]);
+        }
 
-        $rows    = collect();
-        $serial  = 1;       // क, ख, ग... for budget heading
+        $rows = collect();
+        $serial = 1;       // क, ख, ग... for budget heading
         $overall = 1;       // 1, 2, 3... overall project serial (column A)
 
         $this->projects
             ->groupBy('budget_heading')
             ->sortKeys()
             ->each(function ($byHeading, $headingTitle) use (&$rows, &$serial, &$overall) {
-                $firstItem    = $byHeading->first();
-                $headingCode  = $firstItem['budget_heading_code'] ?? '';
+                $firstItem = $byHeading->first();
+                $headingCode = $firstItem['budget_heading_code'] ?? '';
                 $headingDescription = $firstItem['budget_heading_description']
                     ?? $firstItem['description']
                     ?? $headingTitle;
-                $totals       = $this->sumGroup($byHeading);
+                $totals = $this->sumGroup($byHeading);
 
                 // ── Budget Heading Row ──────────────────────────────────────────
                 $rows->push([
@@ -78,7 +74,7 @@ class BudgetProjectWiseReport implements
                     '',                                         // B: empty
                     $this->toNepaliAlphabet($serial++),         // C: क, ख, ग...
                     $headingDescription,        // D: heading title
-                    $headingCode . ' ' . $headingTitle,         // E: heading code
+                    $headingCode.' '.$headingTitle,         // E: heading code
                     $this->toNepaliNumber($totals['gov_share']),
                     $this->toNepaliNumber($totals['gov_loan']),
                     $this->toNepaliNumber($totals['foreign_loan']),
@@ -95,8 +91,8 @@ class BudgetProjectWiseReport implements
                     ->groupBy('directorate')
                     ->sortKeys()
                     ->each(function ($group, $directorateTitle) use (&$rows, &$overall) {
-                        $dTotals         = $this->sumGroup($group);
-                        $innerSerial     = 1; // 1, 2, 3... within directorate (col C)
+                        $dTotals = $this->sumGroup($group);
+                        $innerSerial = 1; // 1, 2, 3... within directorate (col C)
 
                         // Directorate summary row
                         $rows->push([
@@ -173,9 +169,9 @@ class BudgetProjectWiseReport implements
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $sheet    = $event->sheet->getDelegate();
+                $sheet = $event->sheet->getDelegate();
                 $rowCount = $this->collection()->count();
-                $lastRow  = 6 + $rowCount;
+                $lastRow = 6 + $rowCount;
 
                 /* ── PAGE SETUP ─────────────────────────────────────────────── */
                 $sheet->getPageSetup()
@@ -236,10 +232,10 @@ class BudgetProjectWiseReport implements
 
                 /* ── HEADER STYLING ─────────────────────────────────────────── */
                 $sheet->getStyle('A4:N6')->applyFromArray([
-                    'font'      => ['bold' => true, 'size' => 11, 'color' => ['argb' => Color::COLOR_WHITE]],
-                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF4F81BD']],
+                    'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => Color::COLOR_WHITE]],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF4F81BD']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-                    'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                 ]);
 
                 /* ── DATA ROW STYLING ───────────────────────────────────────── */
@@ -255,26 +251,26 @@ class BudgetProjectWiseReport implements
                         $valC = $sheet->getCell("C{$row}")->getValue();
 
                         // Budget Heading Row: A and B empty, C has alphabet
-                        if (empty($valA) && empty($valC) && !empty($sheet->getCell("D{$row}")->getValue())) {
+                        if (empty($valA) && empty($valC) && ! empty($sheet->getCell("D{$row}")->getValue())) {
                             // Directorate Row
                             $sheet->getStyle("A{$row}:N{$row}")->applyFromArray([
-                                'font'    => ['bold' => true, 'size' => 11],
-                                'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE2EFDA']],
+                                'font' => ['bold' => true, 'size' => 11],
+                                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE2EFDA']],
                                 'borders' => [
-                                    'top'    => ['borderStyle' => Border::BORDER_MEDIUM],
+                                    'top' => ['borderStyle' => Border::BORDER_MEDIUM],
                                     'bottom' => ['borderStyle' => Border::BORDER_MEDIUM],
                                 ],
                                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                             ]);
                             $sheet->getStyle("D{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setIndent(1);
                             $sheet->getStyle("F{$row}:N{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                        } elseif (!empty($valC) && empty($valA)) {
+                        } elseif (! empty($valC) && empty($valA)) {
                             // Budget Heading Row (has alphabet in C, no overall serial in A)
                             $sheet->getStyle("A{$row}:N{$row}")->applyFromArray([
-                                'font'    => ['bold' => true],
-                                'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFBDD7EE']],
+                                'font' => ['bold' => true],
+                                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFBDD7EE']],
                                 'borders' => [
-                                    'top'    => ['borderStyle' => Border::BORDER_MEDIUM],
+                                    'top' => ['borderStyle' => Border::BORDER_MEDIUM],
                                     'bottom' => ['borderStyle' => Border::BORDER_THIN],
                                 ],
                                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
@@ -299,14 +295,14 @@ class BudgetProjectWiseReport implements
     private function toNepaliNumber(int|float|string $number): string
     {
         // Check if the value is numeric, otherwise default to 0
-        if (!is_numeric($number)) {
+        if (! is_numeric($number)) {
             $number = 0;
         }
 
         $digits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
 
         // Cast to string so the regex works, and convert digits
-        return preg_replace_callback('/\d/', fn($m) => $digits[$m[0]], (string) $number);
+        return preg_replace_callback('/\d/', fn ($m) => $digits[$m[0]], (string) $number);
     }
 
     private function toNepaliAlphabet(int $index): string
@@ -346,19 +342,20 @@ class BudgetProjectWiseReport implements
             'स',
             'ह',
         ];
+
         return $alpha[$index - 1] ?? (string) $index;
     }
 
     private function sumGroup(Collection $group): array
     {
-        return $group->reduce(fn($carry, $item) => [
-            'gov_share'    => $carry['gov_share']    + ($item['gov_share'] ?? 0),
-            'gov_loan'     => $carry['gov_loan']     + ($item['gov_loan'] ?? 0),
+        return $group->reduce(fn ($carry, $item) => [
+            'gov_share' => $carry['gov_share'] + ($item['gov_share'] ?? 0),
+            'gov_loan' => $carry['gov_loan'] + ($item['gov_loan'] ?? 0),
             'foreign_loan' => $carry['foreign_loan'] + ($item['foreign_loan'] ?? 0),
-            'grant'        => $carry['grant']        + ($item['grant'] ?? 0),
-            'total_lmbis'  => $carry['total_lmbis']  + ($item['total_lmbis'] ?? 0),
-            'nea_budget'   => $carry['nea_budget']   + ($item['nea_budget'] ?? 0),
-            'grand_total'  => $carry['grand_total']  + ($item['grand_total'] ?? 0),
+            'grant' => $carry['grant'] + ($item['grant'] ?? 0),
+            'total_lmbis' => $carry['total_lmbis'] + ($item['total_lmbis'] ?? 0),
+            'nea_budget' => $carry['nea_budget'] + ($item['nea_budget'] ?? 0),
+            'grand_total' => $carry['grand_total'] + ($item['grand_total'] ?? 0),
         ], array_fill_keys(['gov_share', 'gov_loan', 'foreign_loan', 'grant', 'total_lmbis', 'nea_budget', 'grand_total'], 0));
     }
 }

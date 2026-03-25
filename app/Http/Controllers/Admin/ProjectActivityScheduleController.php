@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\ScheduleProgressUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Directorate;
 use App\Models\Project;
-use App\Models\ProjectType;
 use App\Models\ProjectActivitySchedule;
 use App\Models\ProjectScheduleDateRevision;
 use App\Models\ProjectScheduleFile;
+use App\Models\ProjectScheduleProgressSnapshot;
+use App\Models\ProjectType;
 use App\Models\Role;
 use App\Services\ProjectScheduleService;
 use App\Trait\RoleBasedAccess;
@@ -18,10 +20,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
-use App\Events\ScheduleProgressUpdated;
 use Illuminate\Support\Facades\Storage;
-use App\Models\ProjectScheduleProgressSnapshot;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProjectActivityScheduleController extends Controller
@@ -61,13 +61,13 @@ class ProjectActivityScheduleController extends Controller
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
             $phaseProgress = $leaves->isEmpty()
                 ? 0
-                : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+                : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
 
             $breakdown[] = [
-                'code'      => $schedule->code,
-                'name'      => $schedule->name,
+                'code' => $schedule->code,
+                'name' => $schedule->name,
                 'weightage' => (float) $schedule->weightage,
-                'progress'  => round($phaseProgress, 2),
+                'progress' => round($phaseProgress, 2),
                 'weighted_contribution' => round(($phaseProgress * $schedule->weightage) / 100, 2),
             ];
         }
@@ -80,7 +80,7 @@ class ProjectActivityScheduleController extends Controller
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
             $phaseProgress = $leaves->isEmpty()
                 ? 0
-                : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+                : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
 
             $totalWeightedProgress += ($phaseProgress * $phaseWeightage);
             $totalWeightage += $phaseWeightage;
@@ -125,19 +125,19 @@ class ProjectActivityScheduleController extends Controller
                                                     ->whereIn('project_schedule_assignments.status', $validStatuses);
                                             })
                                                 ->with([
-                                                    'projects' => fn($qp) => $qp->where('project_id', $project->id)
+                                                    'projects' => fn ($qp) => $qp->where('project_id', $project->id),
                                                 ])
                                                 ->withCount('children');
                                         },
-                                        'projects' => fn($qp) => $qp->where('project_id', $project->id)
+                                        'projects' => fn ($qp) => $qp->where('project_id', $project->id),
                                     ])
                                     ->withCount('children');
                             },
-                            'projects' => fn($qp) => $qp->where('project_id', $project->id)
+                            'projects' => fn ($qp) => $qp->where('project_id', $project->id),
                         ])
                         ->withCount('children');
                 },
-                'projects' => fn($q) => $q->where('project_id', $project->id)
+                'projects' => fn ($q) => $q->where('project_id', $project->id),
             ])
             ->withCount('children')
             ->get();
@@ -158,9 +158,11 @@ class ProjectActivityScheduleController extends Controller
             if ($assignment && in_array($assignment->pivot->status, $validStatuses)) {
                 $progress = (float) ($assignment->pivot->progress ?? 0);
                 $schedule->aggregated_progress = $progress;
+
                 return $progress;
             }
             $schedule->aggregated_progress = 0;
+
             return null;
         }
 
@@ -181,12 +183,14 @@ class ProjectActivityScheduleController extends Controller
             ? round($totalProgress / $validChildCount, 2)
             : 0;
 
-        if ($assignment && !in_array($assignment->pivot->status, $validStatuses)) {
+        if ($assignment && ! in_array($assignment->pivot->status, $validStatuses)) {
             $schedule->aggregated_progress = 0;
+
             return null;
         }
 
         $schedule->aggregated_progress = $aggregatedProgress;
+
         return $aggregatedProgress;
     }
 
@@ -228,7 +232,7 @@ class ProjectActivityScheduleController extends Controller
         $breakdown = [];
         foreach ($topLevel as $schedule) {
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
-            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
 
             $breakdown[] = [
                 'code' => $schedule->code,
@@ -244,7 +248,7 @@ class ProjectActivityScheduleController extends Controller
         foreach ($topLevel as $schedule) {
             $phaseWeightage = (float) $schedule->weightage;
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
-            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
 
             $totalWeightedProgress += ($phaseProgress * $phaseWeightage);
             $totalWeightage += $phaseWeightage;
@@ -257,9 +261,9 @@ class ProjectActivityScheduleController extends Controller
         // --- 2. Top Cards Statistics (Active Only) ---
         $validLeafSchedules = $leafSchedules->whereIn('pivot.status', $validStatuses);
 
-        $completed = $validLeafSchedules->filter(fn($s) => $s->pivot->progress >= 100)->count();
-        $inProgress = $validLeafSchedules->filter(fn($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
-        $notStarted = $validLeafSchedules->filter(fn($s) => $s->pivot->progress == 0)->count();
+        $completed = $validLeafSchedules->filter(fn ($s) => $s->pivot->progress >= 100)->count();
+        $inProgress = $validLeafSchedules->filter(fn ($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
+        $notStarted = $validLeafSchedules->filter(fn ($s) => $s->pivot->progress == 0)->count();
 
         $totalLeaves = $validLeafSchedules->count();
         $totalAllSchedules = $allSchedules->whereIn('pivot.status', $validStatuses)->count();
@@ -273,11 +277,10 @@ class ProjectActivityScheduleController extends Controller
             'completion_rate' => $totalLeaves > 0 ? round(($completed / $totalLeaves) * 100, 2) : 0,
         ];
 
-        $chartCompleted = $leafSchedules->filter(fn($s) => $s->pivot->progress >= 100)->count();
-        $chartInProgress = $leafSchedules->filter(fn($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
-        $chartNotStarted = $leafSchedules->filter(fn($s) => $s->pivot->progress == 0)->count();
+        $chartCompleted = $leafSchedules->filter(fn ($s) => $s->pivot->progress >= 100)->count();
+        $chartInProgress = $leafSchedules->filter(fn ($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
+        $chartNotStarted = $leafSchedules->filter(fn ($s) => $s->pivot->progress == 0)->count();
         $chartTotal = $leafSchedules->count();
-
 
         return view('admin.schedules.dashboard', compact(
             'project',
@@ -345,13 +348,14 @@ class ProjectActivityScheduleController extends Controller
                 ->with('success', "Successfully assigned {$schedules->count()} schedules to project.");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to assign schedules: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to assign schedules: '.$e->getMessage());
         }
     }
 
     public function edit(Project $project, ProjectActivitySchedule $schedule): View
     {
-        if (!$project->activitySchedules->contains($schedule->id)) {
+        if (! $project->activitySchedules->contains($schedule->id)) {
             abort(404, 'Schedule not assigned to this project');
         }
 
@@ -372,7 +376,7 @@ class ProjectActivityScheduleController extends Controller
             ])
             ->first();
 
-        if (!$assignment) {
+        if (! $assignment) {
             abort(404, 'Schedule not assigned to this project');
         }
 
@@ -381,7 +385,7 @@ class ProjectActivityScheduleController extends Controller
 
     public function update(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
-        if (!$project->activitySchedules->contains($schedule->id)) {
+        if (! $project->activitySchedules->contains($schedule->id)) {
             return redirect()->back()->with('error', 'Schedule not found in this project.');
         }
 
@@ -391,7 +395,7 @@ class ProjectActivityScheduleController extends Controller
             $request->filled('progress') &&
             (
                 (is_null($pivotData->start_date) || is_null($pivotData->end_date)) &&
-                (!$request->filled('start_date') || !$request->filled('end_date'))
+                (! $request->filled('start_date') || ! $request->filled('end_date'))
             )
         ) {
             return redirect()->back()
@@ -457,13 +461,13 @@ class ProjectActivityScheduleController extends Controller
 
             $wasCompleted = $pivotData->progress >= 100;
             $nowCompleted = $updateData['progress'] >= 100;
-            $justCompleted = !$wasCompleted && $nowCompleted;
+            $justCompleted = ! $wasCompleted && $nowCompleted;
 
             $project->activitySchedules()->updateExistingPivot($schedule->id, $updateData);
 
             if ((float) $previousProgress != (float) $updateData['progress']) {
                 event(new ScheduleProgressUpdated($project, $schedule, array_merge($updateData, [
-                    'previous_progress' => $previousProgress
+                    'previous_progress' => $previousProgress,
                 ])));
             }
 
@@ -483,7 +487,8 @@ class ProjectActivityScheduleController extends Controller
                 ->with('success', $message);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Failed to update schedule: ' . $e->getMessage());
+
+            return back()->withInput()->with('error', 'Failed to update schedule: '.$e->getMessage());
         }
     }
 
@@ -497,7 +502,7 @@ class ProjectActivityScheduleController extends Controller
                 'description',
                 'level',
                 'weightage',
-                'parent_id'
+                'parent_id',
             ])
             ->withPivot([
                 'progress',
@@ -521,14 +526,14 @@ class ProjectActivityScheduleController extends Controller
             ->where('pivot.status', 'active');
 
         $validLeaves = $activeLeaves->filter(function ($schedule) {
-            return !empty($schedule->pivot->start_date) && !empty($schedule->pivot->end_date);
+            return ! empty($schedule->pivot->start_date) && ! empty($schedule->pivot->end_date);
         });
 
         $sortedLeaves = $validLeaves->sortBy(function ($schedule) {
             $parts = explode('.', $schedule->code);
 
             return array_map(function ($part) {
-                return is_numeric($part) ? (int)$part : $part;
+                return is_numeric($part) ? (int) $part : $part;
             }, $parts);
         });
 
@@ -575,7 +580,7 @@ class ProjectActivityScheduleController extends Controller
                     ->where('schedule_id', $scheduleData['id'])
                     ->first();
 
-                if (!$assignment || ($assignment->status ?? 'active') !== 'active') {
+                if (! $assignment || ($assignment->status ?? 'active') !== 'active') {
                     continue;
                 }
 
@@ -616,7 +621,7 @@ class ProjectActivityScheduleController extends Controller
                     if ((float) $previousProgress != (float) $updateData['progress']) {
                         $schedule = ProjectActivitySchedule::find($scheduleData['id']);
                         event(new ScheduleProgressUpdated($project, $schedule, array_merge($updateData, [
-                            'previous_progress' => $previousProgress
+                            'previous_progress' => $previousProgress,
                         ])));
                     }
                     $updatedCount++;
@@ -632,9 +637,10 @@ class ProjectActivityScheduleController extends Controller
                 ->with('success', "Successfully updated {$updatedCount} activities.");
         } catch (\Exception $e) {
             DB::rollBack();
+
             return back()
                 ->withInput()
-                ->with('error', 'Failed to update: ' . $e->getMessage());
+                ->with('error', 'Failed to update: '.$e->getMessage());
         }
     }
 
@@ -735,6 +741,7 @@ class ProjectActivityScheduleController extends Controller
     public function deleteDateRevision(Project $project, ProjectScheduleDateRevision $revision): RedirectResponse
     {
         $revision->delete();
+
         return back()->with('success', 'Date revision deleted successfully');
     }
 
@@ -758,7 +765,7 @@ class ProjectActivityScheduleController extends Controller
         $startDate = $schedules->min('pivot.start_date');
         $endDate = $schedules->max('pivot.end_date');
 
-        if (!$startDate || !$endDate) {
+        if (! $startDate || ! $endDate) {
             return response()->json([
                 'dates' => [],
                 'planned' => [],
@@ -800,7 +807,7 @@ class ProjectActivityScheduleController extends Controller
                 ->with(['parent', 'children'])
                 ->get();
 
-            $leafSchedules = $allSchedules->filter(fn($s) => $s->isLeaf());
+            $leafSchedules = $allSchedules->filter(fn ($s) => $s->isLeaf());
 
             $data = $leafSchedules->map(function ($schedule) use ($project) {
                 $revisions = ProjectScheduleDateRevision::where('project_id', $project->id)
@@ -815,12 +822,12 @@ class ProjectActivityScheduleController extends Controller
                     'parent' => $schedule->parent ? $schedule->parent->name : null,
                     'planned_start' => $schedule->pivot->start_date,
                     'planned_end' => $schedule->pivot->end_date,
-                    'actual_dates' => $revisions->map(fn($rev) => [
+                    'actual_dates' => $revisions->map(fn ($rev) => [
                         'start' => $rev->actual_start_date,
                         'end' => $rev->actual_end_date,
                         'reason' => $rev->revision_reason,
                     ]),
-                    'progress' => (float)$schedule->pivot->progress,
+                    'progress' => (float) $schedule->pivot->progress,
                 ];
             })->values();
 
@@ -836,7 +843,7 @@ class ProjectActivityScheduleController extends Controller
             $schedules = $project->activitySchedules()
                 ->with('children')
                 ->get()
-                ->filter(fn($s) => $s->isLeaf())
+                ->filter(fn ($s) => $s->isLeaf())
                 ->sortBy('code');
 
             if ($schedules->isEmpty()) {
@@ -848,8 +855,8 @@ class ProjectActivityScheduleController extends Controller
             $previousPhase = null;
 
             foreach ($schedules as $schedule) {
-                $cleanId = 'task_' . str_replace(['.', ' ', '/', '\\'], '_', (string)$schedule->code);
-                $currentPhase = explode('.', (string)$schedule->code)[0];
+                $cleanId = 'task_'.str_replace(['.', ' ', '/', '\\'], '_', (string) $schedule->code);
+                $currentPhase = explode('.', (string) $schedule->code)[0];
 
                 $start = $schedule->pivot->actual_start_date
                     ?? $schedule->pivot->start_date
@@ -879,7 +886,7 @@ class ProjectActivityScheduleController extends Controller
                     $dependencies = $previousTaskId;
                 }
 
-                $progress = (int)round((float)($schedule->pivot->progress ?? 0));
+                $progress = (int) round((float) ($schedule->pivot->progress ?? 0));
                 $progress = max(0, min(100, $progress));
 
                 $customClass = 'normal';
@@ -893,12 +900,12 @@ class ProjectActivityScheduleController extends Controller
 
                 $tasks[] = [
                     'id' => $cleanId,
-                    'name' => (string)$schedule->code . ': ' . $schedule->name,
+                    'name' => (string) $schedule->code.': '.$schedule->name,
                     'start' => $start,
                     'end' => $end,
                     'progress' => $progress,
                     'dependencies' => $dependencies,
-                    'custom_class' => $customClass
+                    'custom_class' => $customClass,
                 ];
 
                 $previousTaskId = $cleanId;
@@ -911,9 +918,9 @@ class ProjectActivityScheduleController extends Controller
                     'name' => $task['name'] ?? 'Unnamed Task',
                     'start' => $task['start'] ?? now()->format('Y-m-d'),
                     'end' => $task['end'] ?? now()->addDay()->format('Y-m-d'),
-                    'progress' => isset($task['progress']) ? (int)$task['progress'] : 0,
+                    'progress' => isset($task['progress']) ? (int) $task['progress'] : 0,
                     'dependencies' => $task['dependencies'] ?? '',
-                    'custom_class' => $task['custom_class'] ?? 'normal'
+                    'custom_class' => $task['custom_class'] ?? 'normal',
                 ];
             }, $tasks);
 
@@ -921,7 +928,7 @@ class ProjectActivityScheduleController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to generate Gantt data',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -935,11 +942,15 @@ class ProjectActivityScheduleController extends Controller
         $schedules = $project->leafSchedules()->get();
         $totalWeight = $schedules->count();
 
-        if ($totalWeight === 0) return 0;
+        if ($totalWeight === 0) {
+            return 0;
+        }
 
         $progressSum = 0;
         foreach ($schedules as $schedule) {
-            if (!$schedule->pivot->start_date || !$schedule->pivot->end_date) continue;
+            if (! $schedule->pivot->start_date || ! $schedule->pivot->end_date) {
+                continue;
+            }
 
             $start = \Carbon\Carbon::parse($schedule->pivot->start_date);
             $end = \Carbon\Carbon::parse($schedule->pivot->end_date);
@@ -963,7 +974,9 @@ class ProjectActivityScheduleController extends Controller
         $schedules = $project->leafSchedules()->get();
         $totalWeight = $schedules->count();
 
-        if ($totalWeight === 0) return 0;
+        if ($totalWeight === 0) {
+            return 0;
+        }
 
         $progressSum = 0;
         foreach ($schedules as $schedule) {
@@ -973,13 +986,15 @@ class ProjectActivityScheduleController extends Controller
                 ->latest('created_at')
                 ->first();
 
-            if (!$revision) {
+            if (! $revision) {
                 $progressSum += 0;
+
                 continue;
             }
 
-            if (!$revision->actual_start_date || !$revision->actual_end_date) {
+            if (! $revision->actual_start_date || ! $revision->actual_end_date) {
                 $progressSum += 0;
+
                 continue;
             }
 
@@ -1038,7 +1053,7 @@ class ProjectActivityScheduleController extends Controller
                     ])
                         ->withPivot(['progress', 'status'])
                         ->withCount('children');
-                }
+                },
             ])
             ->get();
 
@@ -1088,7 +1103,7 @@ class ProjectActivityScheduleController extends Controller
             ->orderBy('title')
             ->get();
 
-        $projectList = $allProjects->map(fn($p) => [
+        $projectList = $allProjects->map(fn ($p) => [
             'id' => $p->id,
             'title' => $p->title,
             'directorate_id' => $p->directorate_id,
@@ -1221,7 +1236,7 @@ class ProjectActivityScheduleController extends Controller
                             'children.children:id,parent_id',
                         ])
                         ->withCount('children');
-                }
+                },
             ])
             ->get();
 
@@ -1271,13 +1286,13 @@ class ProjectActivityScheduleController extends Controller
                 ->whereIn('pivot.status', $validStatuses)
                 ->count();
 
-            $leafSchedules = $allSchedules->filter(fn($s) => $s->children_count === 0);
+            $leafSchedules = $allSchedules->filter(fn ($s) => $s->children_count === 0);
             $validLeafSchedules = $leafSchedules->whereIn('pivot.status', $validStatuses);
 
             $project->cached_leaf_total = $validLeafSchedules->count();
 
             $project->cached_leaf_completed = $validLeafSchedules->filter(
-                fn($s) => $s->pivot->progress >= 100
+                fn ($s) => $s->pivot->progress >= 100
             )->count();
         }
 
@@ -1358,7 +1373,7 @@ class ProjectActivityScheduleController extends Controller
                     ])
                         ->withPivot(['progress', 'status'])
                         ->withCount('children');
-                }
+                },
             ])
             ->get();
 
@@ -1374,7 +1389,7 @@ class ProjectActivityScheduleController extends Controller
                 $leaves = $this->collectLeavesFromCollection($schedule, $activeSchedules);
                 $phaseProgress = $leaves->isEmpty()
                     ? 0
-                    : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+                    : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
 
                 $phases[] = [
                     'code' => $schedule->code,
@@ -1401,9 +1416,9 @@ class ProjectActivityScheduleController extends Controller
         $roleIds = $user->roles()->pluck('id')->toArray();
 
         if (
-            !in_array(Role::SUPERADMIN, $roleIds) &&
-            !in_array(Role::ADMIN, $roleIds) &&
-            !in_array(Role::DIRECTORATE_USER, $roleIds)
+            ! in_array(Role::SUPERADMIN, $roleIds) &&
+            ! in_array(Role::ADMIN, $roleIds) &&
+            ! in_array(Role::DIRECTORATE_USER, $roleIds)
         ) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
@@ -1426,7 +1441,7 @@ class ProjectActivityScheduleController extends Controller
                 ];
             }
 
-            $totalProgress = $projects->sum(fn($p) => $p->calculatePhysicalProgress());
+            $totalProgress = $projects->sum(fn ($p) => $p->calculatePhysicalProgress());
 
             return [
                 'directorate' => $directorate->title,
@@ -1457,7 +1472,7 @@ class ProjectActivityScheduleController extends Controller
                     ])
                         ->withPivot(['progress', 'status'])
                         ->withCount('children');
-                }
+                },
             ])
             ->get();
 
@@ -1498,7 +1513,7 @@ class ProjectActivityScheduleController extends Controller
                         foreach ($leaves as $leaf) {
                             $assignment = $leaf->projects->firstWhere('id', $projectId);
                             if ($assignment) {
-                                $projectTotal += (float)$assignment->pivot->progress;
+                                $projectTotal += (float) $assignment->pivot->progress;
                                 $leafCount++;
                             }
                         }
@@ -1515,7 +1530,7 @@ class ProjectActivityScheduleController extends Controller
                     'name' => $firstName,
                     'average_progress' => $activeProjectCount > 0
                         ? round($totalPhaseProgress / $activeProjectCount, 1)
-                        : 0
+                        : 0,
                 ];
             })
             ->sortBy('code')
@@ -1554,7 +1569,7 @@ class ProjectActivityScheduleController extends Controller
             $progress = $project->calculatePhysicalProgress();
 
             $completedCount = $project->activitySchedules->filter(function ($schedule) {
-                return (float)$schedule->pivot->progress >= 100;
+                return (float) $schedule->pivot->progress >= 100;
             })->count();
 
             $formatted[] = [
@@ -1607,7 +1622,7 @@ class ProjectActivityScheduleController extends Controller
                 $performance[] = [
                     'title' => $dir->title,
                     'total_projects' => $dirProjectIds->count(),
-                    'average_progress' => (float)$avgProgress
+                    'average_progress' => (float) $avgProgress,
                 ];
             }
         }
@@ -1638,9 +1653,10 @@ class ProjectActivityScheduleController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update order: ' . $e->getMessage(),
+                'message' => 'Failed to update order: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1663,7 +1679,7 @@ class ProjectActivityScheduleController extends Controller
             $errors = [];
 
             $pureParents = $schedules->filter(function ($s) {
-                return !str_contains($s->code, '.');
+                return ! str_contains($s->code, '.');
             });
 
             $childrenWithoutParent = $schedules->filter(function ($s) {
@@ -1675,7 +1691,7 @@ class ProjectActivityScheduleController extends Controller
 
             foreach ($pureParents as $schedule) {
                 if ($parentCounter >= 26) {
-                    $errors[] = "Cannot create more than 26 parent phases (A-Z)";
+                    $errors[] = 'Cannot create more than 26 parent phases (A-Z)';
                     break;
                 }
 
@@ -1715,7 +1731,7 @@ class ProjectActivityScheduleController extends Controller
                 $counter = 1;
 
                 foreach ($phaseSchedules as $schedule) {
-                    $newCode = $phaseLetter . '.' . $counter;
+                    $newCode = $phaseLetter.'.'.$counter;
 
                     if ($schedule->code !== $newCode) {
                         $exists = ProjectActivitySchedule::where('project_type', $validated['project_type'])
@@ -1751,14 +1767,15 @@ class ProjectActivityScheduleController extends Controller
                 'changes' => $changes,
                 'errors' => $errors,
                 'message' => count($changes) > 0
-                    ? 'Successfully renumbered ' . count($changes) . ' activities'
+                    ? 'Successfully renumbered '.count($changes).' activities'
                     : 'No changes needed - codes already match order',
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to renumber codes: ' . $e->getMessage(),
+                'message' => 'Failed to renumber codes: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1769,7 +1786,7 @@ class ProjectActivityScheduleController extends Controller
         $counter = 1;
 
         foreach ($children as $child) {
-            $newCode = $newParentCode . '.' . $counter;
+            $newCode = $newParentCode.'.'.$counter;
             $child->code = $newCode;
             $child->save();
 
@@ -1811,6 +1828,7 @@ class ProjectActivityScheduleController extends Controller
             foreach ($schedule->children as $child) {
                 $leaves = $leaves->merge($this->getLeafSchedulesFromMemory($child, $validStatuses));
             }
+
             return $leaves;
         }
 
@@ -1828,12 +1846,14 @@ class ProjectActivityScheduleController extends Controller
         }
 
         $totalProgress = $leafSchedules->sum('pivot.progress');
+
         return round($totalProgress / $leafSchedules->count(), 2);
     }
 
     private function getScheduleBreakdownFromCollection($schedules): array
     {
         $topLevel = $schedules->where('level', 1)->whereNotNull('weightage');
+
         return $this->getBreakdownFromCollection($topLevel);
     }
 
@@ -1844,7 +1864,9 @@ class ProjectActivityScheduleController extends Controller
         $activeSchedules = $allSchedules->where('pivot.status', 'active');
         $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
 
-        if ($topLevel->isEmpty()) return 0.0;
+        if ($topLevel->isEmpty()) {
+            return 0.0;
+        }
 
         $totalWeightedProgress = 0.0;
         $totalWeightage = 0.0;
@@ -1856,7 +1878,7 @@ class ProjectActivityScheduleController extends Controller
 
             $avgProgress = $leaves->isEmpty()
                 ? 0
-                : $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+                : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
 
             $totalWeightedProgress += ($avgProgress * $weight);
             $totalWeightage += $weight;
@@ -1874,6 +1896,7 @@ class ProjectActivityScheduleController extends Controller
             foreach ($children as $child) {
                 $leaves = $leaves->merge($this->collectLeavesFromCollection($child, $allSchedules));
             }
+
             return $leaves;
         }
 
@@ -1976,8 +1999,8 @@ class ProjectActivityScheduleController extends Controller
         foreach ($projects as $project) {
             $progress = $this->calculateProjectProgressFromLoaded($project);
 
-            $leafSchedules = $project->activitySchedules->filter(fn($s) => $s->children_count === 0);
-            $completedCount = $leafSchedules->filter(fn($s) => (float)$s->pivot->progress >= 100)->count();
+            $leafSchedules = $project->activitySchedules->filter(fn ($s) => $s->children_count === 0);
+            $completedCount = $leafSchedules->filter(fn ($s) => (float) $s->pivot->progress >= 100)->count();
 
             $formatted[] = [
                 'id' => $project->id,
@@ -2005,7 +2028,7 @@ class ProjectActivityScheduleController extends Controller
             foreach ($topLevel as $schedule) {
                 $code = $schedule->code;
 
-                if (!isset($phaseProgress[$code])) {
+                if (! isset($phaseProgress[$code])) {
                     $phaseProgress[$code] = [
                         'code' => $code,
                         'name' => $schedule->name,
@@ -2017,7 +2040,7 @@ class ProjectActivityScheduleController extends Controller
                 $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
 
                 if ($leaves->isNotEmpty()) {
-                    $avgProgress = $leaves->avg(fn($l) => (float)($l->pivot->progress ?? 0));
+                    $avgProgress = $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
                     $phaseProgress[$code]['total'] += $avgProgress;
                     $phaseProgress[$code]['count']++;
                 }
@@ -2030,7 +2053,7 @@ class ProjectActivityScheduleController extends Controller
                 'name' => $phase['name'],
                 'average_progress' => $phase['count'] > 0
                     ? round($phase['total'] / $phase['count'], 1)
-                    : 0
+                    : 0,
             ];
         })->sortBy('code')->values();
     }
@@ -2041,13 +2064,13 @@ class ProjectActivityScheduleController extends Controller
             return true;
         }
 
-        if (!$child->parent_id) {
+        if (! $child->parent_id) {
             return false;
         }
 
         $parent = $allSchedules->firstWhere('id', $child->parent_id);
 
-        if (!$parent) {
+        if (! $parent) {
             return false;
         }
 
@@ -2090,9 +2113,9 @@ class ProjectActivityScheduleController extends Controller
         if (empty($accessibleProjectIds)) {
             return response()->json([
                 'completed' => 0,
-                'on_track'  => 0,
-                'at_risk'   => 0,
-                'delayed'   => 0,
+                'on_track' => 0,
+                'at_risk' => 0,
+                'delayed' => 0,
             ]);
         }
 
@@ -2119,9 +2142,9 @@ class ProjectActivityScheduleController extends Controller
 
         $counts = [
             'completed' => 0,
-            'on_track'  => 0,
-            'at_risk'   => 0,
-            'delayed'   => 0,
+            'on_track' => 0,
+            'at_risk' => 0,
+            'delayed' => 0,
         ];
 
         foreach ($projectsWithProgress as $row) {
@@ -2226,7 +2249,7 @@ class ProjectActivityScheduleController extends Controller
         });
 
         return response()->json([
-            'best'  => $best,
+            'best' => $best,
             'worst' => $worst,
         ]);
     }
@@ -2263,9 +2286,9 @@ class ProjectActivityScheduleController extends Controller
 
         $formatted = $results->map(function ($row) {
             return [
-                'name'           => $row->name,
+                'name' => $row->name,
                 'avg_delay_days' => round($row->avg_delay_days, 1),
-                'count'          => $row->count,
+                'count' => $row->count,
             ];
         });
 
@@ -2292,7 +2315,8 @@ class ProjectActivityScheduleController extends Controller
             return back()->with('success', 'Timeline recalculated successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to recalculate: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to recalculate: '.$e->getMessage());
         }
     }
 
@@ -2307,7 +2331,7 @@ class ProjectActivityScheduleController extends Controller
             },
             'successors' => function ($q) use ($project) {
                 $q->wherePivot('project_id', $project->id);
-            }
+            },
         ]);
 
         $assignment = DB::table('project_schedule_assignments')
@@ -2325,7 +2349,7 @@ class ProjectActivityScheduleController extends Controller
     {
         $cpm = $this->scheduleService->calculateCriticalPath($project->id);
 
-        if (!$cpm['has_data']) {
+        if (! $cpm['has_data']) {
             return view('admin.schedules.critical-path', [
                 'project' => $project,
                 'cpm' => $cpm,
@@ -2366,7 +2390,7 @@ class ProjectActivityScheduleController extends Controller
      */
     public function markAsNotNeeded(Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
-        if (!$project->activitySchedules->contains($schedule->id)) {
+        if (! $project->activitySchedules->contains($schedule->id)) {
             return back()->with('error', 'Schedule not found in this project.');
         }
 
@@ -2387,7 +2411,8 @@ class ProjectActivityScheduleController extends Controller
             return back()->with('success', 'Activity marked as "Not Needed" for this project.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to update: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to update: '.$e->getMessage());
         }
     }
 
@@ -2396,7 +2421,7 @@ class ProjectActivityScheduleController extends Controller
      */
     public function markAsActive(Project $project, ProjectActivitySchedule $schedule): RedirectResponse
     {
-        if (!$project->activitySchedules->contains($schedule->id)) {
+        if (! $project->activitySchedules->contains($schedule->id)) {
             return back()->with('error', 'Schedule not found in this project.');
         }
 
@@ -2415,7 +2440,8 @@ class ProjectActivityScheduleController extends Controller
             return back()->with('success', 'Activity reactivated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to reactivate: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to reactivate: '.$e->getMessage());
         }
     }
 
@@ -2452,7 +2478,8 @@ class ProjectActivityScheduleController extends Controller
             return back()->with('success', "Successfully updated {$updatedCount} activities.");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed: '.$e->getMessage());
         }
     }
 
@@ -2475,7 +2502,7 @@ class ProjectActivityScheduleController extends Controller
 
         // Apply End Date Filter (include the whole end day)
         if ($request->filled('end_date')) {
-            $query->where('snapshot_date', '<=', $request->end_date . ' 23:59:59');
+            $query->where('snapshot_date', '<=', $request->end_date.' 23:59:59');
         }
 
         // Execute the query
@@ -2613,17 +2640,16 @@ class ProjectActivityScheduleController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
-
         try {
             $file = $request->file('file');
             $originalName = $file->getClientOriginalName();
             $extension = $file->getClientOriginalExtension();
 
             // Generate unique filename
-            $fileName = time() . '_' . $request->schedule_id . '_' . str_replace(' ', '_', pathinfo($originalName, PATHINFO_FILENAME)) . '.' . $extension;
+            $fileName = time().'_'.$request->schedule_id.'_'.str_replace(' ', '_', pathinfo($originalName, PATHINFO_FILENAME)).'.'.$extension;
 
             // Store file
-            $path = $file->storeAs('project_schedules/' . $project->id, $fileName, 'public');
+            $path = $file->storeAs('project_schedules/'.$project->id, $fileName, 'public');
 
             // Create database record
             ProjectScheduleFile::create([
@@ -2641,7 +2667,7 @@ class ProjectActivityScheduleController extends Controller
 
             return back()->with('success', 'File uploaded successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to upload file: ' . $e->getMessage());
+            return back()->with('error', 'Failed to upload file: '.$e->getMessage());
         }
     }
 
@@ -2650,7 +2676,7 @@ class ProjectActivityScheduleController extends Controller
      */
     public function downloadFile(Project $project, ProjectScheduleFile $file)
     {
-        if (!$file->fileExists()) {
+        if (! $file->fileExists()) {
             abort(404, 'File not found');
         }
 
@@ -2664,9 +2690,10 @@ class ProjectActivityScheduleController extends Controller
     {
         try {
             $file->delete(); // Will auto-delete file from storage
+
             return back()->with('success', 'File deleted successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to delete file: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete file: '.$e->getMessage());
         }
     }
 }

@@ -27,11 +27,11 @@ class TaskCreated extends Notification
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject('New Task Assigned: ' . ($this->task->title ?? 'Unnamed Task'))
+            ->subject('New Task Assigned: '.($this->task->title ?? 'Unnamed Task'))
             ->line('You have been assigned to a new task.')
-            ->line('**Task Name**: ' . ($this->task->title ?? 'Unnamed Task'))
-            ->line('**Project**: ' . ($this->task->projects->isNotEmpty() ? $this->task->projects->pluck('title')->join(', ') : 'None'))
-            ->line('**Due Date**: ' . ($this->task->due_date ? \Carbon\Carbon::parse($this->task->due_date)->format('M d, Y') : 'Not set'))
+            ->line('**Task Name**: '.($this->task->title ?? 'Unnamed Task'))
+            ->line('**Project**: '.($this->task->projects->isNotEmpty() ? $this->task->projects->pluck('title')->join(', ') : 'None'))
+            ->line('**Due Date**: '.($this->task->due_date ? \Carbon\Carbon::parse($this->task->due_date)->format('M d, Y') : 'Not set'))
             ->action('View Task', route('admin.task.show', $this->task->id))
             ->line('Thank you for your attention!');
     }
@@ -41,7 +41,7 @@ class TaskCreated extends Notification
         return [
             'task_id' => $this->task->id,
             'task_name' => $this->task->title ?? 'Unnamed Task',
-            'message' => 'You were assigned to task: ' . ($this->task->title ?? 'Unnamed Task'),
+            'message' => 'You were assigned to task: '.($this->task->title ?? 'Unnamed Task'),
             'url' => route('admin.task.show', $this->task->id),
             'created_at' => now()->toDateTimeString(),
         ];

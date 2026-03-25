@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Task;
+use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Project;
-use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Task;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CommentController extends Controller
 {
@@ -45,7 +45,7 @@ class CommentController extends Controller
 
         // Validate that task belongs to project (if applicable)
         if ($commentable instanceof Task && $projectId !== null) {
-            if (!$commentable->projects()->where('project_id', $projectId)->exists()) {
+            if (! $commentable->projects()->where('project_id', $projectId)->exists()) {
                 return redirect()->back()->withErrors(['project_id' => 'Task not associated with this project']);
             }
         }
@@ -101,12 +101,12 @@ class CommentController extends Controller
 
         // Exclude comment author
         $recipients = $recipients->unique()->reject(
-            fn($userId) => $userId == $commentAuthor->id
+            fn ($userId) => $userId == $commentAuthor->id
         );
 
         // Attach users to comment with unread status
         $comment->users()->syncWithoutDetaching(
-            $recipients->mapWithKeys(fn($userId) => [$userId => ['read_at' => null]])
+            $recipients->mapWithKeys(fn ($userId) => [$userId => ['read_at' => null]])
         );
     }
 }

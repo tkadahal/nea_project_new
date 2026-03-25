@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
-use App\Models\Directorate;
 use App\Models\Department;
-use App\Models\Task;
-use App\Models\Status;
+use App\Models\Directorate;
 use App\Models\Role;
+use App\Models\Status;
+use App\Models\Task;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -57,7 +57,7 @@ class TaskStatus extends Component
         } elseif (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
             $this->tasks = $this->getTasks(directorateId: $user->directorate_id);
         } elseif (in_array(Role::DEPARTMENT_USER, $roles) && $user->directorate_id) {
-            $departmentIds = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+            $departmentIds = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                 ->pluck('id');
             $this->tasks = $departmentIds->isNotEmpty() ? $this->getTasks(departmentIds: $departmentIds) : collect([]);
         } elseif (in_array(Role::PROJECT_USER, $roles)) {
@@ -74,20 +74,20 @@ class TaskStatus extends Component
             'users',
             'projects' => function ($q) {
                 $q->withPivot('status_id', 'progress')
-                    ->with(['status' => fn($sq) => $sq->select('id', 'title', 'color'), 'directorate', 'department']);
+                    ->with(['status' => fn ($sq) => $sq->select('id', 'title', 'color'), 'directorate', 'department']);
             },
             'directorate',
             'department',
             'subTasks' => function ($q) {
                 $q->with([
                     'users',
-                    'status' => fn($sq) => $sq->select('id', 'title', 'color'),
+                    'status' => fn ($sq) => $sq->select('id', 'title', 'color'),
                     'directorate',
                     'department',
-                    'projects' => fn($pq) => $pq->select('id', 'title', 'directorate_id', 'department_id')
-                        ->withPivot('status_id', 'progress')
+                    'projects' => fn ($pq) => $pq->select('id', 'title', 'directorate_id', 'department_id')
+                        ->withPivot('status_id', 'progress'),
                 ]);
-            }
+            },
         ])->whereNull('parent_id');
 
         if ($directorateId) {
@@ -166,7 +166,7 @@ class TaskStatus extends Component
                 'sub_tasks' => $subTasks,
             ];
         })->filter(function ($task) {
-            return !is_null($task->project_id) || !is_null($task->directorate_id) || !is_null($task->department_id);
+            return ! is_null($task->project_id) || ! is_null($task->directorate_id) || ! is_null($task->department_id);
         })->take(5);
     }
 

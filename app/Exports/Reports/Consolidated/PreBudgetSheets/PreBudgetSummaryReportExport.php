@@ -6,30 +6,24 @@ namespace App\Exports\Reports\Consolidated\PreBudgetSheets;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithCustomStartCell;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
-use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class PreBudgetSummaryReportExport implements
-    FromCollection,
-    WithHeadings,
-    WithCustomStartCell,
-    WithStyles,
-    WithColumnWidths,
-    WithEvents,
-    WithTitle
+class PreBudgetSummaryReportExport implements FromCollection, WithColumnWidths, WithCustomStartCell, WithEvents, WithHeadings, WithStyles, WithTitle
 {
     protected Collection $projects;
+
     protected string $fiscalYear;
 
     public function __construct(Collection $projects, string $fiscalYear = '२०८१/८२')
@@ -101,25 +95,25 @@ class PreBudgetSummaryReportExport implements
         return [
             1 => [
                 'font' => ['bold' => true, 'size' => 16],
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ],
             2 => [
                 'font' => ['bold' => true, 'size' => 14],
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ],
             4 => [
                 'font' => ['bold' => true],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical' => Alignment::VERTICAL_CENTER
-                ]
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
             ],
             5 => [
                 'font' => ['bold' => true],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical' => Alignment::VERTICAL_CENTER
-                ]
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
             ],
         ];
     }
@@ -241,7 +235,7 @@ class PreBudgetSummaryReportExport implements
                                 'vertical' => Alignment::VERTICAL_CENTER,
                             ],
                             'borders' => [
-                                'top'    => ['borderStyle' => Border::BORDER_MEDIUM],
+                                'top' => ['borderStyle' => Border::BORDER_MEDIUM],
                                 'bottom' => ['borderStyle' => Border::BORDER_MEDIUM],
                             ],
                         ]);
@@ -266,10 +260,11 @@ class PreBudgetSummaryReportExport implements
     /* ── Helper: Convert to Nepali Digits ─────────────────────────────────── */
     private function toNepaliNumber(int|float|string $number): string
     {
-        if (!is_numeric($number)) {
+        if (! is_numeric($number)) {
             $number = 0;
         }
         $digits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
-        return preg_replace_callback('/\d/', fn($m) => $digits[$m[0]], (string) $number);
+
+        return preg_replace_callback('/\d/', fn ($m) => $digits[$m[0]], (string) $number);
     }
 }

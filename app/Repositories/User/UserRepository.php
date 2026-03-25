@@ -6,8 +6,8 @@ namespace App\Repositories\User;
 
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 
 class UserRepository
 {
@@ -28,7 +28,7 @@ class UserRepository
             ->with(['roles:id,title', 'directorate:id,title', 'projects:id,title']);
 
         // Filter out Super Admin and Admin users if current user is not Super Admin or Admin
-        if (!$isSuperAdminOrAdmin) {
+        if (! $isSuperAdminOrAdmin) {
             $query->whereDoesntHave('roles', function ($q) {
                 $q->whereIn('roles.id', [Role::SUPERADMIN, Role::ADMIN]);
             });
@@ -99,7 +99,8 @@ class UserRepository
 
             $accessibleIds = $allUsers->filter(function ($user) use ($authUserProjectIds, $authUser) {
                 $targetUserProjectIds = $user->projects->pluck('id')->toArray();
-                return !empty(array_intersect($authUserProjectIds, $targetUserProjectIds))
+
+                return ! empty(array_intersect($authUserProjectIds, $targetUserProjectIds))
                     || $user->id === $authUser->id;
             })->pluck('id')->toArray();
         }

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\ProjectExpense;
 
-use App\Models\ProjectActivityPlan;
 use App\DTOs\ProjectExpense\ExpenseImportResultDTO;
-use App\Repositories\ProjectExpense\ProjectExpenseRepository;
 use App\Helpers\ProjectExpense\ExcelQuarterExtractor;
 use App\Helpers\ProjectExpense\ExcelRowParser;
+use App\Imports\ImportProjectExpense;
+use App\Models\ProjectActivityPlan;
+use App\Repositories\ProjectExpense\ProjectExpenseRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Imports\ImportProjectExpense;
 
 class ExpenseImportService
 {
@@ -30,7 +30,7 @@ class ExpenseImportService
     ): ExpenseImportResultDTO {
         $quarterNumber = $this->quarterExtractor->extractQuarterFromExcel($file);
 
-        if (!$quarterNumber) {
+        if (! $quarterNumber) {
             throw new \InvalidArgumentException(
                 'Could not detect quarter from file. Please use the latest template.'
             );
@@ -74,7 +74,7 @@ class ExpenseImportService
             if (
                 $plan->definitionVersion->project_id != $projectId ||
                 $plan->fiscal_year_id != $fiscalYearId ||
-                !$plan->definitionVersion->is_current
+                ! $plan->definitionVersion->is_current
             ) {
                 throw new \Exception('Activity mismatch.');
             }

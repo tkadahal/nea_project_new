@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Project;
 
-use App\Models\Role;
-use App\Models\Project;
 use App\DTOs\Project\ProjectDTO;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use App\Helpers\Project\ProjectDataTransformer;
+use App\Models\Project;
+use App\Models\Role;
 use App\Repositories\Project\ProjectRepository;
 use App\Services\Project\ProjectFormDataServices\FileService;
 use App\Services\Project\ProjectFormDataServices\ProjectFormDataService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ProjectService
 {
@@ -39,6 +39,7 @@ class ProjectService
             ];
         } catch (\Exception $e) {
             report($e);
+
             return [
                 'error' => 'Unable to load projects due to an error.',
                 'data' => [],
@@ -170,10 +171,10 @@ class ProjectService
                 'title' => $projectTitle,
                 'directorate' => [['title' => $directorateTitle, 'color' => $directorateColor]],
                 'fields' => [
-                    ['title' => trans('global.project.fields.start_date') . ': ' . $startDateFormatted],
-                    ['title' => trans('global.project.fields.end_date') . ': ' . $endDateFormatted],
-                    ['title' => trans('global.project.fields.physical_progress') . ': ' . (is_numeric($progress) ? $progress . '%' : 'N/A')],
-                    ['title' => trans('global.project.fields.project_manager') . ': ' . $projectManagerName],
+                    ['title' => trans('global.project.fields.start_date').': '.$startDateFormatted],
+                    ['title' => trans('global.project.fields.end_date').': '.$endDateFormatted],
+                    ['title' => trans('global.project.fields.physical_progress').': '.(is_numeric($progress) ? $progress.'%' : 'N/A')],
+                    ['title' => trans('global.project.fields.project_manager').': '.$projectManagerName],
                 ],
             ];
         })->toArray();
@@ -187,6 +188,7 @@ class ProjectService
     public function getEditData(Project $project): array
     {
         $project->load(['budgets', 'files']);
+
         return $this->formDataService->getFormData($project);
     }
 
@@ -218,7 +220,7 @@ class ProjectService
         $roleIds = $user->roles->pluck('id')->toArray();
         $isAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
 
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             $data['directorate_id'] = $user->directorate_id;
         }
 

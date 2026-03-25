@@ -3,9 +3,9 @@
 namespace App\Http\Requests\BudgetQuaterAllocation;
 
 use App\Models\Budget;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class StoreBudgetQuaterAllocationRequest extends FormRequest
@@ -29,7 +29,7 @@ class StoreBudgetQuaterAllocationRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::in(['total_budget', 'internal_budget', 'government_share', 'government_loan', 'foreign_loan', 'foreign_subsidy'])
+                Rule::in(['total_budget', 'internal_budget', 'government_share', 'government_loan', 'foreign_loan', 'foreign_subsidy']),
             ],
             'amounts' => ['required', 'array', 'min:1'],
             'amounts.*' => ['required', 'numeric', 'min:0'],
@@ -75,7 +75,7 @@ class StoreBudgetQuaterAllocationRequest extends FormRequest
         $validator->after(function ($validator) {
             $uniqueBudgetIds = array_unique($this->get('budget_ids', []));
             foreach ($uniqueBudgetIds as $budgetId) {
-                if (!Budget::where('id', $budgetId)
+                if (! Budget::where('id', $budgetId)
                     ->where('project_id', $this->get('project_id'))
                     ->where('fiscal_year_id', $this->get('fiscal_year_id'))
                     ->exists()) {
@@ -114,7 +114,7 @@ class StoreBudgetQuaterAllocationRequest extends FormRequest
                 if (abs($quarterSum - $amount) > 0.01) {
                     $validator->errors()->add(
                         'q4_allocations.*',
-                        "Row " . ($index + 1) . ": Quarters sum (" . number_format($quarterSum, 2) . ") must equal amount (" . number_format($amount, 2) . ")."
+                        'Row '.($index + 1).': Quarters sum ('.number_format($quarterSum, 2).') must equal amount ('.number_format($amount, 2).').'
                     );
                 }
             }

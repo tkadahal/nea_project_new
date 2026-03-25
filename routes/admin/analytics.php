@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\AnalyticalDashboardController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(AnalyticalDashboardController::class)->group(function () {
     Route::get('summary', 'summary')->name('summary');

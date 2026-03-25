@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Helpers\Task;
 
-use App\DTOs\Task\TaskDTO;
 use App\Models\Status;
 use App\Models\Task;
 use Carbon\Carbon;
@@ -16,8 +15,8 @@ class TaskHelper
     {
         $allTasks = $this->expandTasksWithProjects($tasks, $statusColors, $priorityColors);
 
-        $grouped = $allTasks->groupBy(fn($taskItem) => $taskItem->status_id ?? 'none')
-            ->map(fn($group) => $group->map(fn($taskItem) => $this->formatTaskForBoard($taskItem, $statusColors, $priorityColors))->values());
+        $grouped = $allTasks->groupBy(fn ($taskItem) => $taskItem->status_id ?? 'none')
+            ->map(fn ($group) => $group->map(fn ($taskItem) => $this->formatTaskForBoard($taskItem, $statusColors, $priorityColors))->values());
 
         return [
             'tasks' => $grouped,
@@ -30,7 +29,7 @@ class TaskHelper
         $allTasks = $this->expandTasksWithProjects($tasks, $statusColors, $priorityColors);
 
         return [
-            'tasksFlat' => $allTasks->map(fn($taskItem) => $this->formatTaskForList($taskItem, $statusColors, $priorityColors))->values(),
+            'tasksFlat' => $allTasks->map(fn ($taskItem) => $this->formatTaskForList($taskItem, $statusColors, $priorityColors))->values(),
         ];
     }
 
@@ -40,8 +39,8 @@ class TaskHelper
 
         return [
             'calendarData' => $allTasks
-                ->map(fn($taskItem) => $this->formatTaskForCalendar($taskItem, $statusColors))
-                ->filter(fn($event) => $event['start'] !== null)
+                ->map(fn ($taskItem) => $this->formatTaskForCalendar($taskItem, $statusColors))
+                ->filter(fn ($event) => $event['start'] !== null)
                 ->values()
                 ->all(),
         ];
@@ -59,7 +58,7 @@ class TaskHelper
                 trans('global.task.fields.parent_id'),
                 trans('global.details'),
             ],
-            'tableData' => $allTasks->map(fn($taskItem) => $this->formatTaskForTable($taskItem, $statusColors, $priorityColors))->values()->toArray(),
+            'tableData' => $allTasks->map(fn ($taskItem) => $this->formatTaskForTable($taskItem, $statusColors, $priorityColors))->values()->toArray(),
         ];
     }
 
@@ -80,17 +79,18 @@ class TaskHelper
                 'updated_at' => now(),
             ];
         }
+
         return $syncData;
     }
 
     private function expandTasksWithProjects(Collection $tasks, array $statusColors, array $priorityColors): Collection
     {
-        return $tasks->flatMap(function ($task) use ($statusColors, $priorityColors) {
+        return $tasks->flatMap(function ($task) {
             $results = [];
 
             if ($task->projects->isNotEmpty()) {
-                $results = $task->projects->filter(fn($project) => !is_null($project->id))
-                    ->map(function ($project) use ($task, $statusColors, $priorityColors) {
+                $results = $task->projects->filter(fn ($project) => ! is_null($project->id))
+                    ->map(function ($project) use ($task) {
                         $status = $project->pivot->status_id
                             ? Status::find($project->pivot->status_id)
                             : ($task->status_id ? Status::find($task->status_id) : null);
@@ -117,7 +117,7 @@ class TaskHelper
             }
 
             return $results;
-        })->filter(fn($taskItem) => !is_null($taskItem->task->id));
+        })->filter(fn ($taskItem) => ! is_null($taskItem->task->id));
     }
 
     private function formatTaskForBoard($taskItem, array $statusColors, array $priorityColors): array
@@ -130,12 +130,12 @@ class TaskHelper
             'description' => $task->description ?? 'No description',
             'priority' => $task->priority ? [
                 'title' => $task->priority->title,
-                'color' => $priorityColors[$task->priority->title] ?? 'gray'
+                'color' => $priorityColors[$task->priority->title] ?? 'gray',
             ] : null,
             'priority_id' => $task->priority_id,
             'status' => $taskItem->status ? [
                 'id' => $taskItem->status->id,
-                'title' => $taskItem->status->title
+                'title' => $taskItem->status->title,
             ] : null,
             'status_id' => $taskItem->status_id,
             'status_color' => $taskItem->status ? ($statusColors[$taskItem->status->id] ?? 'gray') : 'gray',
@@ -259,13 +259,13 @@ class TaskHelper
                 'description' => $subTask->description ?? 'No description',
                 'priority' => $subTask->priority ? [
                     'title' => $subTask->priority->title,
-                    'color' => $priorityColors[$subTask->priority->title] ?? 'gray'
+                    'color' => $priorityColors[$subTask->priority->title] ?? 'gray',
                 ] : null,
                 'priority_id' => $subTask->priority_id,
                 'status' => $subTask->status ? [
                     'id' => $subTask->status->id,
                     'title' => $subTask->status->title,
-                    'color' => $statusColors[$subTask->status->id] ?? 'gray'
+                    'color' => $statusColors[$subTask->status->id] ?? 'gray',
                 ] : null,
                 'status_id' => $subTask->status_id,
                 'status_color' => $subTask->status ? ($statusColors[$subTask->status->id] ?? 'gray') : 'gray',
@@ -286,15 +286,15 @@ class TaskHelper
     private function buildSearchData($task, $taskItem): string
     {
         return strtolower(
-            $task->title . ' ' .
-                ($taskItem->status ? $taskItem->status->title : '') . ' ' .
-                ($task->priority ? $task->priority->title : '') . ' ' .
-                ($task->due_date ? $task->due_date->format('Y-m-d') : '') . ' ' .
-                ($taskItem->project?->title ?? '') . ' ' .
-                ($task->users->pluck('name')->join(' ') ?? '') . ' ' .
-                ($task->directorate?->title ?? '') . ' ' .
-                ($task->directorate_id ?? '') . ' ' .
-                ($task->department_id ?? '') . ' ' .
+            $task->title.' '.
+                ($taskItem->status ? $taskItem->status->title : '').' '.
+                ($task->priority ? $task->priority->title : '').' '.
+                ($task->due_date ? $task->due_date->format('Y-m-d') : '').' '.
+                ($taskItem->project?->title ?? '').' '.
+                ($task->users->pluck('name')->join(' ') ?? '').' '.
+                ($task->directorate?->title ?? '').' '.
+                ($task->directorate_id ?? '').' '.
+                ($task->department_id ?? '').' '.
                 ($task->parent ? $task->parent->title : '')
         );
     }

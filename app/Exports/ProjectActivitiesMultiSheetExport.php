@@ -7,8 +7,11 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 class ProjectActivitiesMultiSheetExport implements WithMultipleSheets
 {
     protected $projectId;
+
     protected $fiscalYearId;
+
     protected $project;
+
     protected $fiscalYear;
 
     public function __construct($projectId, $fiscalYearId, $project, $fiscalYear)

@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Project\ProjectFormDataServices;
 
-use App\Models\Role;
-use App\Models\User;
-use App\Models\Status;
-use App\Models\Project;
-use App\Models\Priority;
-use App\Models\Department;
-use App\Models\FiscalYear;
-use App\Models\Directorate;
 use App\Models\BudgetHeading;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Department;
+use App\Models\Directorate;
+use App\Models\FiscalYear;
+use App\Models\Priority;
+use App\Models\Project;
+use App\Models\Role;
+use App\Models\Status;
+use App\Models\User;
 use App\Trait\RoleBasedAccess;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Service for preparing form data

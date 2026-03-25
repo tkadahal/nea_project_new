@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Exception;
-use App\Models\Project;
-use App\Models\FiscalYear;
-use Illuminate\Support\Facades\DB;
-use App\Models\ProjectActivityPlan;
-use Illuminate\Support\Facades\Auth;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use App\Models\ProjectActivityDefinition;
-use App\Exports\Templates\ProjectActivityTemplateExport;
 use App\Exceptions\StructuralChangeRequiresConfirmationException;
+use App\Exports\Templates\ProjectActivityTemplateExport;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProjectActivityExcelService
 {
@@ -28,14 +28,14 @@ class ProjectActivityExcelService
 
             $this->validateUserAccess($projectId);
 
-            $capitalSheet   = $spreadsheet->getSheetByName('पूँजीगत खर्च');
+            $capitalSheet = $spreadsheet->getSheetByName('पूँजीगत खर्च');
             $recurrentSheet = $spreadsheet->getSheetByName('चालू खर्च');
 
-            if (!$capitalSheet) {
+            if (! $capitalSheet) {
                 throw new Exception('Sheet "पूँजीगत खर्च" not found');
             }
 
-            $capitalData   = $this->parseSheet($capitalSheet, 1);
+            $capitalData = $this->parseSheet($capitalSheet, 1);
             $recurrentData = $recurrentSheet ? $this->parseSheet($recurrentSheet, 2) : [];
 
             // ────────────────────────────────────────────────
@@ -54,7 +54,7 @@ class ProjectActivityExcelService
 
                 // Expanded list of invalid / placeholder / total texts
                 if (preg_match(
-                    '/^(total|जम्मा|subtotal|कुल|sum|heading|शीर्षक|कुल जम्मा|grand total|जम्मा रकम|कुल लागत|sub-total|total budget|आंशिक जम्मा|अन्तिम जम्मा|योग|सब टोटल|partial total|' .
+                    '/^(total|जम्मा|subtotal|कुल|sum|heading|शीर्षक|कुल जम्मा|grand total|जम्मा रकम|कुल लागत|sub-total|total budget|आंशिक जम्मा|अन्तिम जम्मा|योग|सब टोटल|partial total|'.
                         'मुख्य कार्यक्रम उदाहरण|उप कार्यक्रम उदाहरण|कार्यक्रम उदाहरण|क्रियाकलाप उदाहरण|उदाहरण|example|demo|placeholder|test activity)$/ui',
                     $program
                 )) {
@@ -62,21 +62,21 @@ class ProjectActivityExcelService
                 }
 
                 $hasPlanning = (
-                    ($row['planned_budget']   ?? 0) > 0 ||
+                    ($row['planned_budget'] ?? 0) > 0 ||
                     ($row['planned_quantity'] ?? 0) > 0 ||
-                    ($row['q1_amount']        ?? 0) > 0 ||
-                    ($row['q1_quantity']      ?? 0) > 0 ||
-                    ($row['q2_amount']        ?? 0) > 0 ||
-                    ($row['q2_quantity']      ?? 0) > 0 ||
-                    ($row['q3_amount']        ?? 0) > 0 ||
-                    ($row['q3_quantity']      ?? 0) > 0 ||
-                    ($row['q4_amount']        ?? 0) > 0 ||
-                    ($row['q4_quantity']      ?? 0) > 0
+                    ($row['q1_amount'] ?? 0) > 0 ||
+                    ($row['q1_quantity'] ?? 0) > 0 ||
+                    ($row['q2_amount'] ?? 0) > 0 ||
+                    ($row['q2_quantity'] ?? 0) > 0 ||
+                    ($row['q3_amount'] ?? 0) > 0 ||
+                    ($row['q3_quantity'] ?? 0) > 0 ||
+                    ($row['q4_amount'] ?? 0) > 0 ||
+                    ($row['q4_quantity'] ?? 0) > 0
                 );
 
                 $hasProgress = (
                     ($row['completed_quantity'] ?? 0) > 0 ||
-                    ($row['total_expense']      ?? 0) > 0
+                    ($row['total_expense'] ?? 0) > 0
                 );
 
                 if ($hasPlanning || $hasProgress) {
@@ -85,9 +85,9 @@ class ProjectActivityExcelService
                 }
             }
 
-            if (!$hasMeaningfulActivity) {
+            if (! $hasMeaningfulActivity) {
                 throw new Exception(
-                    'कुनै पनि वास्तविक क्रियाकलापमा उपयोगी जानकारी भेटिएन । ' .
+                    'कुनै पनि वास्तविक क्रियाकलापमा उपयोगी जानकारी भेटिएन । '.
                         'टेम्प्लेटमा रहेका उदाहरणहरू (जस्तै: मुख्य कार्यक्रम उदाहरण) हटाई, वास्तविक क्रियाकलापको नाम, योजना वा प्रगति विवरण भर्नुहोस् ।'
                 );
             }
@@ -108,7 +108,6 @@ class ProjectActivityExcelService
              * CASE 1: PURE FISCAL YEAR CHANGE (same structure)
              * ======================================================
              */
-
             if ($isPureFiscalYearChange) {
                 // Check if current definitions are in draft mode
                 $anyPlanInDraft = ProjectActivityPlan::join(
@@ -209,17 +208,18 @@ class ProjectActivityExcelService
                     ->where('project_activity_plans.status', '!=', 'draft')
                     ->doesntExist();
 
-                if (!$allPlansInDraft) {
+                if (! $allPlansInDraft) {
                     throw new Exception('Plans for this fiscal year already exist and are not in draft mode. Cannot edit.');
                 }
             }
 
             $isPureFiscalYearChange = true;
+
             return;
         }
 
-        if (!$force && $hasExistingData) {
-            throw new StructuralChangeRequiresConfirmationException();
+        if (! $force && $hasExistingData) {
+            throw new StructuralChangeRequiresConfirmationException;
         }
 
         $isPureFiscalYearChange = false;
@@ -245,7 +245,7 @@ class ProjectActivityExcelService
                 ->where('is_current', true)
                 ->first();
 
-            if (!$existing) {
+            if (! $existing) {
                 throw new Exception("Definition not found for hash: {$hash}");
             }
 
@@ -280,14 +280,14 @@ class ProjectActivityExcelService
         $data = [];
 
         for ($rowNum = $startRow; $rowNum <= 200; $rowNum++) {
-            $hash = trim((string) ($sheet->getCell('A' . $rowNum)->getCalculatedValue() ?? ''));
+            $hash = trim((string) ($sheet->getCell('A'.$rowNum)->getCalculatedValue() ?? ''));
 
             if (empty($hash) || in_array(strtolower($hash), ['कुल जम्मा', 'total'])) {
                 continue;
             }
 
             $cleanHash = str_replace('.', '', $hash);
-            if (!is_numeric($cleanHash)) {
+            if (! is_numeric($cleanHash)) {
                 continue;
             }
 
@@ -300,21 +300,21 @@ class ProjectActivityExcelService
                 'depth' => $depth,
                 'parent_hash' => $parentHash,
                 'expenditure_id' => $expenditureId,
-                'program' => trim((string) ($sheet->getCell('B' . $rowNum)->getCalculatedValue() ?? '')),
-                'total_quantity' => (float) ($sheet->getCell('C' . $rowNum)->getCalculatedValue() ?? 0),
-                'total_budget' => (float) ($sheet->getCell('D' . $rowNum)->getCalculatedValue() ?? 0),
-                'completed_quantity' => (float) ($sheet->getCell('E' . $rowNum)->getCalculatedValue() ?? 0),
-                'total_expense' => (float) ($sheet->getCell('F' . $rowNum)->getCalculatedValue() ?? 0),
-                'planned_quantity' => (float) ($sheet->getCell('G' . $rowNum)->getCalculatedValue() ?? 0),
-                'planned_budget' => (float) ($sheet->getCell('H' . $rowNum)->getCalculatedValue() ?? 0),
-                'q1_quantity' => (float) ($sheet->getCell('I' . $rowNum)->getCalculatedValue() ?? 0),
-                'q1_amount' => (float) ($sheet->getCell('J' . $rowNum)->getCalculatedValue() ?? 0),
-                'q2_quantity' => (float) ($sheet->getCell('K' . $rowNum)->getCalculatedValue() ?? 0),
-                'q2_amount' => (float) ($sheet->getCell('L' . $rowNum)->getCalculatedValue() ?? 0),
-                'q3_quantity' => (float) ($sheet->getCell('M' . $rowNum)->getCalculatedValue() ?? 0),
-                'q3_amount' => (float) ($sheet->getCell('N' . $rowNum)->getCalculatedValue() ?? 0),
-                'q4_quantity' => (float) ($sheet->getCell('O' . $rowNum)->getCalculatedValue() ?? 0),
-                'q4_amount' => (float) ($sheet->getCell('P' . $rowNum)->getCalculatedValue() ?? 0),
+                'program' => trim((string) ($sheet->getCell('B'.$rowNum)->getCalculatedValue() ?? '')),
+                'total_quantity' => (float) ($sheet->getCell('C'.$rowNum)->getCalculatedValue() ?? 0),
+                'total_budget' => (float) ($sheet->getCell('D'.$rowNum)->getCalculatedValue() ?? 0),
+                'completed_quantity' => (float) ($sheet->getCell('E'.$rowNum)->getCalculatedValue() ?? 0),
+                'total_expense' => (float) ($sheet->getCell('F'.$rowNum)->getCalculatedValue() ?? 0),
+                'planned_quantity' => (float) ($sheet->getCell('G'.$rowNum)->getCalculatedValue() ?? 0),
+                'planned_budget' => (float) ($sheet->getCell('H'.$rowNum)->getCalculatedValue() ?? 0),
+                'q1_quantity' => (float) ($sheet->getCell('I'.$rowNum)->getCalculatedValue() ?? 0),
+                'q1_amount' => (float) ($sheet->getCell('J'.$rowNum)->getCalculatedValue() ?? 0),
+                'q2_quantity' => (float) ($sheet->getCell('K'.$rowNum)->getCalculatedValue() ?? 0),
+                'q2_amount' => (float) ($sheet->getCell('L'.$rowNum)->getCalculatedValue() ?? 0),
+                'q3_quantity' => (float) ($sheet->getCell('M'.$rowNum)->getCalculatedValue() ?? 0),
+                'q3_amount' => (float) ($sheet->getCell('N'.$rowNum)->getCalculatedValue() ?? 0),
+                'q4_quantity' => (float) ($sheet->getCell('O'.$rowNum)->getCalculatedValue() ?? 0),
+                'q4_amount' => (float) ($sheet->getCell('P'.$rowNum)->getCalculatedValue() ?? 0),
             ];
         }
 
@@ -354,7 +354,7 @@ class ProjectActivityExcelService
                 'versioned_at' => now(),
             ];
 
-            if (!$force) {
+            if (! $force) {
                 $existing = ProjectActivityDefinition::where('project_id', $projectId)
                     ->where('expenditure_id', $expenditureId)
                     ->where('sort_index', $hash)
@@ -392,7 +392,7 @@ class ProjectActivityExcelService
 
         foreach ($data as $hash => $row) {
             $definitionId = $hashToIdMap[$hash] ?? null;
-            if (!$definitionId) {
+            if (! $definitionId) {
                 continue;
             }
 
@@ -438,13 +438,14 @@ class ProjectActivityExcelService
     private function getCurrentProjectVersion(int $projectId): int
     {
         $max = ProjectActivityDefinition::where('project_id', $projectId)->max('version');
+
         return $max ?? 0;
     }
 
     private function validateUserAccess(int $projectId): void
     {
         $project = Project::findOrFail($projectId);
-        if (!$project->users->contains(Auth::id())) {
+        if (! $project->users->contains(Auth::id())) {
             throw new Exception('You do not have access to this project');
         }
     }
@@ -459,7 +460,7 @@ class ProjectActivityExcelService
         $sheet = $spreadsheet->getSheetByName('Instructions')
             ?? $spreadsheet->getSheet(0);
 
-        if (!$sheet) {
+        if (! $sheet) {
             throw new Exception('Instructions sheet not found');
         }
 

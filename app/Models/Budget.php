@@ -11,13 +11,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Support\Facades\Auth;
 
 class Budget extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
     use RoleBasedAccess;
 
     protected $dates = [
@@ -153,7 +153,7 @@ class Budget extends Model
     public static function getCumulativeBudget(Project $project, FiscalYear $fiscalYear): float
     {
         $previousBudgets = $project->budgets()
-            ->whereHas('fiscalYear', fn($query) => $query->where('start_date', '<=', $fiscalYear->start_date))
+            ->whereHas('fiscalYear', fn ($query) => $query->where('start_date', '<=', $fiscalYear->start_date))
             ->get();
 
         $cumulative = 0.0;
@@ -172,6 +172,7 @@ class Budget extends Model
             ->useLogName('budget')
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
+
                 return "Budget {$eventName} by {$user}";
             });
     }

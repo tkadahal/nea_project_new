@@ -5,32 +5,43 @@ declare(strict_types=1);
 namespace App\Exports\Reports;
 
 use App\Models\Budget;
-use App\Models\ProjectActivityPlan;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use Illuminate\Database\Eloquent\Collection;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use Illuminate\Support\Collection as SupportCollection;
 
-class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEvents
+class ProjectActivityExport implements FromArray, WithEvents, WithStyles, WithTitle
 {
     protected $projectId;
+
     protected $fiscalYearId;
+
     protected $project;
+
     protected $fiscalYear;
+
     protected $budget;
+
     protected $totalRows = [];
+
     protected $headerRows = [];
+
     protected $parentRows = [];
+
     protected $footerStart;
+
     protected $globalXCapital;
+
     protected $globalXRecurrent;
+
     protected $tableHeaderRow;
 
     public function __construct($projectId, $fiscalYearId, $project, $fiscalYear)
@@ -60,12 +71,14 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $index = array_search($char, $arabic);
             $result .= $index !== false ? $devanagari[$index] : $char;
         }
+
         return $result;
     }
 
     private function formatBudgetAmount($amount): string
     {
         $thousands = round($amount / 1000, 2);
+
         return $this->toNepaliDigits(number_format($thousands, 2));
     }
 
@@ -104,96 +117,96 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Row 4
         $row4 = array_fill(0, 25, '');
-        $row4[0] = '१. आ.व.:– ' . $fyTitle;
-        $row4[7] = '१०. वार्षिक बजेट रु.: ' . $this->formatBudgetAmount($totalBudget);
+        $row4[0] = '१. आ.व.:– '.$fyTitle;
+        $row4[7] = '१०. वार्षिक बजेट रु.: '.$this->formatBudgetAmount($totalBudget);
         $row4[15] = '११. कार्यक्रम/आयोजनाको कुल लागत:';
         $data[] = $row4;
 
         // Row 5
         $row5 = array_fill(0, 25, '');
-        $row5[0] = '२. बजेट उपशीर्षक नं.: ' . $budgetHeadingTitle;
-        $row5[7] = '(क) आन्तरिक: ' . $this->formatBudgetAmount($internalTotal);
+        $row5[0] = '२. बजेट उपशीर्षक नं.: '.$budgetHeadingTitle;
+        $row5[7] = '(क) आन्तरिक: '.$this->formatBudgetAmount($internalTotal);
         $row5[15] = '(क) आन्तरिक:';
         $data[] = $row5;
 
         // Row 6
         $row6 = array_fill(0, 25, '');
         $row6[0] = '३. मन्त्रालय/निकाय:';
-        $row6[7] = $budgetChildIndent . '(१) नेपाल सरकार: ' . $this->formatBudgetAmount($nepalGovTotal);
-        $row6[15] = $budgetChildIndent . '(१) नेपाल सरकार:';
+        $row6[7] = $budgetChildIndent.'(१) नेपाल सरकार: '.$this->formatBudgetAmount($nepalGovTotal);
+        $row6[15] = $budgetChildIndent.'(१) नेपाल सरकार:';
         $data[] = $row6;
 
         // Row 7
         $row7 = array_fill(0, 25, '');
-        $row7[0] = '४. विभाग/कार्यालय: ' . $departmentTitle;
-        $row7[7] = $budgetChildIndent . '(२) संस्था/निकाय (NEA): ' . $this->formatBudgetAmount($neaTotal);
-        $row7[15] = $budgetChildIndent . '(२) संस्था/निकाय:';
+        $row7[0] = '४. विभाग/कार्यालय: '.$departmentTitle;
+        $row7[7] = $budgetChildIndent.'(२) संस्था/निकाय (NEA): '.$this->formatBudgetAmount($neaTotal);
+        $row7[15] = $budgetChildIndent.'(२) संस्था/निकाय:';
         $data[] = $row7;
 
         // Row 8
         $row8 = array_fill(0, 25, '');
         $projectTitle = $this->project->title ?? '';
-        $row8[0] = '५. कार्यक्रम/आयोजनाको नाम: ' . $projectTitle;
-        $row8[7] = $budgetChildIndent . '(३) जनसहभागिता:';
-        $row8[15] = $budgetChildIndent . '(३) जनसहभागिता:';
+        $row8[0] = '५. कार्यक्रम/आयोजनाको नाम: '.$projectTitle;
+        $row8[7] = $budgetChildIndent.'(३) जनसहभागिता:';
+        $row8[15] = $budgetChildIndent.'(३) जनसहभागिता:';
         $data[] = $row8;
 
         // Row 9
         $row9 = array_fill(0, 25, '');
         $row9[0] = '६. स्थान: (क) जिल्ला:';
-        $row9[7] = '(ख) वैदेशिक: ' . $this->formatBudgetAmount($foreignTotal);
+        $row9[7] = '(ख) वैदेशिक: '.$this->formatBudgetAmount($foreignTotal);
         $row9[15] = '(ख) वैदेशिक:';
         $data[] = $row9;
 
         // Row 10
         $row10 = array_fill(0, 25, '');
-        $row10[0] = $locationIndent . '(ख) गाउँपालिका/नगरपालिका:';
-        $row10[7] = $budgetChildIndent . '(१) ऋण: ' . $this->formatBudgetAmount($foreignLoan);
-        $row10[15] = $budgetChildIndent . '(१) ऋण:';
+        $row10[0] = $locationIndent.'(ख) गाउँपालिका/नगरपालिका:';
+        $row10[7] = $budgetChildIndent.'(१) ऋण: '.$this->formatBudgetAmount($foreignLoan);
+        $row10[15] = $budgetChildIndent.'(१) ऋण:';
         $data[] = $row10;
 
         // Row 11
         $row11 = array_fill(0, 25, '');
-        $row11[0] = $locationIndent . '(ग) वडा नं.:';
-        $row11[7] = $budgetChildIndent . '(२) अनुदान: ' . $this->formatBudgetAmount($foreignSubsidy);
-        $row11[15] = $budgetChildIndent . '(२) अनुदान: ' . $this->formatBudgetAmount($foreignSubsidy);
+        $row11[0] = $locationIndent.'(ग) वडा नं.:';
+        $row11[7] = $budgetChildIndent.'(२) अनुदान: '.$this->formatBudgetAmount($foreignSubsidy);
+        $row11[15] = $budgetChildIndent.'(२) अनुदान: '.$this->formatBudgetAmount($foreignSubsidy);
         $data[] = $row11;
 
         // Row 12
         $row12 = array_fill(0, 25, '');
         $startDate = $this->project->start_date ? $this->project->start_date->format('Y-m-d') : '';
-        $row12[0] = '७. कार्यक्रम/आयोजना सुरु भएको मिति: ' . $startDate;
+        $row12[0] = '७. कार्यक्रम/आयोजना सुरु भएको मिति: '.$startDate;
         $row12[7] = '(ग) मुद्रा:    सट्टा दर:';
         $data[] = $row12;
 
         // Row 13
         $row13 = array_fill(0, 25, '');
         $endDate = $this->project->end_date ? $this->project->end_date->format('Y-m-d') : '';
-        $row13[0] = '८. कार्यक्रम/आयोजना पूरा हुने मिति: ' . $endDate;
-        $row13[7] = '(घ) दातृपक्ष/संस्था: ' . $foreignLoanSource . ' / ' . $foreignSubsidySource;
+        $row13[0] = '८. कार्यक्रम/आयोजना पूरा हुने मिति: '.$endDate;
+        $row13[7] = '(घ) दातृपक्ष/संस्था: '.$foreignLoanSource.' / '.$foreignSubsidySource;
         $row13[15] = '१२. गत आ.व. सम्मको खर्च रु. (सोझै भुक्तानी र वस्तुगत अनुदान समेत)';
         $data[] = $row13;
 
         // Row 14
         $row14 = array_fill(0, 25, '');
         $managerName = $this->project->manager ? ($this->project->manager ?? '') : '';
-        $row14[0] = '९. आयोजना/कार्यालय प्रमुखको नाम: ' . $managerName;
+        $row14[0] = '९. आयोजना/कार्यालय प्रमुखको नाम: '.$managerName;
         $row14[15] = '(क) आन्तरिक';
         $data[] = $row14;
 
         // Row 15
         $row15 = array_fill(0, 25, '');
-        $row15[15] = $budgetChildIndent . '(१) नेपाल सरकार:';
+        $row15[15] = $budgetChildIndent.'(१) नेपाल सरकार:';
         $data[] = $row15;
 
         // Row 16
         $row16 = array_fill(0, 25, '');
-        $row16[15] = $budgetChildIndent . '(२) संस्था/निकाय:';
+        $row16[15] = $budgetChildIndent.'(२) संस्था/निकाय:';
         $data[] = $row16;
 
         // Row 17
         $row17 = array_fill(0, 25, '');
-        $row17[15] = $budgetChildIndent . '(३) जनसहभागिता:';
+        $row17[15] = $budgetChildIndent.'(३) जनसहभागिता:';
         $data[] = $row17;
 
         // Row 18
@@ -203,12 +216,12 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
         // Row 19
         $row19 = array_fill(0, 25, '');
-        $row19[15] = $budgetChildIndent . '(१) ऋण:';
+        $row19[15] = $budgetChildIndent.'(१) ऋण:';
         $data[] = $row19;
 
         // Row 20
         $row20 = array_fill(0, 25, '');
-        $row20[15] = $budgetChildIndent . '(२) अनुदान:';
+        $row20[15] = $budgetChildIndent.'(२) अनुदान:';
         $data[] = $row20;
 
         // Note row - Row 21
@@ -245,7 +258,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             'चौथो त्रैमासिक',
             '',
             '',
-            'कैफियत'
+            'कैफियत',
         ];
 
         // Sub-sub header row
@@ -432,6 +445,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             if ($item->relationLoaded('children') && $item->children->isNotEmpty()) {
                 $item->setRelation('children', $this->sortActivitiesRecursively($item->children));
             }
+
             return $item;
         });
     }
@@ -456,7 +470,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $childCounter = 1;
                 foreach ($children as $childDef) {
                     $childPlan = $plans->get($childDef->id);
-                    $childNumber = $this->toNepaliDigits($parentCounter) . '.' . $this->toNepaliDigits($childCounter);
+                    $childNumber = $this->toNepaliDigits($parentCounter).'.'.$this->toNepaliDigits($childCounter);
                     $rows[] = $this->buildActivityRow($childPlan, $childDef, $childNumber, $expenditureType, $globalX);
                     $childCurrentLocalRow = count($rows);
                     if (($childDef->children ?? collect())->isNotEmpty()) {
@@ -467,7 +481,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                     $grandchildCounter = 1;
                     foreach ($grandchildren as $grandchildDef) {
                         $grandchildPlan = $plans->get($grandchildDef->id);
-                        $grandchildNumber = $this->toNepaliDigits($parentCounter) . '.' . $this->toNepaliDigits($childCounter) . '.' . $this->toNepaliDigits($grandchildCounter);
+                        $grandchildNumber = $this->toNepaliDigits($parentCounter).'.'.$this->toNepaliDigits($childCounter).'.'.$this->toNepaliDigits($grandchildCounter);
                         $rows[] = $this->buildActivityRow($grandchildPlan, $grandchildDef, $grandchildNumber, $expenditureType, $globalX);
                         $grandchildCounter++;
                     }
@@ -476,7 +490,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
 
                 $parentTotals = $this->calculateTotalsForParent($parentDef, $plans);
                 $localRow = count($rows) + 1;
-                $rows[] = $this->buildTotalRow('', 'Total of ' . $parentCounter, $parentTotals, $globalX, $expenditureType === 'capital');
+                $rows[] = $this->buildTotalRow('', 'Total of '.$parentCounter, $parentTotals, $globalX, $expenditureType === 'capital');
                 $this->totalRows[] = $activityStartRow + $localRow - 1;
             }
 
@@ -495,6 +509,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $row = array_fill(0, 25, '');
             $row[0] = $number;
             $row[1] = $program;
+
             return $row;
         }
 
@@ -519,7 +534,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
         $rawWeightBudget = $globalX > 0 ? ($budget / $globalX) * 100 : 0.0;
         $weightBudget = number_format($rawWeightBudget, 2);
 
-        if (!$isCapital) {
+        if (! $isCapital) {
             $weightExpense = $weightPlanned = $weightQ1 = $weightQ2 = $weightQ3 = $weightQ4 = '0.00';
         } else {
             $progressRatio = $displayTotalQuantity > 0 ? $displayCompletedQuantity / $displayTotalQuantity : 0;
@@ -566,7 +581,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             $this->toNepaliDigits(number_format($displayQ4Quantity, 2)),
             $this->toNepaliDigits($weightQ4),
             $this->toNepaliDigits(number_format($displayQ4 / 1000, 0)),
-            ''
+            '',
         ];
     }
 
@@ -605,7 +620,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             '',
             $this->toNepaliDigits(number_format($q4Weight, 2)),
             $this->toNepaliDigits(number_format($totals['q4'] / 1000, 0)),
-            ''
+            '',
         ];
     }
 
@@ -634,6 +649,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
             'weighted_q4_contrib' => 0.0,
         ];
         $this->sumLeafNodes($parentDef, $totals, $plans);
+
         return $totals;
     }
 
@@ -734,6 +750,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $totals[$key] += $value;
             }
         }
+
         return $totals;
     }
 
@@ -788,10 +805,10 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->mergeCells('A1:Y1');
                 $sheet->mergeCells('A2:Y2');
                 $sheet->mergeCells('A3:Y3');
-                $sheet->getStyle("A2:Y2")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('A2:Y2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
                 $noBorder = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_NONE]]];
-                $sheet->getStyle("A1:Y3")->applyFromArray($noBorder);
+                $sheet->getStyle('A1:Y3')->applyFromArray($noBorder);
 
                 for ($r = 1; $r <= 3; $r++) {
                     $sheet->getRowDimension($r)->setRowHeight(18);
@@ -823,7 +840,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 // Style the Note Text in Y
                 $sheet->getStyle("Y{$noteRowNum}")->applyFromArray([
                     'font' => ['italic' => true, 'size' => 8],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT]
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
                 ]);
                 $sheet->getRowDimension($noteRowNum)->setRowHeight(16);
 
@@ -841,8 +858,8 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 $sheet->getStyle('H13')->getFont()->setBold(true);
                 $sheet->getStyle('P13')->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
 
-                $sheet->getStyle("H4")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
-                $sheet->getStyle("P4")->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
+                $sheet->getStyle('H4')->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
+                $sheet->getStyle('P4')->applyFromArray(['font' => ['bold' => true, 'size' => 9]]);
 
                 // Bold for the breakdown rows (14-20)
                 $sheet->getStyle('P14')->getFont()->setBold(true);
@@ -872,7 +889,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                     'font' => ['bold' => true, 'size' => 8],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 ]);
                 $sheet->getRowDimension($tableStart)->setRowHeight(35);
 
@@ -881,7 +898,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                     'font' => ['bold' => true, 'size' => 8],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F8F8']],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 ]);
                 $sheet->getRowDimension($subSubRow)->setRowHeight(20);
 
@@ -890,7 +907,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                     'font' => ['bold' => true, 'size' => 8],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 ]);
                 $sheet->getRowDimension($subRow)->setRowHeight(20);
 
@@ -901,7 +918,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                         'font' => ['bold' => true, 'size' => 9],
                         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']],
-                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                     ]);
                     $sheet->getRowDimension($row)->setRowHeight(22);
                 }
@@ -910,7 +927,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 foreach ($this->totalRows as $row) {
                     $sheet->getStyle("A{$row}:Y{$row}")->applyFromArray([
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E2EFDA']],
-                        'font' => ['bold' => true, 'size' => 8]
+                        'font' => ['bold' => true, 'size' => 8],
                     ]);
                 }
 
@@ -927,7 +944,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                 if ($borderEndRow >= $tableDataStart) {
                     $sheet->getStyle("A{$tableDataStart}:Y{$borderEndRow}")->getFont()->setSize(8);
                     $sheet->getStyle("A{$tableDataStart}:Y{$borderEndRow}")->applyFromArray([
-                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                     ]);
 
                     $sheet->getStyle("A{$tableDataStart}:A{$borderEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -950,7 +967,7 @@ class ProjectActivityExport implements FromArray, WithTitle, WithStyles, WithEve
                     $lastRow = $sheet->getHighestRow();
                     $sheet->getStyle("A{$this->footerStart}:Y{$lastRow}")->applyFromArray([
                         'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_NONE]],
-                        'font' => ['bold' => true, 'size' => 9]
+                        'font' => ['bold' => true, 'size' => 9],
                     ]);
 
                     for ($r = $this->footerStart; $r <= $lastRow; $r++) {

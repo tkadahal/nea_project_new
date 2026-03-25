@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\ProjectExpense;
 
-use App\Models\Project;
-use App\Models\FiscalYear;
-use App\Models\ProjectActivityPlan;
-use App\Models\ProjectActivityDefinition;
 use App\DTOs\ProjectExpense\ActivityDataDTO;
 use App\DTOs\ProjectExpense\ExpenseStoreResultDTO;
-use App\Repositories\ProjectExpense\ProjectExpenseRepository;
 use App\Helpers\ProjectExpense\ExpenseTreeBuilder;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use App\Repositories\ProjectExpense\ProjectExpenseRepository;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProjectExpenseService
 {
@@ -47,20 +47,20 @@ class ProjectExpenseService
         $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
         $selectedFiscalYearId = $currentFiscalYear->id;
 
-        $projectOptions = $projects->map(fn(Project $project) => [
+        $projectOptions = $projects->map(fn (Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
             'selected' => $project->id === $selectedProjectId,
         ])->toArray();
 
-        if (!$selectedQuarter && $selectedProjectId && $selectedFiscalYearId) {
+        if (! $selectedQuarter && $selectedProjectId && $selectedFiscalYearId) {
             $selectedQuarter = $this->quarterService->getNextUnfilledQuarter(
                 (int) $selectedProjectId,
                 (int) $selectedFiscalYearId
             );
         }
 
-        $preloadActivities = !empty($selectedProjectId) && !empty($selectedFiscalYearId);
+        $preloadActivities = ! empty($selectedProjectId) && ! empty($selectedFiscalYearId);
 
         $quarterStatus = null;
         if ($selectedProjectId && $selectedFiscalYearId) {
@@ -134,7 +134,7 @@ class ProjectExpenseService
 
         $capitalActivities = $definitions->where('expenditure_id', 1)->whereNull('parent_id')->values();
         $recurrentActivities = $definitions->where('expenditure_id', 2)->whereNull('parent_id')->values();
-        $groupedActivities = $definitions->groupBy(fn($d) => $d->parent_id ?? 'null');
+        $groupedActivities = $definitions->groupBy(fn ($d) => $d->parent_id ?? 'null');
 
         $subtreeAmountTotals = $this->treeBuilder->calculateSubtreeAmounts(
             $capitalActivities->concat($recurrentActivities),
@@ -210,15 +210,15 @@ class ProjectExpenseService
         );
 
         $totalCapitalBudget = $capitalDefinitions->sum(
-            fn($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget')
+            fn ($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget')
         );
         $totalRecurrentBudget = $recurrentDefinitions->sum(
-            fn($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget')
+            fn ($def) => $def->subtreePlans($fiscalYearId)->sum('planned_budget')
         );
         $totalBudget = $totalCapitalBudget + $totalRecurrentBudget;
 
         $budgetDetails = sprintf(
-            "Total Budget: NPR %s (Capital: NPR %s, Recurrent: NPR %s) for FY %s",
+            'Total Budget: NPR %s (Capital: NPR %s, Recurrent: NPR %s) for FY %s',
             number_format($totalBudget, 2),
             number_format($totalCapitalBudget, 2),
             number_format($totalRecurrentBudget, 2),
@@ -294,9 +294,9 @@ class ProjectExpenseService
         if (
             $plan->definitionVersion->project_id != $projectId ||
             $plan->fiscal_year_id != $fiscalYearId ||
-            !$plan->definitionVersion->is_current
+            ! $plan->definitionVersion->is_current
         ) {
-            throw new \InvalidArgumentException("Invalid or outdated activity plan.");
+            throw new \InvalidArgumentException('Invalid or outdated activity plan.');
         }
     }
 
@@ -320,8 +320,8 @@ class ProjectExpenseService
         return ProjectActivityDefinition::forProject($projectId)
             ->current()
             ->with([
-                'children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
-                'children.children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]")
+                'children' => fn ($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
+                'children.children' => fn ($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
             ])
             ->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ->get();
@@ -335,8 +335,8 @@ class ProjectExpenseService
             ->where('expenditure_id', $expenditureId)
             ->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ->with([
-                'children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
-                'children.children' => fn($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]")
+                'children' => fn ($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
+                'children.children' => fn ($q) => $q->current()->orderByRaw("string_to_array(sort_index, '.')::int[]"),
             ])
             ->get();
     }
@@ -344,7 +344,7 @@ class ProjectExpenseService
     private function getCurrentPlans($definitions, int $fiscalYearId)
     {
         $currentDefIds = $definitions->flatMap(
-            fn($d) => collect([$d])->merge($d->getDescendants())
+            fn ($d) => collect([$d])->merge($d->getDescendants())
         )->pluck('id')->unique();
 
         return ProjectActivityPlan::whereIn('activity_definition_version_id', $currentDefIds)
@@ -356,7 +356,7 @@ class ProjectExpenseService
     private function flattenDefinitionIds($definitions)
     {
         return $definitions->flatMap(
-            fn($d) => collect([$d])->merge($d->getDescendants())
+            fn ($d) => collect([$d])->merge($d->getDescendants())
         )->pluck('id');
     }
 
@@ -400,12 +400,12 @@ class ProjectExpenseService
         $totalExpense = collect($planAmounts)->sum('total');
 
         $capitalTotal = $currentPlans->filter(
-            fn($p) => $p->definitionVersion->expenditure_id == 1
-        )->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
+            fn ($p) => $p->definitionVersion->expenditure_id == 1
+        )->sum(fn ($p) => $planAmounts[$p->id]['total'] ?? 0);
 
         $recurrentTotal = $currentPlans->filter(
-            fn($p) => $p->definitionVersion->expenditure_id == 2
-        )->sum(fn($p) => $planAmounts[$p->id]['total'] ?? 0);
+            fn ($p) => $p->definitionVersion->expenditure_id == 2
+        )->sum(fn ($p) => $planAmounts[$p->id]['total'] ?? 0);
 
         return [$totalExpense, $capitalTotal, $recurrentTotal];
     }
@@ -418,7 +418,6 @@ class ProjectExpenseService
         })
             ->where('fiscal_year_id', $fiscalYearId)
             ->first();
-
 
         return $plan && $plan->status === 'approved';
     }

@@ -19,22 +19,22 @@ class NotificationService
         $notifiedUsers = collect();
 
         // Notify project users
-        if (!empty($validated['projects'])) {
+        if (! empty($validated['projects'])) {
             $this->notifyProjectUsers($task, $validated['projects'], $notifiedUsers);
         }
 
         // Notify department users
-        if (!empty($validated['department_id']) && $notifiedUsers->isEmpty()) {
+        if (! empty($validated['department_id']) && $notifiedUsers->isEmpty()) {
             $this->notifyDepartmentUsers($task, $validated['department_id'], $notifiedUsers);
         }
 
         // Notify directorate users
-        if (!empty($validated['directorate_id']) && empty($validated['projects']) && $notifiedUsers->isEmpty()) {
+        if (! empty($validated['directorate_id']) && empty($validated['projects']) && $notifiedUsers->isEmpty()) {
             $this->notifyDirectorateUsers($task, $validated['directorate_id'], $notifiedUsers);
         }
 
         // Notify parent task users
-        if (!empty($validated['parent_id'])) {
+        if (! empty($validated['parent_id'])) {
             $this->notifyParentTaskUsers($task, $validated['parent_id'], $notifiedUsers);
         }
     }
@@ -54,12 +54,12 @@ class NotificationService
     {
         foreach ($projectIds as $projectId) {
             $project = Project::find($projectId);
-            if (!$project) {
+            if (! $project) {
                 continue;
             }
 
             foreach ($project->users as $user) {
-                if (!$notifiedUsers->contains($user->id)) {
+                if (! $notifiedUsers->contains($user->id)) {
                     $user->notify(new TaskCreated($task, $projectId));
                     $notifiedUsers->push($user->id);
                 }
@@ -70,17 +70,17 @@ class NotificationService
     private function notifyDepartmentUsers(Task $task, int $departmentId, Collection &$notifiedUsers): void
     {
         $department = Department::find($departmentId);
-        if (!$department) {
+        if (! $department) {
             return;
         }
 
         $directorateIds = $department->directorates()->pluck('directorates.id');
         $users = User::whereIn('directorate_id', $directorateIds)
-            ->whereHas('roles', fn($q) => $q->where('id', Role::DEPARTMENT_USER))
+            ->whereHas('roles', fn ($q) => $q->where('id', Role::DEPARTMENT_USER))
             ->get();
 
         foreach ($users as $user) {
-            if (!$notifiedUsers->contains($user->id)) {
+            if (! $notifiedUsers->contains($user->id)) {
                 $user->notify(new TaskCreated($task, null));
                 $notifiedUsers->push($user->id);
             }
@@ -90,11 +90,11 @@ class NotificationService
     private function notifyDirectorateUsers(Task $task, int $directorateId, Collection &$notifiedUsers): void
     {
         $users = User::where('directorate_id', $directorateId)
-            ->whereHas('roles', fn($q) => $q->where('id', Role::DIRECTORATE_USER))
+            ->whereHas('roles', fn ($q) => $q->where('id', Role::DIRECTORATE_USER))
             ->get();
 
         foreach ($users as $user) {
-            if (!$notifiedUsers->contains($user->id)) {
+            if (! $notifiedUsers->contains($user->id)) {
                 $user->notify(new TaskCreated($task, null));
                 $notifiedUsers->push($user->id);
             }
@@ -104,12 +104,12 @@ class NotificationService
     private function notifyParentTaskUsers(Task $task, int $parentId, Collection &$notifiedUsers): void
     {
         $parentTask = Task::find($parentId);
-        if (!$parentTask) {
+        if (! $parentTask) {
             return;
         }
 
         foreach ($parentTask->users as $user) {
-            if (!$notifiedUsers->contains($user->id)) {
+            if (! $notifiedUsers->contains($user->id)) {
                 $user->notify(new TaskCreated($task, null));
                 $notifiedUsers->push($user->id);
             }

@@ -31,7 +31,7 @@ class Expense extends Model
     protected static function booted()
     {
         static::creating(function (Expense $expense) {
-            if ($expense->date && !$expense->fiscal_year_id) {
+            if ($expense->date && ! $expense->fiscal_year_id) {
                 $fiscalYear = FiscalYear::where('start_date', '<=', $expense->date)
                     ->where('end_date', '>=', $expense->date)
                     ->first();
@@ -58,8 +58,8 @@ class Expense extends Model
     public function setBudgetTypeAttribute(string $value): void
     {
         $validTypes = ['internal', 'foreign_loan', 'foreign_subsidy', 'government_share', 'government_loan'];
-        if (!in_array($value, $validTypes)) {
-            throw new \InvalidArgumentException("Invalid budget type: {$value}. Must be one of: " . implode(', ', $validTypes));
+        if (! in_array($value, $validTypes)) {
+            throw new \InvalidArgumentException("Invalid budget type: {$value}. Must be one of: ".implode(', ', $validTypes));
         }
         $this->attributes['budget_type'] = $value;
     }

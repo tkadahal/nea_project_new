@@ -55,7 +55,7 @@ class ExcelRowParser
         $plan = ProjectActivityPlan::where('fiscal_year_id', $fiscalYearId)
             ->whereHas('definitionVersion', function ($q) use ($projectId, $title) {
                 $q->where('project_id', $projectId)
-                    ->whereRaw('LOWER(program) LIKE ?', ['%' . strtolower($title) . '%']);
+                    ->whereRaw('LOWER(program) LIKE ?', ['%'.strtolower($title).'%']);
             })
             ->first();
 

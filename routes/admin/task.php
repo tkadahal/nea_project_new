@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\TaskController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(TaskController::class)->prefix('tasks')->name('tasks.')->group(function () {
     Route::post('filter', 'filter')->name('filter');

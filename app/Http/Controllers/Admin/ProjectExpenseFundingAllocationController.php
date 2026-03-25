@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Project;
-use App\Models\FiscalYear;
-use Illuminate\View\View;
-use App\Models\ProjectExpenseQuarter;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use App\Models\ProjectExpenseFundingAllocation;
 use App\Http\Requests\ProjectExpenseFundAllocation\StoreProjectExpenseFundingAllocationRequest;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Models\ProjectExpenseFundingAllocation;
+use App\Models\ProjectExpenseQuarter;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\View\View;
 
 class ProjectExpenseFundingAllocationController extends Controller
 {
@@ -45,19 +44,19 @@ class ProjectExpenseFundingAllocationController extends Controller
                         $sub->whereIn('project_id', $projectIds)->current();
                     });
             })
-            ->whereHas('expense', fn($q) => $q->doesntHave('children'))
+            ->whereHas('expense', fn ($q) => $q->doesntHave('children'))
             ->selectRaw('SUM(amount) as total, quarter, expense.plan->fiscal_year_id as fy_id, expense.plan.definitionVersion->project_id as project_id')
             ->groupBy('quarter', 'fy_id', 'project_id')
             ->get()
-            ->keyBy(fn($item) => "{$item->project_id}_{$item->fy_id}_{$item->quarter}")
-            ->map(fn($item) => round((float) $item->total, 2));
+            ->keyBy(fn ($item) => "{$item->project_id}_{$item->fy_id}_{$item->quarter}")
+            ->map(fn ($item) => round((float) $item->total, 2));
 
         // Pre-fetch allocations
         $allAllocations = ProjectExpenseFundingAllocation::whereIn('project_id', $projectIds)
             ->whereIn('fiscal_year_id', $allFiscalYearIds)
             ->whereNull('deleted_at')
             ->get()
-            ->keyBy(fn($a) => "{$a->project_id}_{$a->fiscal_year_id}_{$a->quarter}");
+            ->keyBy(fn ($a) => "{$a->project_id}_{$a->fiscal_year_id}_{$a->quarter}");
 
         $allocationSummary = [];
         foreach ($projects as $project) {
@@ -110,18 +109,17 @@ class ProjectExpenseFundingAllocationController extends Controller
 
         usort(
             $allocationSummary,
-            fn($a, $b) =>
-            strcmp($a['project_title'], $b['project_title']) ?:
+            fn ($a, $b) => strcmp($a['project_title'], $b['project_title']) ?:
                 strcmp($a['fy_title'], $b['fy_title']) ?:
                 $a['quarter'] <=> $b['quarter']
         );
 
         $filteredSummary = $allocationSummary;
         if ($selectedProjectId) {
-            $filteredSummary = array_filter($filteredSummary, fn($i) => $i['project_id'] == $selectedProjectId);
+            $filteredSummary = array_filter($filteredSummary, fn ($i) => $i['project_id'] == $selectedProjectId);
         }
         if ($selectedFiscalYearId) {
-            $filteredSummary = array_filter($filteredSummary, fn($i) => $i['fy_id'] == $selectedFiscalYearId);
+            $filteredSummary = array_filter($filteredSummary, fn ($i) => $i['fy_id'] == $selectedFiscalYearId);
         }
 
         return view('admin.projectExpenseFundingAllocations.index', compact(
@@ -146,7 +144,7 @@ class ProjectExpenseFundingAllocationController extends Controller
             ?: collect($fiscalYears)->firstWhere('selected', true)['value'] ?? null;
         $quarter = $request->integer('quarter', 0);
 
-        $projectOptions = $projects->map(fn($p) => [
+        $projectOptions = $projects->map(fn ($p) => [
             'value' => $p->id,
             'label' => $p->title,
             'selected' => $p->id == $selectedProjectId,
@@ -164,15 +162,15 @@ class ProjectExpenseFundingAllocationController extends Controller
 
             $peqs = ProjectExpenseQuarter::with('expense.plan')
                 ->where('quarter', $quarter)
-                ->whereHas('expense', fn($q) => $q->doesntHave('children'))
+                ->whereHas('expense', fn ($q) => $q->doesntHave('children'))
                 ->whereHas('expense.plan', function ($q) use ($selectedFiscalYearId, $selectedProjectId) {
                     $q->where('fiscal_year_id', $selectedFiscalYearId)
-                        ->whereHas('definitionVersion', fn($sub) => $sub->where('project_id', $selectedProjectId)->current());
+                        ->whereHas('definitionVersion', fn ($sub) => $sub->where('project_id', $selectedProjectId)->current());
                 })
                 ->get();
 
             $quarterTotal = round($peqs->sum('amount'), 2);
-            $activityDetails = $peqs->map(fn($peq) => [
+            $activityDetails = $peqs->map(fn ($peq) => [
                 'id' => $peq->id,
                 'amount' => round((float) $peq->amount, 2),
             ])->toArray();
@@ -216,7 +214,7 @@ class ProjectExpenseFundingAllocationController extends Controller
 
         $activityDetails = json_decode($activityDetailsJson, true);
 
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($activityDetails)) {
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($activityDetails)) {
             return back()->withErrors(['activity_details' => "Invalid activity details for Q{$quarter}."])->withInput();
         }
 
@@ -230,8 +228,8 @@ class ProjectExpenseFundingAllocationController extends Controller
             ->where('quarter', $quarter)
             ->whereHas('expense', function ($q) use ($projectId, $fiscalYearId) {
                 $q->doesntHave('children')
-                    ->whereHas('plan', fn($subQ) => $subQ->where('fiscal_year_id', $fiscalYearId))
-                    ->whereHas('plan.definitionVersion', fn($subQ) => $subQ->where('project_id', $projectId)->current());
+                    ->whereHas('plan', fn ($subQ) => $subQ->where('fiscal_year_id', $fiscalYearId))
+                    ->whereHas('plan.definitionVersion', fn ($subQ) => $subQ->where('project_id', $projectId)->current());
             })
             ->pluck('id')
             ->toArray();
@@ -271,14 +269,14 @@ class ProjectExpenseFundingAllocationController extends Controller
                 'government_loan' => $sourceAmounts['government_loan'],
                 'foreign_loan_budget' => $sourceAmounts['foreign_loan'],
                 'foreign_subsidy_budget' => $sourceAmounts['foreign_subsidy'],
-                'remarks'               => $remarks,
+                'remarks' => $remarks,
             ]);
 
             ProjectExpenseQuarter::where('quarter', $quarter)
                 ->where('status', 'draft')
                 ->whereHas('expense.plan', function ($q) use ($projectId, $fiscalYearId) {
                     $q->where('fiscal_year_id', $fiscalYearId)
-                        ->whereHas('definitionVersion', fn($sub) => $sub->where('project_id', $projectId)->current());
+                        ->whereHas('definitionVersion', fn ($sub) => $sub->where('project_id', $projectId)->current());
                 })
                 ->update(['status' => 'finalized']);
 
@@ -291,13 +289,13 @@ class ProjectExpenseFundingAllocationController extends Controller
             ];
 
             $successMessage = "Q{$quarter} funding allocation saved successfully! "
-                . number_format($quarterTotal, 2) . " allocated.";
+                .number_format($quarterTotal, 2).' allocated.';
 
             if ($nextQuarter <= 4) {
                 $redirectParams['quarter'] = $nextQuarter;
                 $successMessage .= " Proceed to Q{$nextQuarter}.";
             } else {
-                $successMessage .= " All quarters for this fiscal year are now complete!";
+                $successMessage .= ' All quarters for this fiscal year are now complete!';
             }
 
             return redirect()
@@ -305,7 +303,8 @@ class ProjectExpenseFundingAllocationController extends Controller
                 ->with('success', $successMessage);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->withErrors(['error' => 'Failed to save funding allocation: ' . $e->getMessage()]);
+
+            return back()->withInput()->withErrors(['error' => 'Failed to save funding allocation: '.$e->getMessage()]);
         }
     }
 
@@ -322,7 +321,7 @@ class ProjectExpenseFundingAllocationController extends Controller
         $selectedFiscalYearId = $allocation->fiscal_year_id;
         $quarter = $allocation->quarter;
 
-        $projectOptions = $projects->map(fn($p) => [
+        $projectOptions = $projects->map(fn ($p) => [
             'value' => $p->id,
             'label' => $p->title,
             'selected' => $p->id == $selectedProjectId,
@@ -343,15 +342,15 @@ class ProjectExpenseFundingAllocationController extends Controller
 
         $peqs = ProjectExpenseQuarter::with('expense.plan')
             ->where('quarter', $quarter)
-            ->whereHas('expense', fn($q) => $q->doesntHave('children'))
+            ->whereHas('expense', fn ($q) => $q->doesntHave('children'))
             ->whereHas('expense.plan', function ($q) use ($selectedFiscalYearId, $selectedProjectId) {
                 $q->where('fiscal_year_id', $selectedFiscalYearId)
-                    ->whereHas('definitionVersion', fn($sub) => $sub->where('project_id', $selectedProjectId)->current());
+                    ->whereHas('definitionVersion', fn ($sub) => $sub->where('project_id', $selectedProjectId)->current());
             })
             ->get();
 
         $quarterTotal = round($peqs->sum('amount'), 2);
-        $activityDetails = $peqs->map(fn($peq) => [
+        $activityDetails = $peqs->map(fn ($peq) => [
             'id' => $peq->id,
             'amount' => round((float) $peq->amount, 2),
         ])->toArray();
@@ -384,7 +383,7 @@ class ProjectExpenseFundingAllocationController extends Controller
         $activityDetailsJson = $data['activity_details'];
         $activityDetails = json_decode($activityDetailsJson, true);
 
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($activityDetails)) {
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($activityDetails)) {
             return back()->withErrors(['activity_details' => "Invalid activity details for Q{$quarter}."])->withInput();
         }
 
@@ -398,8 +397,8 @@ class ProjectExpenseFundingAllocationController extends Controller
             ->where('quarter', $quarter)
             ->whereHas('expense', function ($q) use ($projectId, $fiscalYearId) {
                 $q->doesntHave('children')
-                    ->whereHas('plan', fn($subQ) => $subQ->where('fiscal_year_id', $fiscalYearId))
-                    ->whereHas('plan.definitionVersion', fn($subQ) => $subQ->where('project_id', $projectId)->current());
+                    ->whereHas('plan', fn ($subQ) => $subQ->where('fiscal_year_id', $fiscalYearId))
+                    ->whereHas('plan.definitionVersion', fn ($subQ) => $subQ->where('project_id', $projectId)->current());
             })
             ->pluck('id')
             ->toArray();
@@ -449,7 +448,8 @@ class ProjectExpenseFundingAllocationController extends Controller
                 ->with('success', "Q{$quarter} allocations updated successfully.");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->withErrors(['error' => 'Update failed: ' . $e->getMessage()]);
+
+            return back()->withInput()->withErrors(['error' => 'Update failed: '.$e->getMessage()]);
         }
     }
 
@@ -463,7 +463,8 @@ class ProjectExpenseFundingAllocationController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Delete failed: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Delete failed: '.$e->getMessage()]);
         }
 
         return redirect()->route('admin.projectExpenseFundingAllocation.index')
@@ -486,9 +487,9 @@ class ProjectExpenseFundingAllocationController extends Controller
 
         $quarters = ProjectExpenseQuarter::whereHas('expense.plan', function ($q) use ($projectId, $fiscalYearId) {
             $q->where('fiscal_year_id', $fiscalYearId)
-                ->whereHas('definitionVersion', fn($sub) => $sub->where('project_id', $projectId)->current());
+                ->whereHas('definitionVersion', fn ($sub) => $sub->where('project_id', $projectId)->current());
         })
-            ->whereHas('expense', fn($q) => $q->doesntHave('children'))
+            ->whereHas('expense', fn ($q) => $q->doesntHave('children'))
             ->get()
             ->groupBy('quarter');
 
@@ -498,7 +499,7 @@ class ProjectExpenseFundingAllocationController extends Controller
         for ($q = 1; $q <= 4; $q++) {
             $qData = $quarters->get($q, collect());
             $total = round($qData->sum('amount'), 2);
-            $details = $qData->map(fn($peq) => [
+            $details = $qData->map(fn ($peq) => [
                 'id' => $peq->id,
                 'amount' => round((float) $peq->amount, 2),
             ])->toArray();

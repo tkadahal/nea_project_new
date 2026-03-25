@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Role;
-use Illuminate\View\View;
-use App\Models\Department;
-use App\Models\Directorate;
-use App\Trait\RoleBasedAccess;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Http\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
 use App\Http\Requests\Department\StoreDepartmentRequest;
 use App\Http\Requests\Department\UpdateDepartmentRequest;
+use App\Models\Department;
+use App\Models\Directorate;
+use App\Models\Role;
+use App\Trait\RoleBasedAccess;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class DepartmentController extends Controller
 {
@@ -29,7 +29,7 @@ class DepartmentController extends Controller
         $departments = Department::query()
             ->with('directorates')
             ->latest()
-            ->whereHas('directorates', fn($q) => $q->whereIn('directorates.id', $accessibleDirectorateIds))
+            ->whereHas('directorates', fn ($q) => $q->whereIn('directorates.id', $accessibleDirectorateIds))
             ->get();
 
         $headers = [
@@ -41,24 +41,25 @@ class DepartmentController extends Controller
         $data = $departments->map(function ($department) use ($directorateColors) {
             $directorates = $department->directorates->map(function ($directorate) use ($directorateColors) {
                 $color = $directorateColors[$directorate->id] ?? 'gray';
+
                 return ['title' => $directorate->title, 'color' => $color];
             })->all();
 
             return [
-                'id'          => $department->id,
+                'id' => $department->id,
                 'directorates' => $directorates,
-                'title'       => $department->title,
+                'title' => $department->title,
             ];
         })->all();
 
         return view('admin.departments.index', [
-            'headers'                   => $headers,
-            'data'                      => $data,
-            'departments'               => $departments,
-            'routePrefix'               => 'admin.department',
-            'actions'                   => ['view', 'edit', 'delete'],
+            'headers' => $headers,
+            'data' => $data,
+            'departments' => $departments,
+            'routePrefix' => 'admin.department',
+            'actions' => ['view', 'edit', 'delete'],
             'deleteConfirmationMessage' => 'Are you sure you want to delete this department?',
-            'arrayColumnColor'          => $directorateColors,
+            'arrayColumnColor' => $directorateColors,
         ]);
     }
 
@@ -66,8 +67,8 @@ class DepartmentController extends Controller
     {
         abort_if(Gate::denies('department_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $user     = Auth::user();
-        $roleIds  = $user->roles->pluck('id')->toArray();
+        $user = Auth::user();
+        $roleIds = $user->roles->pluck('id')->toArray();
 
         $isAdminOrSuperAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
 
@@ -99,8 +100,8 @@ class DepartmentController extends Controller
     {
         abort_if(Gate::denies('department_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $user     = Auth::user();
-        $roleIds  = $user->roles->pluck('id')->toArray();
+        $user = Auth::user();
+        $roleIds = $user->roles->pluck('id')->toArray();
 
         $isAdminOrSuperAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
 
@@ -143,16 +144,17 @@ class DepartmentController extends Controller
 
     private function syncDirectorateForDepartment(Department $department): void
     {
-        $user    = Auth::user();
+        $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
 
-        $isDirectorateUser   = in_array(Role::DIRECTORATE_USER, $roleIds);
+        $isDirectorateUser = in_array(Role::DIRECTORATE_USER, $roleIds);
         $isAdminOrSuperAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
 
         if ($isDirectorateUser) {
             if ($directorate = $user->directorate) {
                 $department->directorates()->sync([$directorate->id]);
             }
+
             return;
         }
 

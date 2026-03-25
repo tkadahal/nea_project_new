@@ -6,11 +6,11 @@ namespace App\Exports\Reports;
 
 use App\Models\PreBudget;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 
-class PreBudgetReport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize
+class PreBudgetReport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
 {
     public function collection()
     {

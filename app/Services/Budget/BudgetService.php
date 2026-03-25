@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\Budget;
 
-use App\Models\User;
-use App\Models\Budget;
-use App\Models\Project;
-use App\Models\FiscalYear;
 use App\DTOs\Budget\BudgetDTO;
+use App\DTOs\Budget\BudgetImportResult;
+use App\Helpers\Budget\BudgetHelper;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Models\User;
+use App\Repositories\Budget\BudgetRepository;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Helpers\Budget\BudgetHelper;
-use Illuminate\Support\Facades\Auth;
-use App\DTOs\Budget\BudgetImportResult;
-use App\Repositories\Budget\BudgetRepository;
 
 class BudgetService
 {
@@ -39,8 +38,7 @@ class BudgetService
             trans('global.budget.fields.budget_revision'),
         ];
 
-
-        $data = $budgets->map(fn($budget) => BudgetHelper::formatBudgetForDisplay($budget))->all();
+        $data = $budgets->map(fn ($budget) => BudgetHelper::formatBudgetForDisplay($budget))->all();
 
         return [
             'headers' => $headers,
@@ -77,12 +75,12 @@ class BudgetService
                 'project' => $budget->project->title ?? 'N/A',
                 'directorate' => $budget->project->directorate->title ?? 'N/A',
                 'directorate_id' => $budget->project->directorate_id ?? null,
-                'government_share' => number_format((float)($budget->government_share ?? 0), 2),
-                'government_loan' => number_format((float)($budget->government_loan ?? 0), 2),
-                'foreign_loan' => number_format((float)($budget->foreign_loan_budget ?? 0), 2),
-                'foreign_subsidy' => number_format((float)($budget->foreign_subsidy_budget ?? 0), 2),
-                'internal_budget' => number_format((float)($budget->internal_budget ?? 0), 2),
-                'total_budget' => number_format((float)($budget->total_budget ?? 0), 2),
+                'government_share' => number_format((float) ($budget->government_share ?? 0), 2),
+                'government_loan' => number_format((float) ($budget->government_loan ?? 0), 2),
+                'foreign_loan' => number_format((float) ($budget->foreign_loan_budget ?? 0), 2),
+                'foreign_subsidy' => number_format((float) ($budget->foreign_subsidy_budget ?? 0), 2),
+                'internal_budget' => number_format((float) ($budget->internal_budget ?? 0), 2),
+                'total_budget' => number_format((float) ($budget->total_budget ?? 0), 2),
                 'budget_revision' => $budget->budget_revision,
             ];
         })->values()->toArray();
@@ -134,7 +132,7 @@ class BudgetService
     {
         $user = $user ?? Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return 'All Directorates';
         }
 
@@ -166,7 +164,7 @@ class BudgetService
             })->prepend([
                 'value' => '',
                 'label' => trans('global.allDirectorate') ?? 'All Directorates',
-                'selected' => !$selectedDirectorateId,
+                'selected' => ! $selectedDirectorateId,
             ])
             ->sortByDesc('id')
             ->values()
@@ -199,14 +197,16 @@ class BudgetService
                 'remarks' => $validatedData['remarks'] ?? null,
             ]);
 
-            if (!$budgetData->hasNonZeroBudget()) {
+            if (! $budgetData->hasNonZeroBudget()) {
                 $skipped++;
+
                 continue;
             }
 
             $project = Project::find($projectId);
-            if (!$project) {
+            if (! $project) {
                 $errors[] = "Project ID {$projectId} not found.";
+
                 continue;
             }
 
@@ -232,16 +232,16 @@ class BudgetService
     public function importFromExcel(\Illuminate\Http\UploadedFile $file): BudgetImportResult
     {
         try {
-            if (!$file->isValid()) {
+            if (! $file->isValid()) {
                 return new BudgetImportResult(
-                    errors: ['File upload failed: ' . $file->getErrorMessage()]
+                    errors: ['File upload failed: '.$file->getErrorMessage()]
                 );
             }
 
             // Extract fiscal year from template
             $fiscalYearTitle = $this->extractFiscalYearFromExcel($file);
 
-            if (!$fiscalYearTitle) {
+            if (! $fiscalYearTitle) {
                 return new BudgetImportResult(
                     errors: ['Could not extract fiscal year from the template. Expected format: "Fiscal Year: YYYY/YY" in row 2.']
                 );
@@ -251,14 +251,14 @@ class BudgetService
 
             $fiscalYear = FiscalYear::where('title', $fiscalYearTitle)->first();
 
-            if (!$fiscalYear) {
+            if (! $fiscalYear) {
                 return new BudgetImportResult(
                     errors: ["Fiscal year '{$fiscalYearTitle}' not found in the system. Please ensure it exists before uploading."]
                 );
             }
 
             // Import data
-            $import = new \App\Imports\BudgetImport();
+            $import = new \App\Imports\BudgetImport;
             $data = $import->import($file);
 
             if ($data->isEmpty()) {
@@ -272,11 +272,11 @@ class BudgetService
         } catch (\Exception $e) {
             Log::error('Budget import error', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return new BudgetImportResult(
-                errors: ['Error: ' . $e->getMessage()]
+                errors: ['Error: '.$e->getMessage()]
             );
         }
     }
@@ -302,15 +302,17 @@ class BudgetService
             $projectTitle = trim($row['project_title'] ?? '');
 
             if (empty($projectTitle)) {
-                $errors[] = "Missing project title at row " . ($index + 4);
+                $errors[] = 'Missing project title at row '.($index + 4);
+
                 continue;
             }
 
             $normalizedTitle = BudgetHelper::normalizeString($projectTitle);
             $projectId = $projects[$normalizedTitle] ?? null;
 
-            if (!$projectId) {
-                $errors[] = "Invalid project '{$projectTitle}' at row " . ($index + 4);
+            if (! $projectId) {
+                $errors[] = "Invalid project '{$projectTitle}' at row ".($index + 4);
+
                 continue;
             }
 
@@ -327,8 +329,9 @@ class BudgetService
                 'total_budget' => floatval($row['total_budget'] ?? 0),
             ]);
 
-            if (!$budgetData->hasNonZeroBudget()) {
+            if (! $budgetData->hasNonZeroBudget()) {
                 $skipped++;
+
                 continue;
             }
 
@@ -348,7 +351,7 @@ class BudgetService
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return new BudgetImportResult(0, 0, 0, $errors);
         }
 
@@ -373,14 +376,14 @@ class BudgetService
             return [
                 'success' => true,
                 'deleted' => $totalDeleted,
-                'message' => "✅ Cleaned {$totalDeleted} duplicate revision(s) and synced latest data."
+                'message' => "✅ Cleaned {$totalDeleted} duplicate revision(s) and synced latest data.",
             ];
         } catch (\Exception $e) {
             DB::rollBack();
 
             return [
                 'success' => false,
-                'message' => '❌ Cleanup failed: ' . $e->getMessage()
+                'message' => '❌ Cleanup failed: '.$e->getMessage(),
             ];
         }
     }

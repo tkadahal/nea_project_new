@@ -30,7 +30,7 @@ class ProjectActivityScheduleSeeder extends Seeder
             $this->command->info('Project Activity Schedules seeded successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->command->error('Error seeding schedules: ' . $e->getMessage());
+            $this->command->error('Error seeding schedules: '.$e->getMessage());
             throw $e;
         }
     }
@@ -292,7 +292,7 @@ class ProjectActivityScheduleSeeder extends Seeder
             ]);
 
             // Recursively insert children
-            if (!empty($children)) {
+            if (! empty($children)) {
                 $this->insertSchedules($children, $projectType, $schedule->id, $level + 1);
             }
         }

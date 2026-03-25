@@ -3,26 +3,18 @@
 namespace App\Exports\Sheets;
 
 use App\Models\PreBudget;
-use Maatwebsite\Excel\Concerns\{
-    FromCollection,
-    WithMapping,
-    WithTitle,
-    ShouldAutoSize,
-    WithEvents,
-    WithColumnFormatting
-};
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class BudgetHeadingSummarySheet implements
-    FromCollection,
-    WithMapping,
-    WithTitle,
-    ShouldAutoSize,
-    WithEvents,
-    WithColumnFormatting
+class BudgetHeadingSummarySheet implements FromCollection, ShouldAutoSize, WithColumnFormatting, WithEvents, WithMapping, WithTitle
 {
     public $fiscalYearTitle = 'N/A';
 
@@ -35,7 +27,7 @@ class BudgetHeadingSummarySheet implements
         }
 
         return $data
-            ->groupBy(fn($pb) => $pb->project->budgetHeading->title ?? 'Unknown Heading')
+            ->groupBy(fn ($pb) => $pb->project->budgetHeading->title ?? 'Unknown Heading')
             ->map(function ($items, $heading) {
                 return [
                     'heading' => $heading,
@@ -98,7 +90,7 @@ class BudgetHeadingSummarySheet implements
                 $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
 
                 // 3. Set Subtitle
-                $sheet->setCellValue('A2', 'Fiscal Year: ' . $this->fiscalYearTitle);
+                $sheet->setCellValue('A2', 'Fiscal Year: '.$this->fiscalYearTitle);
                 $sheet->mergeCells('A2:H2');
                 $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11);
                 $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
@@ -133,22 +125,22 @@ class BudgetHeadingSummarySheet implements
                     'borders' => [
                         'outline' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']],
                         'inside' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']],
-                    ]
+                    ],
                 ];
 
                 $catStyle = array_merge($headerStyle, [
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                        'color' => ['rgb' => '4472C4']
-                    ]
+                        'color' => ['rgb' => '4472C4'],
+                    ],
                 ]);
                 $sheet->getStyle('A3:H3')->applyFromArray($catStyle);
 
                 $subStyle = array_merge($headerStyle, [
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                        'color' => ['rgb' => '5B9BD5']
-                    ]
+                        'color' => ['rgb' => '5B9BD5'],
+                    ],
                 ]);
                 $sheet->getStyle('A4:H4')->applyFromArray($subStyle);
 

@@ -24,24 +24,24 @@ class StoreProjectRequest extends FormRequest
     {
         return [
             'directorate_id' => ['required', 'exists:directorates,id'],
-            'department_id'   => ['nullable', 'exists:departments,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
             'budget_heading_id' => ['nullable', 'exists:budget_headings,id'],
             'lmbis_id' => [
                 'nullable',
                 'integer',
                 Rule::unique('projects', 'lmbis_id')->where('budget_heading_id', $this->budget_heading_id),
             ],
-            'title'       => ['required', 'string', 'max:255'],
+            'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'location'    => ['nullable', 'string'],
-            'start_date'  => ['required', 'date'],
-            'end_date'    => ['nullable', 'date', 'after_or_equal:start_date'],
-            'status_id'   => ['required', 'exists:statuses,id'],
+            'location' => ['nullable', 'string'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'status_id' => ['required', 'exists:statuses,id'],
             'priority_id' => ['required', 'exists:priorities,id'],
             'project_manager' => ['nullable', 'exists:users,id'],
             'manager' => ['nullable', 'string', 'max:1000'],
-            'files'       => ['nullable', 'array'],
-            'files.*'     => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
+            'files' => ['nullable', 'array'],
+            'files.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
         ];
     }
 
@@ -59,7 +59,7 @@ class StoreProjectRequest extends FormRequest
             $isAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
 
             // If NOT an admin, verify the submitted directorate matches the user's directorate
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $submittedDirectorateId = (string) $this->input('directorate_id');
                 $userDirectorateId = (string) $user->directorate_id;
 

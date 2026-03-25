@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Exports;
 
 use App\Models\Status;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
-use Illuminate\Support\Facades\Log;
 
 class TasksExport implements FromQuery, WithHeadings, WithMapping
 {
@@ -67,6 +67,7 @@ class TasksExport implements FromQuery, WithHeadings, WithMapping
                 'task_id' => $task->id ?? 'unknown',
                 'error' => $e->getMessage(),
             ]);
+
             return [
                 $task->title ?? 'N/A',
                 'Error',

@@ -42,9 +42,9 @@ class SprintData extends Component
             ->whereBetween('tasks.created_at', [$startDate, $endDate]);
 
         if (in_array(Role::DIRECTORATE_USER, $roles) && $directorateId) {
-            $query->where(function ($q) use ($directorateId, $projectIds) {
+            $query->where(function ($q) use ($directorateId) {
                 $q->where('tasks.directorate_id', $directorateId)
-                    ->orWhereHas('projects', fn($q) => $q->where('projects.directorate_id', $directorateId));
+                    ->orWhereHas('projects', fn ($q) => $q->where('projects.directorate_id', $directorateId));
             });
         } elseif (in_array(Role::PROJECT_USER, $roles) && $projectIds->isNotEmpty()) {
             $query->where(function ($q) use ($projectIds) {
@@ -52,13 +52,14 @@ class SprintData extends Component
             });
         } elseif (in_array(Role::SUPERADMIN, $roles) || in_array(Role::ADMIN, $roles)) {
         } else {
-            $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+            $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
         }
 
         $tasksByMonthAndStatus = $query->groupByRaw("TO_CHAR(tasks.created_at, 'YYYY-MM-01'), COALESCE(project_task.status_id, tasks.status_id)")
             ->get()
             ->reduce(function ($carry, $item) {
                 $carry[$item->month_start][$item->status_id] = $item->count;
+
                 return $carry;
             }, []);
 
@@ -87,7 +88,7 @@ class SprintData extends Component
                 }
             }
 
-            $sprints['Sprint ' . ($i + 1)] = $sprintData;
+            $sprints['Sprint '.($i + 1)] = $sprintData;
         }
 
         return $sprints;

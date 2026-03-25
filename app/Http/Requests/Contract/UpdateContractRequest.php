@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Contract;
 
-use App\Models\Project;
 use App\Models\Contract;
+use App\Models\Project;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +15,7 @@ class UpdateContractRequest extends FormRequest
     public function authorize(): bool
     {
         abort_if(Gate::denies('contract_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
         return true;
     }
 
@@ -63,12 +64,13 @@ class UpdateContractRequest extends FormRequest
                 'numeric',
                 'min:0',
                 function ($attribute, $value, $fail) {
-                    if (!is_null($value)) {
+                    if (! is_null($value)) {
                         $project = Project::without(['tasks', 'expenses', 'contracts'])
                             ->whereNull('deleted_at')
                             ->find($this->project_id);
-                        if (!$project) {
-                            $fail("The selected project is invalid or has been deleted.");
+                        if (! $project) {
+                            $fail('The selected project is invalid or has been deleted.');
+
                             return;
                         }
 

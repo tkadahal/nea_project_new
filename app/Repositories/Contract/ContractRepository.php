@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Repositories\Contract;
 
-use App\Models\User;
-use App\Models\Contract;
-use App\Models\Project;
-use App\Models\Directorate;
-use App\Trait\RoleBasedAccess;
 use App\DTOs\Contract\ContractDTO;
-use Illuminate\Support\Collection;
+use App\Models\Contract;
+use App\Models\Directorate;
+use App\Models\Project;
+use App\Models\User;
+use App\Trait\RoleBasedAccess;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class ContractRepository
 {
@@ -76,6 +76,7 @@ class ContractRepository
     public function update(Contract $contract, ContractDTO $data): Contract
     {
         $contract->update($data->toArray());
+
         return $contract->fresh();
     }
 
@@ -120,7 +121,7 @@ class ContractRepository
     {
         $project = Project::with('directorate:id,title')->find($projectId);
 
-        if (!$project) {
+        if (! $project) {
             return null;
         }
 
@@ -159,7 +160,7 @@ class ContractRepository
                 'value' => (string) $budgetData['id'],
                 'label' => $budgetData['title'],
                 'total_budget' => $budgetData['total_budget_formatted'],
-                'remaining_budget' => $budgetData['remaining_budget_formatted']
+                'remaining_budget' => $budgetData['remaining_budget_formatted'],
             ];
         })->filter());
     }

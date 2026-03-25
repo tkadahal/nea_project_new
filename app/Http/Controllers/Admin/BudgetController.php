@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Budget;
-use Illuminate\View\View;
-use App\Models\FiscalYear;
-use Illuminate\Http\Request;
+use App\Exports\BudgetTemplateExport;
 use App\Helpers\Budget\BudgetHelper;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Budget\StoreBudgetRequest;
+use App\Models\Budget;
+use App\Models\FiscalYear;
+use App\Repositories\Budget\BudgetRepository;
+use App\Services\Budget\BudgetService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
-use App\Exports\BudgetTemplateExport;
-use App\Services\Budget\BudgetService;
 use Illuminate\Support\Facades\Session;
-use Symfony\Component\HttpFoundation\Response;
-use App\Http\Requests\Budget\StoreBudgetRequest;
-use App\Repositories\Budget\BudgetRepository;
+use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class BudgetController extends Controller
 {
@@ -28,6 +28,7 @@ class BudgetController extends Controller
         private readonly BudgetService $budgetService,
         private readonly BudgetRepository $budgetRepository
     ) {}
+
     public function index(): View|JsonResponse
     {
         abort_if(Gate::denies('budget_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
@@ -51,6 +52,7 @@ class BudgetController extends Controller
         try {
             if (request('lightweight')) {
                 $projects = $this->budgetService->getProjectsForDropdown();
+
                 return response()->json(['projects' => $projects]);
             }
 
@@ -79,7 +81,7 @@ class BudgetController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to load budgets',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -167,7 +169,7 @@ class BudgetController extends Controller
     {
         abort_if(Gate::denies('budget_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        if (!$request->hasFile('excel_file')) {
+        if (! $request->hasFile('excel_file')) {
             return redirect()->back()->withErrors(['excel_file' => 'No file was uploaded.'])->withInput();
         }
 

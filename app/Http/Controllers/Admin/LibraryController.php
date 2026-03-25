@@ -68,10 +68,10 @@ class LibraryController extends Controller
             ->map(function ($schedules) {
                 return $schedules->map(function ($schedule) {
                     return [
-                        'id'       => $schedule->id,
-                        'code'     => $schedule->code,
-                        'name'     => $schedule->name,
-                        'is_leaf'  => $schedule->children_count === 0,
+                        'id' => $schedule->id,
+                        'code' => $schedule->code,
+                        'name' => $schedule->name,
+                        'is_leaf' => $schedule->children_count === 0,
                         'weightage' => $schedule->weightage,
                     ];
                 });
@@ -99,10 +99,10 @@ class LibraryController extends Controller
                     }
                 },
             ],
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'weightage'   => 'nullable|numeric|min:0|max:100',
-            'parent_id'   => [
+            'weightage' => 'nullable|numeric|min:0|max:100',
+            'parent_id' => [
                 'nullable',
                 'exists:project_activity_schedules,id',
                 function ($attribute, $value, $fail) use ($request) {
@@ -116,12 +116,12 @@ class LibraryController extends Controller
             ],
         ], [
             'project_type_id.required' => 'Please select a project type.',
-            'project_type_id.exists'   => 'Selected project type is invalid.',
-            'code.required'            => 'Activity code is required.',
-            'code.regex'               => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
-            'name.required'            => 'Activity name is required.',
-            'weightage.numeric'        => 'Weightage must be a number.',
-            'weightage.max'            => 'Weightage cannot exceed 100.',
+            'project_type_id.exists' => 'Selected project type is invalid.',
+            'code.required' => 'Activity code is required.',
+            'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
+            'name.required' => 'Activity name is required.',
+            'weightage.numeric' => 'Weightage must be a number.',
+            'weightage.max' => 'Weightage cannot exceed 100.',
         ]);
 
         $level = 1;
@@ -132,13 +132,13 @@ class LibraryController extends Controller
 
         $schedule = ProjectActivitySchedule::create([
             'project_type_id' => $validated['project_type_id'],
-            'code'            => strtoupper($validated['code']),
-            'name'            => $validated['name'],
-            'description'     => $validated['description'],
-            'parent_id'       => $validated['parent_id'],
-            'weightage'       => $validated['weightage'],
-            'level'           => $level,
-            'sort_order'      => 999,
+            'code' => strtoupper($validated['code']),
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'parent_id' => $validated['parent_id'],
+            'weightage' => $validated['weightage'],
+            'level' => $level,
+            'sort_order' => 999,
         ]);
 
         $projectTypeName = $schedule->projectType?->name ?? 'Unknown Type';
@@ -150,9 +150,9 @@ class LibraryController extends Controller
             ->causedBy(Auth::user())
             ->withProperties([
                 'project_type_id' => $schedule->project_type_id,
-                'project_type'    => $projectTypeName,
-                'code'            => $schedule->code,
-                'name'            => $schedule->name,
+                'project_type' => $projectTypeName,
+                'code' => $schedule->code,
+                'name' => $schedule->name,
             ])
             ->log('Global schedule template created');
 
@@ -196,11 +196,11 @@ class LibraryController extends Controller
             ->map(function ($schedules) {
                 return $schedules->map(function ($schedule) {
                     return [
-                        'id'        => $schedule->id,
-                        'code'      => $schedule->code,
-                        'name'      => $schedule->name,
+                        'id' => $schedule->id,
+                        'code' => $schedule->code,
+                        'name' => $schedule->name,
                         'weightage' => (float) ($schedule->weightage ?? 0),  // make sure it's number
-                        'is_leaf'   => $schedule->children_count === 0,
+                        'is_leaf' => $schedule->children_count === 0,
                     ];
                 })->values(); // .values() to get clean indexed array
             });
@@ -238,14 +238,14 @@ class LibraryController extends Controller
                     }
                 },
             ],
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'weightage'   => 'nullable|numeric|min:0|max:100',
-            'parent_id'   => [
+            'weightage' => 'nullable|numeric|min:0|max:100',
+            'parent_id' => [
                 'nullable',
                 'exists:project_activity_schedules,id',
                 function ($attribute, $value, $fail) use ($schedule) {
-                    if ($value && (int)$value === (int)$schedule->id) {
+                    if ($value && (int) $value === (int) $schedule->id) {
                         $fail('An activity cannot be its own parent.');
                     }
                 },
@@ -260,10 +260,10 @@ class LibraryController extends Controller
             ],
         ], [
             'code.required' => 'Activity code is required.',
-            'code.regex'    => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
+            'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
             'name.required' => 'Activity name is required.',
             'weightage.numeric' => 'Weightage must be a number.',
-            'weightage.max'     => 'Weightage cannot exceed 100.',
+            'weightage.max' => 'Weightage cannot exceed 100.',
         ]);
 
         $level = 1;
@@ -273,12 +273,12 @@ class LibraryController extends Controller
         }
 
         $schedule->update([
-            'code'        => strtoupper($validated['code']),
-            'name'        => $validated['name'],
+            'code' => strtoupper($validated['code']),
+            'name' => $validated['name'],
             'description' => $validated['description'],
-            'parent_id'   => $validated['parent_id'],
-            'weightage'   => $validated['weightage'],
-            'level'       => $level,
+            'parent_id' => $validated['parent_id'],
+            'weightage' => $validated['weightage'],
+            'level' => $level,
         ]);
 
         activity()
@@ -317,9 +317,9 @@ class LibraryController extends Controller
         activity()
             ->causedBy(Auth::user())
             ->withProperties([
-                'code'            => $code,
-                'name'            => $name,
-                'project_type'    => $projectTypeName,
+                'code' => $code,
+                'name' => $name,
+                'project_type' => $projectTypeName,
             ])
             ->log('Global schedule template deleted');
 
@@ -360,7 +360,7 @@ class LibraryController extends Controller
                     ->where('schedule_id', $schedule->id)
                     ->exists();
 
-                if (!$exists) {
+                if (! $exists) {
                     $projectsToAssign[] = $projectId;
                 }
             }
@@ -407,7 +407,7 @@ class LibraryController extends Controller
             ];
         }
 
-        if (!empty($auditRecords)) {
+        if (! empty($auditRecords)) {
             DB::table('schedule_auto_assignments')->insert($auditRecords);
         }
 

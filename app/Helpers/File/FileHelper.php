@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Helpers\File;
 
-use App\Models\User;
+use App\Models\Contract;
 use App\Models\File;
 use App\Models\Project;
-use App\Models\Contract;
 use App\Models\Task;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class FileHelper
@@ -69,17 +69,14 @@ class FileHelper
     {
         $directorateId = $user->directorate_id;
 
-        if (!$directorateId) {
+        if (! $directorateId) {
             return false;
         }
 
         return match (true) {
-            $modelInstance instanceof Project =>
-            $modelInstance->directorate_id === $directorateId,
-            $modelInstance instanceof Contract =>
-            $modelInstance->project->directorate_id === $directorateId,
-            $modelInstance instanceof Task =>
-            $modelInstance->project->directorate_id === $directorateId,
+            $modelInstance instanceof Project => $modelInstance->directorate_id === $directorateId,
+            $modelInstance instanceof Contract => $modelInstance->project->directorate_id === $directorateId,
+            $modelInstance instanceof Task => $modelInstance->project->directorate_id === $directorateId,
             default => false,
         };
     }
@@ -92,12 +89,9 @@ class FileHelper
         $projectIds = $user->projects()->pluck('projects.id');
 
         return match (true) {
-            $modelInstance instanceof Project =>
-            $projectIds->contains($modelInstance->id),
-            $modelInstance instanceof Contract =>
-            $projectIds->contains($modelInstance->project_id),
-            $modelInstance instanceof Task =>
-            $projectIds->contains($modelInstance->project_id) ||
+            $modelInstance instanceof Project => $projectIds->contains($modelInstance->id),
+            $modelInstance instanceof Contract => $projectIds->contains($modelInstance->project_id),
+            $modelInstance instanceof Task => $projectIds->contains($modelInstance->project_id) ||
                 $modelInstance->users()->where('users.id', $user->id)->exists(),
             default => false,
         };
@@ -110,17 +104,14 @@ class FileHelper
     {
         $directorateId = $user->directorate_id;
 
-        if (!$directorateId) {
+        if (! $directorateId) {
             return false;
         }
 
         return match ($file->fileable_type) {
-            'App\Models\Project' =>
-            $file->fileable->directorate_id === $directorateId,
-            'App\Models\Contract' =>
-            $file->fileable->project->directorate_id === $directorateId,
-            'App\Models\Task' =>
-            $file->fileable->project->directorate_id === $directorateId,
+            'App\Models\Project' => $file->fileable->directorate_id === $directorateId,
+            'App\Models\Contract' => $file->fileable->project->directorate_id === $directorateId,
+            'App\Models\Task' => $file->fileable->project->directorate_id === $directorateId,
             default => false,
         };
     }
@@ -133,12 +124,9 @@ class FileHelper
         $projectIds = $user->projects()->pluck('projects.id');
 
         return match ($file->fileable_type) {
-            'App\Models\Project' =>
-            $projectIds->contains($file->fileable_id),
-            'App\Models\Contract' =>
-            $projectIds->contains($file->fileable->project_id),
-            'App\Models\Task' =>
-            $projectIds->contains($file->fileable->project_id) ||
+            'App\Models\Project' => $projectIds->contains($file->fileable_id),
+            'App\Models\Contract' => $projectIds->contains($file->fileable->project_id),
+            'App\Models\Task' => $projectIds->contains($file->fileable->project_id) ||
                 $file->fileable->users()->where('users.id', $user->id)->exists(),
             default => false,
         };

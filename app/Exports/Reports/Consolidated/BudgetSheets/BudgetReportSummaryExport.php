@@ -3,24 +3,25 @@
 namespace App\Exports\Reports\Consolidated\BudgetSheets;
 
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\{FromCollection, WithHeadings, WithCustomStartCell, WithStyles, WithColumnWidths, WithEvents, ShouldAutoSize};
-use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill, Color};
-use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class BudgetReportSummaryExport implements
-    FromCollection,
-    WithHeadings,
-    WithCustomStartCell,
-    WithStyles,
-    WithColumnWidths,
-    WithEvents,
-    ShouldAutoSize,
-    WithTitle
+class BudgetReportSummaryExport implements FromCollection, ShouldAutoSize, WithColumnWidths, WithCustomStartCell, WithEvents, WithHeadings, WithStyles, WithTitle
 {
     protected Collection $projects;
+
     protected string $fiscalYear;
 
     public function __construct(Collection $projects, string $fiscalYear = '२०८१/८२')
@@ -42,7 +43,8 @@ class BudgetReportSummaryExport implements
     private function toNepaliNumber(int|float $number): string
     {
         $nepaliDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
-        return preg_replace_callback('/\d/', fn($m) => $nepaliDigits[$m[0]], (string) $number);
+
+        return preg_replace_callback('/\d/', fn ($m) => $nepaliDigits[$m[0]], (string) $number);
     }
 
     private function toNepaliAlphabet(int $index): string
@@ -88,7 +90,9 @@ class BudgetReportSummaryExport implements
 
     public function collection(): Collection
     {
-        if ($this->projects->isEmpty()) return collect([]);
+        if ($this->projects->isEmpty()) {
+            return collect([]);
+        }
 
         $rows = collect();
         $serial = 1;
@@ -108,7 +112,7 @@ class BudgetReportSummaryExport implements
                 $rows->push([
                     $this->toNepaliAlphabet($serial++),         // A: क, ख, ग ...
                     $headingDescription,
-                    $headingCode . ' ' . $headingTitle,
+                    $headingCode.' '.$headingTitle,
                     $this->toNepaliNumber($groupTotal['gov_share']),
                     $this->toNepaliNumber($groupTotal['gov_loan']),
                     $this->toNepaliNumber($groupTotal['foreign_loan']),
@@ -147,13 +151,13 @@ class BudgetReportSummaryExport implements
     {
         return $group->reduce(function ($carry, $item) {
             return [
-                'gov_share'    => $carry['gov_share']    + ($item['gov_share'] ?? 0),
-                'gov_loan'     => $carry['gov_loan']     + ($item['gov_loan'] ?? 0),
+                'gov_share' => $carry['gov_share'] + ($item['gov_share'] ?? 0),
+                'gov_loan' => $carry['gov_loan'] + ($item['gov_loan'] ?? 0),
                 'foreign_loan' => $carry['foreign_loan'] + ($item['foreign_loan'] ?? 0),
-                'grant'        => $carry['grant']        + ($item['grant'] ?? 0),
-                'total_lmbis'  => $carry['total_lmbis']  + ($item['total_lmbis'] ?? 0),
-                'nea_budget'   => $carry['nea_budget']   + ($item['nea_budget'] ?? 0),
-                'grand_total'  => $carry['grand_total']  + ($item['grand_total'] ?? 0),
+                'grant' => $carry['grant'] + ($item['grant'] ?? 0),
+                'total_lmbis' => $carry['total_lmbis'] + ($item['total_lmbis'] ?? 0),
+                'nea_budget' => $carry['nea_budget'] + ($item['nea_budget'] ?? 0),
+                'grand_total' => $carry['grand_total'] + ($item['grand_total'] ?? 0),
             ];
         }, array_fill_keys(['gov_share', 'gov_loan', 'foreign_loan', 'grant', 'total_lmbis', 'nea_budget', 'grand_total'], 0));
     }
@@ -225,7 +229,7 @@ class BudgetReportSummaryExport implements
                     'font' => ['bold' => true, 'color' => ['argb' => Color::COLOR_WHITE]],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF4F81BD']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                 ]);
 
                 /* DATA STYLING & HIGHLIGHTING */
@@ -234,13 +238,13 @@ class BudgetReportSummaryExport implements
                     $snValue = $sheet->getCell("A{$row}")->getValue();
 
                     // If SN is not empty, it's a "Budget Heading Total" row
-                    if (!empty($snValue)) {
+                    if (! empty($snValue)) {
                         $sheet->getStyle("A{$row}:L{$row}")->applyFromArray([
                             'font' => ['bold' => true],
                             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE2EFDA']], // Light Green
                             'borders' => [
                                 'top' => ['borderStyle' => Border::BORDER_MEDIUM],
-                                'bottom' => ['borderStyle' => Border::BORDER_THIN]
+                                'bottom' => ['borderStyle' => Border::BORDER_THIN],
                             ],
                         ]);
 

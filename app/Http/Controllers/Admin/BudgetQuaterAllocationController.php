@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
+use App\Http\Requests\BudgetQuaterAllocation\StoreBudgetQuaterAllocationRequest;
+use App\Imports\AdminQuarterBudgetTemplateImport;
 use App\Models\Budget;
-use App\Models\Project;
-use Illuminate\View\View;
-use App\Models\FiscalYear;
+use App\Models\BudgetQuaterAllocation;
 use App\Models\Directorate;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Http\RedirectResponse;
-use App\Models\BudgetQuaterAllocation;
-use App\Imports\AdminQuarterBudgetTemplateImport;
-use App\Http\Requests\BudgetQuaterAllocation\StoreBudgetQuaterAllocationRequest;
 
 class BudgetQuaterAllocationController extends Controller
 {
@@ -27,7 +27,7 @@ class BudgetQuaterAllocationController extends Controller
         //
     }
 
-    public function create(): View | RedirectResponse
+    public function create(): View|RedirectResponse
     {
         $user = Auth::user();
         $projects = $user->projects;
@@ -38,17 +38,17 @@ class BudgetQuaterAllocationController extends Controller
             ->where('id', $budgetId)
             ->first();
 
-        if (!$budgetId) {
+        if (! $budgetId) {
             return redirect()->back()->with('error', 'Budget ID is required.');
         }
 
-        $projectName   = $budget->project->title ?? 'N/A';
-        $fiscalYear    = $budget->fiscalYear->title ?? 'N/A';
+        $projectName = $budget->project->title ?? 'N/A';
+        $fiscalYear = $budget->fiscalYear->title ?? 'N/A';
 
         $allocations = BudgetQuaterAllocation::where('budget_id', $budget->id)->get();
 
         $allocationMap = $allocations->groupBy('budget_id')
-            ->map(fn($group) => $group->keyBy('quarter'));
+            ->map(fn ($group) => $group->keyBy('quarter'));
 
         $budgetData = $this->prepareBudgetData(collect([$budget]), $allocationMap);
 
@@ -64,14 +64,14 @@ class BudgetQuaterAllocationController extends Controller
         $projectId = $request->input('project_id');
         $fiscalYearId = $request->input('fiscal_year_id');
 
-        if (!$projectId || !$fiscalYearId) {
+        if (! $projectId || ! $fiscalYearId) {
             return response()->json(['budgetData' => [], 'projectName' => '', 'fiscalYearTitle' => ''], 400);
         }
 
         $project = Project::find($projectId);
         $fiscalYear = FiscalYear::find($fiscalYearId);
 
-        if (!$project || !$fiscalYear) {
+        if (! $project || ! $fiscalYear) {
             return response()->json(['budgetData' => [], 'projectName' => '', 'fiscalYearTitle' => ''], 404);
         }
 
@@ -80,7 +80,7 @@ class BudgetQuaterAllocationController extends Controller
             ->get();
 
         $allocations = BudgetQuaterAllocation::whereIn('budget_id', $budgets->pluck('id'))->get();
-        $allocationMap = $allocations->groupBy('budget_id')->map(fn($group) => $group->keyBy('quarter'));
+        $allocationMap = $allocations->groupBy('budget_id')->map(fn ($group) => $group->keyBy('quarter'));
 
         $budgetData = $this->prepareBudgetData($budgets, $allocationMap);
 
@@ -129,7 +129,7 @@ class BudgetQuaterAllocationController extends Controller
                         $qIndex = substr($quarter, 1);
                         if (isset($allocationMap[$budget->id][$quarter])) {
                             $allocation = $allocationMap[$budget->id][$quarter];
-                            ${'q' . $qIndex} = $allocation->{$storageField} ?? 0;
+                            ${'q'.$qIndex} = $allocation->{$storageField} ?? 0;
                         }
                     }
                 }
@@ -185,7 +185,7 @@ class BudgetQuaterAllocationController extends Controller
                 ];
 
                 foreach ($quartersData as $quarter => $alloc) {
-                    if (!isset($allocationData[$budgetId][$quarter])) {
+                    if (! isset($allocationData[$budgetId][$quarter])) {
                         $allocationData[$budgetId][$quarter] = [
                             'budget_id' => $budgetId,
                             'quarter' => $quarter,
@@ -223,7 +223,7 @@ class BudgetQuaterAllocationController extends Controller
                 ->with('success', 'Quaterly budget allocations created successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error storing budget quarter allocation: ' . $e->getMessage());
+            Log::error('Error storing budget quarter allocation: '.$e->getMessage());
 
             return redirect()->back()
                 ->with('error', 'Failed to create quarterly budget allocations. Please try again.')
@@ -265,14 +265,14 @@ class BudgetQuaterAllocationController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        if (!Auth::user()->hasRole(['Super_Admin', 'admin'])) {
+        if (! Auth::user()->hasRole(['Super_Admin', 'admin'])) {
             abort(403);
         }
 
         $fiscalYearId = $request->query('fiscal_year_id');
         $directorateId = $request->query('directorate_id');
 
-        if (!$fiscalYearId) {
+        if (! $fiscalYearId) {
             abort(400, 'Fiscal year is required');
         }
 
@@ -293,14 +293,14 @@ class BudgetQuaterAllocationController extends Controller
         }
 
         $fiscalYear = \App\Models\FiscalYear::find($fiscalYearId);
-        $fiscalYearTitle = $fiscalYear?->title ?? 'Fiscal Year ' . $fiscalYearId;
+        $fiscalYearTitle = $fiscalYear?->title ?? 'Fiscal Year '.$fiscalYearId;
 
         $safeTitle = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $directorateTitle);
         $filename = 'quarterly_allocation_template';
         if ($directorateTitle !== 'All Directorates') {
-            $filename .= '_' . \Illuminate\Support\Str::slug($safeTitle, '_');
+            $filename .= '_'.\Illuminate\Support\Str::slug($safeTitle, '_');
         }
-        $filename .= '_' . now()->format('Y-m-d') . '.xlsx';
+        $filename .= '_'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(
             new \App\Exports\Templates\AdminQuarterBudgetTemplateExport($projects, $directorateTitle, $fiscalYearTitle),
@@ -347,7 +347,7 @@ class BudgetQuaterAllocationController extends Controller
             $failures = $e->failures();
             $errors = [];
             foreach ($failures as $failure) {
-                $errors[] = "Row {$failure->row()}: {$failure->attribute()} - " . implode(', ', $failure->errors());
+                $errors[] = "Row {$failure->row()}: {$failure->attribute()} - ".implode(', ', $failure->errors());
             }
 
             return redirect()->back()
@@ -356,9 +356,9 @@ class BudgetQuaterAllocationController extends Controller
                 ->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Quarterly template import failed: ' . $e->getMessage(), [
+            Log::error('Quarterly template import failed: '.$e->getMessage(), [
                 'user_id' => Auth::id(),
-                'trace'   => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             $message = $e->getMessage();

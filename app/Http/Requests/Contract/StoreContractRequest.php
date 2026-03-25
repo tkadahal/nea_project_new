@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Contract;
 
-use App\Models\Project;
-use App\Models\Contract;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +13,7 @@ class StoreContractRequest extends FormRequest
     public function authorize(): bool
     {
         abort_if(Gate::denies('contract_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
         return true;
     }
 

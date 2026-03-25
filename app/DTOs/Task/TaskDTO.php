@@ -60,12 +60,12 @@ class TaskDTO
             subTasks: $task->subTasks ?? collect(),
             priority: $task->priority ? [
                 'title' => $task->priority->title,
-                'color' => $priorityColors[$task->priority->title] ?? 'gray'
+                'color' => $priorityColors[$task->priority->title] ?? 'gray',
             ] : null,
             status: $status ? [
                 'id' => $status->id,
                 'title' => $status->title,
-                'color' => $statusColors[$status->id] ?? 'gray'
+                'color' => $statusColors[$status->id] ?? 'gray',
             ] : null,
             directorateName: $task->directorate?->title ?? 'N/A',
             departmentName: $task->department?->title ?? 'N/A',

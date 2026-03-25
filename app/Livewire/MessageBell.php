@@ -12,7 +12,9 @@ use Livewire\Component;
 class MessageBell extends Component
 {
     public $showDropdown = false;
+
     public $unreadCount = 0;
+
     public $comments = [];
 
     public function mount()
@@ -22,7 +24,7 @@ class MessageBell extends Component
 
     public function toggleDropdown()
     {
-        $this->showDropdown = !$this->showDropdown;
+        $this->showDropdown = ! $this->showDropdown;
         if ($this->showDropdown) {
             $this->loadComments();
         }
@@ -52,7 +54,7 @@ class MessageBell extends Component
                     'id' => $comment->id,
                     'commentable_type' => $comment->commentable_type == 'App\Models\Project' ? 'Project' : 'Task',
                     'commentable_name' => $comment->commentable->title ?? 'Unknown',
-                    'message' => "{$comment->user->name} " . ($comment->parent_id ? 'replied to' : 'commented on') . " {$comment->commentable->title}",
+                    'message' => "{$comment->user->name} ".($comment->parent_id ? 'replied to' : 'commented on')." {$comment->commentable->title}",
                     'url' => $comment->commentable_type == 'App\Models\Project'
                         ? route('admin.project.show', $comment->commentable_id)
                         : route('admin.task.show', $comment->commentable_id),

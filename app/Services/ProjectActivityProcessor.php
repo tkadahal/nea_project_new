@@ -23,11 +23,11 @@ class ProjectActivityProcessor
         foreach ($sectionData as $defId => $rowData) {
             $defId = (int) $defId;
 
-            if (!$this->isValidVersionedDefinition($defId, $projectId, $expenditureId)) {
+            if (! $this->isValidVersionedDefinition($defId, $projectId, $expenditureId)) {
                 continue;
             }
 
-            if (!$fromExcel) {
+            if (! $fromExcel) {
                 try {
                     $this->validateRowSums($rowData, $defId);
                 } catch (ValidationException $e) {
@@ -61,7 +61,7 @@ class ProjectActivityProcessor
 
         if (abs($quarterAmountSum - $plannedBudget) > 0.01) {
             throw ValidationException::withMessages([
-                'planned_budget' => "Quarter amounts must sum to planned budget (row {$identifier})"
+                'planned_budget' => "Quarter amounts must sum to planned budget (row {$identifier})",
             ]);
         }
 
@@ -71,7 +71,7 @@ class ProjectActivityProcessor
 
         if (abs($quarterQuantitySum - $plannedQuantity) > 0.01) {
             throw ValidationException::withMessages([
-                'planned_budget_quantity' => "Quarter quantities must sum to planned quantity (row {$identifier})"
+                'planned_budget_quantity' => "Quarter quantities must sum to planned quantity (row {$identifier})",
             ]);
         }
     }
@@ -79,7 +79,9 @@ class ProjectActivityProcessor
     private function validateChildSums(array $sectionData, $childKey, $parentKey): void
     {
         $parentRow = $sectionData[$parentKey] ?? null;
-        if (!$parentRow) return;
+        if (! $parentRow) {
+            return;
+        }
 
         $fields = ['q1', 'q2', 'q3', 'q4', 'planned_budget', 'total_expense'];
         foreach ($fields as $field) {
@@ -90,7 +92,7 @@ class ProjectActivityProcessor
 
             if ($total > $parentValue + 0.01) {
                 throw ValidationException::withMessages([
-                    $field => "Children exceed parent for {$field} (parent {$parentKey})"
+                    $field => "Children exceed parent for {$field} (parent {$parentKey})",
                 ]);
             }
         }
@@ -104,7 +106,7 @@ class ProjectActivityProcessor
 
             if ($total > $parentValue + 0.01) {
                 throw ValidationException::withMessages([
-                    $field => "Children exceed parent quantity for {$field} (parent {$parentKey})"
+                    $field => "Children exceed parent quantity for {$field} (parent {$parentKey})",
                 ]);
             }
         }
@@ -118,6 +120,7 @@ class ProjectActivityProcessor
                 $sum += (float) ($row[$field] ?? 0);
             }
         }
+
         return $sum;
     }
 

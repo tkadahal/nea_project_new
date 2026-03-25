@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\BudgetHeading;
 
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class StoreBudgetHeadingRequest extends FormRequest
@@ -28,7 +28,7 @@ class StoreBudgetHeadingRequest extends FormRequest
             ],
             'description' => [
                 'nullable',
-            ]
+            ],
         ];
     }
 
@@ -36,8 +36,8 @@ class StoreBudgetHeadingRequest extends FormRequest
     {
         return [
             'title.required' => 'शीर्षक अनिवार्य छ।',
-            'title.unique'   => 'यो शीर्षक पहिले नै प्रयोग भइसकेको छ।',
-            'title.max'      => 'शीर्षक २५५ अक्षरभन्दा बढी हुनु हुँदैन।',
+            'title.unique' => 'यो शीर्षक पहिले नै प्रयोग भइसकेको छ।',
+            'title.max' => 'शीर्षक २५५ अक्षरभन्दा बढी हुनु हुँदैन।',
         ];
     }
 }

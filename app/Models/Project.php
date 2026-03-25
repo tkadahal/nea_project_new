@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Builders\ModelBuilder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Builders\ModelBuilder;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use App\Models\ProjectActivitySchedule;
 
 class Project extends Model
 {
@@ -40,12 +39,12 @@ class Project extends Model
     ];
 
     protected $casts = [
-        'start_date'  => 'datetime',
-        'end_date'    => 'datetime',
-        'created_at'  => 'datetime',
-        'updated_at'  => 'datetime',
-        'deleted_at'  => 'datetime',
-        'progress'    => 'float',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
+        'progress' => 'float',
     ];
 
     // ────────────────────────────────────────────────
@@ -238,7 +237,8 @@ class Project extends Model
             if ($totalWeight == 0) {
                 return (float) round($tasks->avg('progress') ?? 0, 2);
             }
-            $weighted = $tasks->sum(fn($t) => $t->progress * ($t->estimated_hours ?: 1));
+            $weighted = $tasks->sum(fn ($t) => $t->progress * ($t->estimated_hours ?: 1));
+
             return (float) round($weighted / $totalWeight, 2);
         }
 
@@ -249,7 +249,8 @@ class Project extends Model
             if ($totalWeight == 0) {
                 return (float) round($contracts->avg('progress') ?? 0, 2);
             }
-            $weighted = $contracts->sum(fn($c) => $c->progress * $c->contract_amount);
+            $weighted = $contracts->sum(fn ($c) => $c->progress * $c->contract_amount);
+
             return (float) round($weighted / $totalWeight, 2);
         }
 
@@ -271,7 +272,7 @@ class Project extends Model
         return cache()->remember(
             "project_{$this->id}_physical_progress",
             300,
-            fn() => $this->calculatePhysicalProgress()
+            fn () => $this->calculatePhysicalProgress()
         );
     }
 
@@ -280,7 +281,7 @@ class Project extends Model
         return cache()->remember(
             "project_{$this->id}_schedule_breakdown",
             300,
-            fn() => $this->getScheduleProgressBreakdown()
+            fn () => $this->getScheduleProgressBreakdown()
         );
     }
 
@@ -306,7 +307,7 @@ class Project extends Model
         $topLevelSchedules = $this->topLevelSchedules()
             ->with([
                 'childrenRecursive',
-                'projects' => fn($q) => $q->where('project_id', $this->id)
+                'projects' => fn ($q) => $q->where('project_id', $this->id),
             ])
             ->withCount('children')
             ->get();
@@ -354,7 +355,7 @@ class Project extends Model
 
     public function getTotalBudgetAttribute(): float
     {
-        if (!array_key_exists('total_budget', $this->attributes)) {
+        if (! array_key_exists('total_budget', $this->attributes)) {
             $latest = $this->relationLoaded('budgets')
                 ? $this->budgets->sortByDesc('id')->first()
                 : $this->budgets()->latest('id')->first();
@@ -367,9 +368,9 @@ class Project extends Model
 
     public function getTotalApprovedExpenseAttribute(): float
     {
-        if (!array_key_exists('total_approved_expense', $this->attributes)) {
+        if (! array_key_exists('total_approved_expense', $this->attributes)) {
             $sum = $this->currentProjectExpensesQuery()
-                ->withSum(['quarters' => fn($q) => $q->finalized()], 'amount')
+                ->withSum(['quarters' => fn ($q) => $q->finalized()], 'amount')
                 ->get()
                 ->sum('quarters_sum_amount');
 
@@ -381,9 +382,9 @@ class Project extends Model
 
     public function getFinancialProgressAttribute(): float
     {
-        if (!array_key_exists('financial_progress', $this->attributes)) {
+        if (! array_key_exists('financial_progress', $this->attributes)) {
             $budget = $this->total_budget;
-            $spent  = $this->total_approved_expense;
+            $spent = $this->total_approved_expense;
 
             $this->attributes['financial_progress'] = $budget > 0
                 ? round(($spent / $budget) * 100, 2)
@@ -412,11 +413,12 @@ class Project extends Model
             ->useLogName('project')
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
+
                 return match ($eventName) {
-                    'created'  => "Project created by {$user}",
-                    'updated'  => "Project updated by {$user}",
-                    'deleted'  => "Project deleted by {$user}",
-                    default    => "Project {$eventName} by {$user}",
+                    'created' => "Project created by {$user}",
+                    'updated' => "Project updated by {$user}",
+                    'deleted' => "Project deleted by {$user}",
+                    default => "Project {$eventName} by {$user}",
                 };
             });
     }

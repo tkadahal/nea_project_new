@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class ProjectActivityDependency extends Model
 {
@@ -184,7 +184,7 @@ class ProjectActivityDependency extends Model
         } elseif ($this->lag_days > 0) {
             return "+{$this->lag_days} days lag";
         } else {
-            return abs($this->lag_days) . " days lead";
+            return abs($this->lag_days).' days lead';
         }
     }
 

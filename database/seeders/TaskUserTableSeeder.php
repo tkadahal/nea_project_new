@@ -12,7 +12,6 @@ class TaskUserTableSeeder extends Seeder
     public function run(): void
     {
 
-
         $task_users = [
 
             [

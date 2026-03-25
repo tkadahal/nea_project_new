@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Support\Carbon;
 use App\Models\Builders\ModelBuilder;
 use App\Trait\RoleBasedAccess;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,13 +12,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Support\Facades\Auth;
 
 class Contract extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
     use RoleBasedAccess;
 
     protected $fillable = [
@@ -89,9 +89,11 @@ class Contract extends Model
             if ($totalWeight == 0) {
                 return round($tasks->avg('progress'), 2);
             }
-            $weightedProgress = $tasks->sum(fn($task) => $task->progress * $task->estimated_hours);
+            $weightedProgress = $tasks->sum(fn ($task) => $task->progress * $task->estimated_hours);
+
             return round($weightedProgress / $totalWeight, 2);
         }
+
         return 0.0;
     }
 
@@ -108,6 +110,7 @@ class Contract extends Model
             ->useLogName('contract')
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
+
                 return "Contract {$eventName} by {$user}";
             });
     }
@@ -124,6 +127,7 @@ class Contract extends Model
         }
 
         $totalExtensionPeriod = $this->extensions->sum('extension_period');
+
         return $this->agreement_completion_date?->addDays($totalExtensionPeriod);
     }
 

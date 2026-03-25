@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Repositories\Budget;
 
-use App\Models\User;
-use App\Models\Budget;
-use App\Models\Project;
-use App\Models\Directorate;
-use App\Trait\RoleBasedAccess;
 use App\DTOs\Budget\BudgetDTO;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Budget;
+use App\Models\Directorate;
+use App\Models\Project;
+use App\Models\User;
+use App\Trait\RoleBasedAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 
 class BudgetRepository
 {
@@ -37,7 +37,7 @@ class BudgetRepository
                 'priority_id',
                 'progress',
                 'project_manager',
-                'status_id'
+                'status_id',
             ])
             ->orderBy('id', 'desc');
 
@@ -112,7 +112,7 @@ class BudgetRepository
     public function findByProjectAndFiscalYear(int $projectId, $fiscalYearId): ?Budget
     {
         return Budget::where('project_id', $projectId)
-            ->where('fiscal_year_id', (int)$fiscalYearId)
+            ->where('fiscal_year_id', (int) $fiscalYearId)
             ->first();
     }
 

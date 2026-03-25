@@ -6,9 +6,9 @@ namespace App\Trait;
 
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 trait RoleBasedAccess
 {
@@ -19,7 +19,7 @@ trait RoleBasedAccess
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return $query->whereRaw('1 = 0');
         }
 
@@ -58,7 +58,7 @@ trait RoleBasedAccess
     {
         $user = $user ?? Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return $query->whereRaw('1 = 0');
         }
 
@@ -148,6 +148,7 @@ trait RoleBasedAccess
                     return false;
                 }
             }
+
             return true;
         }
 
@@ -168,7 +169,8 @@ trait RoleBasedAccess
             if (in_array(Role::PROJECT_USER, $roleIds)) {
                 $authUserProjectIds = $authUser->projects()->pluck('projects.id')->toArray();
                 $targetUserProjectIds = $resource->projects()->pluck('projects.id')->toArray();
-                return !empty(array_intersect($authUserProjectIds, $targetUserProjectIds));
+
+                return ! empty(array_intersect($authUserProjectIds, $targetUserProjectIds));
             }
         }
 
@@ -184,7 +186,8 @@ trait RoleBasedAccess
             if (in_array(Role::PROJECT_USER, $roleIds)) {
                 $authUserProjectIds = $authUser->projects()->pluck('projects.id')->toArray();
                 $resourceProjectIds = $resource->projects()->pluck('projects.id')->toArray();
-                return !empty(array_intersect($authUserProjectIds, $resourceProjectIds));
+
+                return ! empty(array_intersect($authUserProjectIds, $resourceProjectIds));
             }
         }
 
@@ -199,6 +202,7 @@ trait RoleBasedAccess
 
             if (in_array(Role::PROJECT_USER, $roleIds)) {
                 $authUserProjectIds = $authUser->projects()->pluck('projects.id')->toArray();
+
                 return in_array($resource->project_id, $authUserProjectIds);
             }
         }
@@ -251,7 +255,7 @@ trait RoleBasedAccess
     {
         $user = $user ?? Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -284,7 +288,7 @@ trait RoleBasedAccess
     {
         $user = $user ?? Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 

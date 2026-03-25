@@ -31,7 +31,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 40,
                 'created_at' => '2025-09-03 09:29:22',
                 'updated_at' => '2025-09-03 09:29:22',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -52,7 +52,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 92,
                 'created_at' => '2025-09-03 13:45:46',
                 'updated_at' => '2025-09-03 13:45:46',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -65,7 +65,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation, Testing and Commissioning of New Patan 132/66/11 kV GIS Substation (Package A1.2)',
                 'contractor' => 'TBEA Co., Ltd',
                 'contract_amount' => '1760558232.83',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-29 00:00:00',
                 'agreement_effective_date' => '2024-03-22 00:00:00',
                 'agreement_completion_date' => '2025-11-12 00:00:00',
@@ -73,7 +73,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 15,
                 'created_at' => '2025-09-05 07:54:34',
                 'updated_at' => '2025-09-05 07:54:34',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -86,7 +86,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 132 kV Underground Transmission Line from Chobhar Substation to New Patan Substation',
                 'contractor' => 'Ravin Infraproject Pvt Ltd',
                 'contract_amount' => '1064629465.23',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-21 00:00:00',
                 'agreement_effective_date' => '2024-02-19 00:00:00',
                 'agreement_completion_date' => '2025-05-14 00:00:00',
@@ -94,7 +94,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 11,
                 'created_at' => '2025-09-05 08:00:58',
                 'updated_at' => '2025-09-05 08:00:58',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -107,7 +107,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 132 kV Underground Transmission Line from Chobhar Substation to New Patan Substation',
                 'contractor' => 'Ravin Infraproject Pvt Ltd',
                 'contract_amount' => '1064629465.23',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-21 00:00:00',
                 'agreement_effective_date' => '2024-02-19 00:00:00',
                 'agreement_completion_date' => '2025-05-14 00:00:00',
@@ -128,7 +128,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 132 kV Underground Transmission Line from Chobhar Substation to New Patan Substation',
                 'contractor' => 'Ravin Infraproject Pvt Ltd',
                 'contract_amount' => '1064629465.23',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-21 00:00:00',
                 'agreement_effective_date' => '2024-02-19 00:00:00',
                 'agreement_completion_date' => '2025-05-14 00:00:00',
@@ -149,7 +149,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 132 kV Underground Transmission Line from Chobhar Substation to New Patan Substation',
                 'contractor' => 'Ravin Infraproject Pvt Ltd',
                 'contract_amount' => '1064629465.23',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-21 00:00:00',
                 'agreement_effective_date' => '2024-02-19 00:00:00',
                 'agreement_completion_date' => '2025-05-14 00:00:00',
@@ -170,7 +170,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 132 kV Underground Transmission Line from Chobhar Substation to New Patan Substation',
                 'contractor' => 'Ravin Infraproject Pvt Ltd',
                 'contract_amount' => '1064629465.23',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-21 00:00:00',
                 'agreement_effective_date' => '2024-02-19 00:00:00',
                 'agreement_completion_date' => '2025-05-14 00:00:00',
@@ -191,7 +191,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 132 kV Underground Transmission Line from Chobhar Substation to New Patan Substation',
                 'contractor' => 'Ravin Infraproject Pvt Ltd',
                 'contract_amount' => '1064629465.23',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2023-12-21 00:00:00',
                 'agreement_effective_date' => '2024-02-19 00:00:00',
                 'agreement_completion_date' => '2025-05-14 00:00:00',
@@ -220,7 +220,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 80,
                 'created_at' => '2025-09-05 08:18:04',
                 'updated_at' => '2025-09-05 08:18:04',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -232,8 +232,8 @@ class ContractsTableSeeder extends Seeder
                 'title' => 'Enhancement of Distribution Network in Central Region of Kathmandu Valley',
                 'description' => 'Design, Supply, Installation and Commissioning of Underground Distribution Network under Ratnapark Distribution Center including Reinforcement and Automation',
                 'contractor' => 'M/s KEI Industries Limited, India',
-                'contract_amount' => NULL,
-                'contract_variation_amount' => NULL,
+                'contract_amount' => null,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2019-03-15 00:00:00',
                 'agreement_effective_date' => '2019-04-23 00:00:00',
                 'agreement_completion_date' => '2025-11-09 00:00:00',
@@ -241,7 +241,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 96,
                 'created_at' => '2025-10-14 05:59:43',
                 'updated_at' => '2025-10-14 05:59:43',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -254,7 +254,7 @@ class ContractsTableSeeder extends Seeder
                 'description' => 'Design, Supply, Installation and Commissioning of 400 kV Gas insulated Substations (GIS) at New Khimti, Barhabise and Lapsiphedi',
                 'contractor' => 'Grid Solutions SAS, France',
                 'contract_amount' => '0.00',
-                'contract_variation_amount' => NULL,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2020-10-02 00:00:00',
                 'agreement_effective_date' => '2020-12-11 00:00:00',
                 'agreement_completion_date' => '2026-06-29 00:00:00',
@@ -262,7 +262,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 78,
                 'created_at' => '2025-11-06 15:10:34',
                 'updated_at' => '2025-11-06 15:13:28',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -274,8 +274,8 @@ class ContractsTableSeeder extends Seeder
                 'title' => 'PMD/PTDEEP/KVCNDSEP-074/75-01 (Re)',
                 'description' => 'Enhancement of Distribution Networks in Northern Region of Kathmandu Valley (Design, Supply, Installation and Commissioning of Underground Distribution Network under Maharajgunj Distribution Center including Reinforcement and Automation)',
                 'contractor' => 'KEI Industries Limited, India',
-                'contract_amount' => NULL,
-                'contract_variation_amount' => NULL,
+                'contract_amount' => null,
+                'contract_variation_amount' => null,
                 'contract_agreement_date' => '2019-03-15 00:00:00',
                 'agreement_effective_date' => '2019-04-22 00:00:00',
                 'agreement_completion_date' => '2025-06-09 00:00:00',
@@ -283,7 +283,7 @@ class ContractsTableSeeder extends Seeder
                 'progress' => 88,
                 'created_at' => '2025-11-07 06:42:19',
                 'updated_at' => '2025-11-07 06:42:19',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
         ];
 

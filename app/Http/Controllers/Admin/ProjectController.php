@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Project;
-use Illuminate\View\View;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Gate;
-use App\Services\Project\ProjectService;
-use Symfony\Component\HttpFoundation\Response;
 use App\Http\Requests\Project\StoreProjectRequest;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use App\Http\Requests\Project\UpdateProjectRequest;
-use Symfony\Component\HttpFoundation\RedirectResponse;
+use App\Models\Project;
 use App\Services\Project\ProjectFormDataServices\DirectorateService;
+use App\Services\Project\ProjectService;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProjectController extends Controller
 {
@@ -46,6 +46,7 @@ class ProjectController extends Controller
             // Handle lightweight request for dropdown
             if (request('lightweight')) {
                 $projects = $this->projectService->getProjectsForDropdown();
+
                 return response()->json(['projects' => $projects]);
             }
 
@@ -70,7 +71,7 @@ class ProjectController extends Controller
 
             return response()->json([
                 'error' => 'Failed to load projects',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -163,6 +164,7 @@ class ProjectController extends Controller
     {
         try {
             $departments = $this->directorateService->getDepartmentsByDirectorate($directorate_id);
+
             return response()->json($departments);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch departments.'], 500);
@@ -173,6 +175,7 @@ class ProjectController extends Controller
     {
         try {
             $users = $this->directorateService->getUsersByDirectorate($directorate_id);
+
             return response()->json($users);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch users.'], 500);
@@ -182,6 +185,7 @@ class ProjectController extends Controller
     public function progressChart(Project $project): View
     {
         $project->load(['tasks', 'contracts', 'expenses']);
+
         return view('admin.expenses.progress_chart', compact('project'));
     }
 }

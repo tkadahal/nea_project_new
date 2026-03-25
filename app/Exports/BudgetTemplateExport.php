@@ -4,21 +4,23 @@ declare(strict_types=1);
 
 namespace App\Exports;
 
+use App\Models\FiscalYear;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use App\Models\FiscalYear;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class BudgetTemplateExport implements FromCollection, WithStyles, WithTitle, WithEvents
+class BudgetTemplateExport implements FromCollection, WithEvents, WithStyles, WithTitle
 {
     protected $projects;
+
     protected $directorateTitle;
+
     protected $currentFiscalYear;
 
     public function __construct($projects, string $directorateTitle)
@@ -38,7 +40,7 @@ class BudgetTemplateExport implements FromCollection, WithStyles, WithTitle, Wit
         $rows->push([$this->directorateTitle, '', '', '', '', '', '', '', '', '']);
 
         // Row 2: Fiscal Year
-        $rows->push(['Fiscal Year: ' . $this->currentFiscalYear, '', '', '', '', '', '', '', '', '']);
+        $rows->push(['Fiscal Year: '.$this->currentFiscalYear, '', '', '', '', '', '', '', '', '']);
 
         // Row 3: Headers
         $rows->push(['S.N.', 'Project', 'Gov Loan', 'Gov Share', 'Foreign Loan', 'Source', 'Foreign Subsidy', 'Source', 'NEA', 'Total']);
@@ -113,7 +115,7 @@ class BudgetTemplateExport implements FromCollection, WithStyles, WithTitle, Wit
                         ],
                     ],
                 ];
-                $sheet->getStyle('A3:J' . $lastDataRow)->applyFromArray($borderStyle);
+                $sheet->getStyle('A3:J'.$lastDataRow)->applyFromArray($borderStyle);
 
                 // 5. Column Widths (fixed for nice layout)
                 $sheet->getColumnDimension('A')->setWidth(8);   // S.N.
@@ -128,26 +130,26 @@ class BudgetTemplateExport implements FromCollection, WithStyles, WithTitle, Wit
                 $sheet->getColumnDimension('J')->setWidth(15);  // Total
 
                 // 6. Enable text wrapping for all data cells
-                $sheet->getStyle('A4:J' . $lastDataRow)->getAlignment()
+                $sheet->getStyle('A4:J'.$lastDataRow)->getAlignment()
                     ->setWrapText(true)
                     ->setVertical(Alignment::VERTICAL_TOP);
 
                 // 7. Number Formatting (money columns)
-                $sheet->getStyle('C4:E' . $lastDataRow)
+                $sheet->getStyle('C4:E'.$lastDataRow)
                     ->getNumberFormat()->setFormatCode('#,##0.00');
-                $sheet->getStyle('G4:G' . $lastDataRow)
+                $sheet->getStyle('G4:G'.$lastDataRow)
                     ->getNumberFormat()->setFormatCode('#,##0.00');
-                $sheet->getStyle('I4:J' . $lastDataRow)
+                $sheet->getStyle('I4:J'.$lastDataRow)
                     ->getNumberFormat()->setFormatCode('#,##0.00');
 
                 // 8. Horizontal Alignment
-                $sheet->getStyle('A4:A' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('B4:B' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                $sheet->getStyle('C4:E' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle('F4:F' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                $sheet->getStyle('G4:G' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle('H4:H' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-                $sheet->getStyle('I4:J' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('A4:A'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('B4:B'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle('C4:E'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('F4:F'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle('G4:G'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('H4:H'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle('I4:J'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
                 // 9. Auto-adjust row height for wrapped text in data rows
                 for ($row = 4; $row <= $lastDataRow; $row++) {
@@ -156,16 +158,16 @@ class BudgetTemplateExport implements FromCollection, WithStyles, WithTitle, Wit
 
                 // 10. Instructions below the table
                 $instructionStartRow = $lastDataRow + 2;
-                $sheet->setCellValue('A' . $instructionStartRow, 'Instructions:');
-                $sheet->setCellValue('A' . ($instructionStartRow + 1), '- Enter budget amounts in the numeric columns (Gov Loan, Gov Share, Foreign Loan, Foreign Subsidy, NEA)');
-                $sheet->setCellValue('A' . ($instructionStartRow + 2), '- Enter source names in the "Source" columns (e.g., ADB, World Bank, KfW)');
-                $sheet->setCellValue('A' . ($instructionStartRow + 3), '- Total column will auto-calculate');
-                $sheet->setCellValue('A' . ($instructionStartRow + 4), '- Do not modify S.N., Project names, or add/delete rows');
-                $sheet->getStyle('A' . $instructionStartRow . ':A' . ($instructionStartRow + 4))
+                $sheet->setCellValue('A'.$instructionStartRow, 'Instructions:');
+                $sheet->setCellValue('A'.($instructionStartRow + 1), '- Enter budget amounts in the numeric columns (Gov Loan, Gov Share, Foreign Loan, Foreign Subsidy, NEA)');
+                $sheet->setCellValue('A'.($instructionStartRow + 2), '- Enter source names in the "Source" columns (e.g., ADB, World Bank, KfW)');
+                $sheet->setCellValue('A'.($instructionStartRow + 3), '- Total column will auto-calculate');
+                $sheet->setCellValue('A'.($instructionStartRow + 4), '- Do not modify S.N., Project names, or add/delete rows');
+                $sheet->getStyle('A'.$instructionStartRow.':A'.($instructionStartRow + 4))
                     ->getFont()->setItalic(true)->setSize(10);
 
                 // 11. Data Validation - Text only for Source columns (F and H)
-                $validation = $sheet->getDataValidation('F4:F' . $lastDataRow);
+                $validation = $sheet->getDataValidation('F4:F'.$lastDataRow);
                 $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_CUSTOM);
                 $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
                 $validation->setAllowBlank(true);
@@ -178,7 +180,7 @@ class BudgetTemplateExport implements FromCollection, WithStyles, WithTitle, Wit
                 $validation->setFormula1('=NOT(ISNUMBER(F4))');
 
                 // Copy validation to column H
-                $validation2 = $sheet->getDataValidation('H4:H' . $lastDataRow);
+                $validation2 = $sheet->getDataValidation('H4:H'.$lastDataRow);
                 $validation2->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_CUSTOM);
                 $validation2->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
                 $validation2->setAllowBlank(true);

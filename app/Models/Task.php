@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Spatie\Activitylog\LogOptions;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Auth;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Task extends Model
 {
@@ -100,10 +100,11 @@ class Task extends Model
 
     public function getEstimatedHoursAttribute(): float
     {
-        if (!$this->start_date || !$this->due_date) {
+        if (! $this->start_date || ! $this->due_date) {
             return 1.0;
         }
         $days = $this->start_date->diffInDays($this->due_date) + 1;
+
         return $days * 8;
     }
 
@@ -126,6 +127,7 @@ class Task extends Model
             ->useLogName('task')
             ->setDescriptionForEvent(function (string $eventName) {
                 $user = Auth::user()?->name ?? 'System';
+
                 return match ($eventName) {
                     'created' => "Task created by {$user}",
                     'updated' => "Task updated by {$user}",

@@ -4,26 +4,25 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Role;
-use App\Models\Task;
-use App\Models\User;
-use App\Models\Status;
-use App\Models\Project;
-use App\Models\Priority;
-use Illuminate\View\View;
+use App\Exports\TasksExport;
+use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Directorate;
-use App\Exports\TasksExport;
-use Illuminate\Http\Request;
-use App\Models\ProjectExpense;
+use App\Models\Priority;
+use App\Models\Project;
+use App\Models\Role;
+use App\Models\Status;
+use App\Models\Task;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Cache;
 
 class AnalyticalDashboardController extends Controller
 {
@@ -47,15 +46,15 @@ class AnalyticalDashboardController extends Controller
             // ============================================
             $tasks = $baseQuery->clone()
                 ->with([
-                    'priority' => fn($q) => $q->select('id', 'title'),
-                    'status' => fn($q) => $q->select('id', 'title'),
+                    'priority' => fn ($q) => $q->select('id', 'title'),
+                    'status' => fn ($q) => $q->select('id', 'title'),
                     'projects' => function ($q) {
                         $q->select('projects.id', 'projects.title', 'projects.directorate_id')
                             ->withPivot('status_id', 'progress');
                     },
-                    'users' => fn($q) => $q->select('id', 'name'),
-                    'directorate' => fn($q) => $q->select('id', 'title'),
-                    'department' => fn($q) => $q->select('id', 'title'),
+                    'users' => fn ($q) => $q->select('id', 'name'),
+                    'directorate' => fn ($q) => $q->select('id', 'title'),
+                    'department' => fn ($q) => $q->select('id', 'title'),
                 ])
                 ->get();
 
@@ -108,14 +107,14 @@ class AnalyticalDashboardController extends Controller
 
             return view('admin.analytics.tasks-analytics', $data);
         } catch (\Exception $e) {
-            Log::error('Task Analytics Error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Task Analytics Error: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
 
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Failed to load analytics data',
-                    'message' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+                    'message' => config('app.debug') ? $e->getMessage() : 'An error occurred',
                 ], 500);
             }
 
@@ -136,9 +135,9 @@ class AnalyticalDashboardController extends Controller
         $completed = $projectTasks->where('status_id', $completedStatusId)->count();
 
         // On Track: Not overdue and progress > 70%
-        $onTrack = $projectTasks->filter(function ($pt) use ($completedStatusId, $now) {
+        $onTrack = $projectTasks->filter(function ($pt) use ($completedStatusId) {
             return $pt->status_id != $completedStatusId &&
-                (!$pt->task_due_date || $pt->task_due_date->isFuture()) &&
+                (! $pt->task_due_date || $pt->task_due_date->isFuture()) &&
                 $pt->progress >= 70;
         })->count();
 
@@ -151,7 +150,7 @@ class AnalyticalDashboardController extends Controller
         })->count();
 
         // Delayed: Past due date
-        $delayed = $projectTasks->filter(function ($pt) use ($completedStatusId, $now) {
+        $delayed = $projectTasks->filter(function ($pt) use ($completedStatusId) {
             return $pt->status_id != $completedStatusId &&
                 $pt->task_due_date &&
                 $pt->task_due_date->isPast();
@@ -177,7 +176,7 @@ class AnalyticalDashboardController extends Controller
                 'completed' => $projectTasks->where('status_id', $completedStatusId)
                     ->where('task_due_date', '>=', $now->copy()->subWeek())
                     ->count(),
-            ]
+            ],
         ];
     }
 
@@ -203,7 +202,7 @@ class AnalyticalDashboardController extends Controller
             });
 
         // Apply role-based filtering
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 $query->where('tasks.directorate_id', $user->directorate_id);
             }
@@ -246,11 +245,11 @@ class AnalyticalDashboardController extends Controller
             ->select('projects.*');
 
         // Apply role-based filtering
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 $query->where('directorate_id', $user->directorate_id);
             } elseif (in_array(Role::PROJECT_USER, $roles)) {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
         }
 
@@ -263,10 +262,10 @@ class AnalyticalDashboardController extends Controller
             if ($isHighPriority && $isBehind) {
                 $quadrant = 'critical';
                 $color = '#EF4444'; // red
-            } elseif ($isHighPriority && !$isBehind) {
+            } elseif ($isHighPriority && ! $isBehind) {
                 $quadrant = 'good';
                 $color = '#10B981'; // green
-            } elseif (!$isHighPriority && $isBehind) {
+            } elseif (! $isHighPriority && $isBehind) {
                 $quadrant = 'watch';
                 $color = '#F59E0B'; // yellow
             } else {
@@ -311,7 +310,7 @@ class AnalyticalDashboardController extends Controller
             ->where('tasks.created_at', '>=', now()->subMonths(6));
 
         // Apply role-based filtering
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && Auth::user()->directorate_id) {
                 $query->where('tasks.directorate_id', Auth::user()->directorate_id);
             }
@@ -323,10 +322,10 @@ class AnalyticalDashboardController extends Controller
             ->get();
 
         return [
-            'labels' => $trends->pluck('month')->map(fn($m) => date('M Y', strtotime($m . '-01')))->toArray(),
+            'labels' => $trends->pluck('month')->map(fn ($m) => date('M Y', strtotime($m.'-01')))->toArray(),
             'created' => $trends->pluck('created')->toArray(),
             'completed' => $trends->pluck('completed')->toArray(),
-            'avg_progress' => $trends->pluck('avg_progress')->map(fn($p) => round((float) $p, 1))->toArray(),
+            'avg_progress' => $trends->pluck('avg_progress')->map(fn ($p) => round((float) $p, 1))->toArray(),
         ];
     }
 
@@ -368,20 +367,20 @@ class AnalyticalDashboardController extends Controller
         $now = now();
 
         // Filter in memory (no additional DB queries!)
-        $critical = $tasks->filter(function ($task) use ($completedStatusId, $now) {
+        $critical = $tasks->filter(function ($task) use ($completedStatusId) {
             $isNotCompleted = $task->status_id != $completedStatusId ||
-                $task->projects->contains(fn($p) => $p->pivot->status_id != $completedStatusId);
+                $task->projects->contains(fn ($p) => $p->pivot->status_id != $completedStatusId);
 
             return $isNotCompleted && $task->due_date && $task->due_date->isPast();
         })
             ->sortBy('due_date')
             ->take(5)
-            ->map(fn($task) => $this->formatAlertTask($task, 'critical'));
+            ->map(fn ($task) => $this->formatAlertTask($task, 'critical'));
 
         // Warning: Due soon with low progress
         $warning = $tasks->filter(function ($task) use ($completedStatusId, $now) {
             $isNotCompleted = $task->status_id != $completedStatusId ||
-                $task->projects->contains(fn($p) => $p->pivot->status_id != $completedStatusId);
+                $task->projects->contains(fn ($p) => $p->pivot->status_id != $completedStatusId);
 
             return $isNotCompleted &&
                 $task->due_date &&
@@ -389,7 +388,7 @@ class AnalyticalDashboardController extends Controller
         })
             ->sortBy('due_date')
             ->take(5)
-            ->map(fn($task) => $this->formatAlertTask($task, 'warning'));
+            ->map(fn ($task) => $this->formatAlertTask($task, 'warning'));
 
         // Notable: Recently completed ahead of schedule
         $notable = $tasks->filter(function ($task) use ($completedStatusId, $now) {
@@ -400,7 +399,7 @@ class AnalyticalDashboardController extends Controller
         })
             ->sortByDesc('completion_date')
             ->take(3)
-            ->map(fn($task) => $this->formatAlertTask($task, 'notable'));
+            ->map(fn ($task) => $this->formatAlertTask($task, 'notable'));
 
         return [
             'critical' => $critical->values()->toArray(),
@@ -433,7 +432,7 @@ class AnalyticalDashboardController extends Controller
         // ============================================
         // ADDED: Role-based filtering for Team Performance
         // ============================================
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 // Restrict to users assigned to tasks in this directorate
                 $query->where('tasks.directorate_id', $user->directorate_id);
@@ -450,7 +449,7 @@ class AnalyticalDashboardController extends Controller
                 }
             } elseif (in_array(Role::DEPARTMENT_USER, $roles) && $user->directorate_id) {
                 // Restrict to users assigned to tasks in this department/directorate
-                $departmentIds = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))->pluck('id');
+                $departmentIds = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))->pluck('id');
                 $query->where('tasks.directorate_id', $user->directorate_id);
             } else {
                 // Generic user: Only show my own stats
@@ -492,7 +491,7 @@ class AnalyticalDashboardController extends Controller
     private function getDetailedTaskList($projectTasks, Request $request, $lookupData): array
     {
         if ($request->filled('status_id')) {
-            $projectTasks = $projectTasks->filter(fn($pt) => $pt->status_id == $request->status_id);
+            $projectTasks = $projectTasks->filter(fn ($pt) => $pt->status_id == $request->status_id);
         }
 
         $paginatedData = $this->paginateCollection($projectTasks, $request);
@@ -542,7 +541,7 @@ class AnalyticalDashboardController extends Controller
         } elseif (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
             $query->where('directorate_id', $user->directorate_id);
         } elseif (in_array(Role::DEPARTMENT_USER, $roles) && $user->directorate_id) {
-            $departmentIds = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+            $departmentIds = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                 ->pluck('id');
             if ($departmentIds->isEmpty()) {
                 $query->whereRaw('1 = 0');
@@ -554,15 +553,15 @@ class AnalyticalDashboardController extends Controller
             if ($projectIds->isEmpty()) {
                 $query->whereRaw('1 = 0');
             } else {
-                $query->whereHas('projects', fn($q) => $q->whereIn('projects.id', $projectIds));
+                $query->whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projectIds));
             }
         } else {
-            $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+            $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
         }
 
         // Additional filters
         if ($request->filled('project_id')) {
-            $query->whereHas('projects', fn($q) => $q->where('id', $request->project_id));
+            $query->whereHas('projects', fn ($q) => $q->where('id', $request->project_id));
         }
         if ($request->filled('priority_id')) {
             $query->where('priority_id', $request->priority_id);
@@ -607,7 +606,7 @@ class AnalyticalDashboardController extends Controller
             }
 
             return $taskProjects;
-        })->filter(fn($pt) => !is_null($pt->status_id));
+        })->filter(fn ($pt) => ! is_null($pt->status_id));
     }
 
     private function calculateDirectorateHealth($avgProgress, $overdueCount, $totalTasks): array
@@ -630,13 +629,13 @@ class AnalyticalDashboardController extends Controller
     private function getDirectorateAlertMessage($dir): string
     {
         if ($dir->overdue_count > 0) {
-            return "⚠️ {$dir->overdue_count} task" . ($dir->overdue_count > 1 ? 's' : '') . " overdue";
+            return "⚠️ {$dir->overdue_count} task".($dir->overdue_count > 1 ? 's' : '').' overdue';
         } elseif ($dir->at_risk_count > 0) {
-            return "⚠️ {$dir->at_risk_count} task" . ($dir->at_risk_count > 1 ? 's' : '') . " at risk";
+            return "⚠️ {$dir->at_risk_count} task".($dir->at_risk_count > 1 ? 's' : '').' at risk';
         } elseif ($dir->avg_progress >= 90) {
-            return "⭐ Excellent performance!";
+            return '⭐ Excellent performance!';
         } else {
-            return "✓ On track";
+            return '✓ On track';
         }
     }
 
@@ -647,11 +646,11 @@ class AnalyticalDashboardController extends Controller
         $daysOverdue = $task->due_date ? $task->due_date->diffInDays(now(), false) : 0;
 
         if ($type === 'critical') {
-            $message = "{$task->title} - " . abs($daysOverdue) . " days overdue";
+            $message = "{$task->title} - ".abs($daysOverdue).' days overdue';
         } elseif ($type === 'warning') {
-            $message = "{$task->title} - Due in {$daysOverdue} days, " . round($progress) . "% complete";
+            $message = "{$task->title} - Due in {$daysOverdue} days, ".round($progress).'% complete';
         } else {
-            $message = "{$task->title} - Completed " . abs($daysOverdue) . " days early!";
+            $message = "{$task->title} - Completed ".abs($daysOverdue).' days early!';
         }
 
         return [
@@ -713,15 +712,15 @@ class AnalyticalDashboardController extends Controller
                 'entity' => $pt->entity,
                 'status' => [
                     'title' => $status?->title ?? 'N/A',
-                    'color' => $status?->color ?? 'gray'
+                    'color' => $status?->color ?? 'gray',
                 ],
                 'priority' => [
                     'title' => $pt->task_priority_title ?? 'N/A',
-                    'color' => $lookupData['priority_colors'][$pt->task_priority_title] ?? 'gray'
+                    'color' => $lookupData['priority_colors'][$pt->task_priority_title] ?? 'gray',
                 ],
                 'due_date' => $pt->task_due_date ? $pt->task_due_date->format('Y-m-d') : 'N/A',
                 'progress' => round($pt->progress, 1),
-                'users' => $pt->task_users->map(fn($user) => [
+                'users' => $pt->task_users->map(fn ($user) => [
                     'initials' => $this->getInitials($user->name),
                     'name' => $user->name,
                 ])->toArray(),
@@ -748,8 +747,9 @@ class AnalyticalDashboardController extends Controller
     private function getInitials(string $name): string
     {
         $words = explode(' ', trim($name));
+
         return collect($words)
-            ->map(fn($word) => strtoupper($word[0] ?? ''))
+            ->map(fn ($word) => strtoupper($word[0] ?? ''))
             ->take(2)
             ->implode('');
     }
@@ -772,10 +772,11 @@ class AnalyticalDashboardController extends Controller
 
             return Excel::download(
                 new TasksExport($query),
-                'tasks_analytics_' . now()->format('Y-m-d_H-i-s') . '.csv'
+                'tasks_analytics_'.now()->format('Y-m-d_H-i-s').'.csv'
             );
         } catch (\Exception $e) {
-            Log::error('Task Export Error: ' . $e->getMessage());
+            Log::error('Task Export Error: '.$e->getMessage());
+
             return back()->with('error', 'Failed to export tasks');
         }
     }
@@ -803,12 +804,12 @@ class AnalyticalDashboardController extends Controller
             // ============================================
             $dashboardProjects = $baseQuery->clone()
                 ->with([
-                    'status' => fn($q) => $q->select('id', 'title', 'color'),
-                    'priority' => fn($q) => $q->select('id', 'title'),
-                    'directorate' => fn($q) => $q->select('id', 'title'),
-                    'contracts' => fn($q) => $q->select('id', 'project_id', 'contract_amount'),
-                    'budgets' => fn($q) => $q->latest()->limit(1),
-                    'tasks' => fn($q) => $q->select('id', 'title', 'completion_date'),
+                    'status' => fn ($q) => $q->select('id', 'title', 'color'),
+                    'priority' => fn ($q) => $q->select('id', 'title'),
+                    'directorate' => fn ($q) => $q->select('id', 'title'),
+                    'contracts' => fn ($q) => $q->select('id', 'project_id', 'contract_amount'),
+                    'budgets' => fn ($q) => $q->latest()->limit(1),
+                    'tasks' => fn ($q) => $q->select('id', 'title', 'completion_date'),
                 ])
                 ->get();
 
@@ -868,14 +869,14 @@ class AnalyticalDashboardController extends Controller
 
             return view('admin.analytics.projects-analytics', $data);
         } catch (\Exception $e) {
-            Log::error('Project Analytics Error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Project Analytics Error: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
 
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Failed to load analytics data',
-                    'message' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+                    'message' => config('app.debug') ? $e->getMessage() : 'An error occurred',
                 ], 500);
             }
 
@@ -914,7 +915,7 @@ class AnalyticalDashboardController extends Controller
         } elseif (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
             $query->where('directorate_id', $user->directorate_id);
         } elseif (in_array(Role::PROJECT_USER, $roles)) {
-            $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+            $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
         }
 
         if ($request->filled('department_id')) {
@@ -949,21 +950,21 @@ class AnalyticalDashboardController extends Controller
             $spent = $project->total_approved_expense;
             $budgetUtilization = $totalBudget > 0 ? ($spent / $totalBudget) * 100 : 0;
 
-            $onTrack = !$isCompleted &&
-                (!$project->end_date || $project->end_date->isFuture()) &&
+            $onTrack = ! $isCompleted &&
+                (! $project->end_date || $project->end_date->isFuture()) &&
                 $budgetUtilization < 90 &&
                 $progress >= 50;
 
             $daysRemaining = $project->end_date ? $project->end_date->diffInDays($now, false) : 999;
-            $atRisk = !$isCompleted &&
+            $atRisk = ! $isCompleted &&
                 (($daysRemaining > 0 && $daysRemaining <= 30 && $progress < 70) ||
                     ($budgetUtilization > 85 && $budgetUtilization <= 95));
 
-            $delayed = !$isCompleted &&
+            $delayed = ! $isCompleted &&
                 (($project->end_date && $project->end_date->isPast()) ||
                     $budgetUtilization > 100);
 
-            $onBudget = !$isCompleted && $budgetUtilization < 80;
+            $onBudget = ! $isCompleted && $budgetUtilization < 80;
 
             return [
                 'on_track' => $onTrack,
@@ -986,7 +987,7 @@ class AnalyticalDashboardController extends Controller
         ) : 0;
 
         $avgProgress = $projects->avg('progress') ?? 0;
-        $overdueProjects = $projects->filter(fn($p) => $p->end_date && $p->end_date->isPast() && $p->status_id != $completedStatusId)->count();
+        $overdueProjects = $projects->filter(fn ($p) => $p->end_date && $p->end_date->isPast() && $p->status_id != $completedStatusId)->count();
 
         return [
             'health_score' => $healthScore,
@@ -1057,15 +1058,15 @@ class AnalyticalDashboardController extends Controller
 
         $grouped = $projects->groupBy('directorate_id');
 
-        return $grouped->map(function ($dirProjects, $directorateId) use ($now, $completedStatusId) {
+        return $grouped->map(function ($dirProjects, $directorateId) use ($completedStatusId) {
             $total = $dirProjects->count();
-            $totalBudget = $dirProjects->sum(fn($p) => $p->total_budget);
-            $totalSpent = $dirProjects->sum(fn($p) => $p->total_approved_expense);
+            $totalBudget = $dirProjects->sum(fn ($p) => $p->total_budget);
+            $totalSpent = $dirProjects->sum(fn ($p) => $p->total_approved_expense);
 
             $budgetUtilization = $totalBudget > 0 ? ($totalSpent / $totalBudget) * 100 : 0;
             $completedCount = $dirProjects->where('status_id', $completedStatusId)->count();
 
-            $overdueCount = $dirProjects->filter(function ($p) use ($now, $completedStatusId) {
+            $overdueCount = $dirProjects->filter(function ($p) use ($completedStatusId) {
                 return $p->status_id != $completedStatusId &&
                     $p->end_date &&
                     $p->end_date->isPast();
@@ -1085,7 +1086,7 @@ class AnalyticalDashboardController extends Controller
                 'budget_health' => $budgetHealth,
                 'budget_color' => $budgetColor,
                 'alert_message' => $overdueCount > 0 ?
-                    "⚠️ {$overdueCount} project" . ($overdueCount > 1 ? 's' : '') . " overdue" : (round($dirProjects->avg('progress') ?? 0) >= 85 ? "⭐ Excellent delivery" : "✓ On track"),
+                    "⚠️ {$overdueCount} project".($overdueCount > 1 ? 's' : '').' overdue' : (round($dirProjects->avg('progress') ?? 0) >= 85 ? '⭐ Excellent delivery' : '✓ On track'),
             ];
         })->values()->toArray();
     }
@@ -1094,7 +1095,7 @@ class AnalyticalDashboardController extends Controller
     {
         $totalBudget = $projects->sum('total_budget');
         $totalSpent = $projects->sum('total_approved_expense');
-        $totalCommitted = $projects->sum(fn($p) => $p->contracts->where('status', '!=', 'completed')->sum('contract_amount'));
+        $totalCommitted = $projects->sum(fn ($p) => $p->contracts->where('status', '!=', 'completed')->sum('contract_amount'));
         $available = max(0, $totalBudget - $totalSpent - $totalCommitted);
 
         $spentPercentage = $totalBudget > 0 ? ($totalSpent / $totalBudget) * 100 : 0;
@@ -1106,6 +1107,7 @@ class AnalyticalDashboardController extends Controller
             $spent = $p->total_approved_expense;
             $budgetUtilization = $totalBudget > 0 ? ($spent / $totalBudget) * 100 : 0;
             $progress = (float) ($p->progress ?? 0);
+
             return $budgetUtilization > 95 && $progress < 80;
         })->count();
 
@@ -1114,6 +1116,7 @@ class AnalyticalDashboardController extends Controller
             $spent = $p->total_approved_expense;
             $budgetUtilization = $totalBudget > 0 ? ($spent / $totalBudget) * 100 : 0;
             $progress = (float) ($p->progress ?? 0);
+
             return $budgetUtilization > 85 && $budgetUtilization <= 95 && $progress < 90;
         })->count();
 
@@ -1142,13 +1145,14 @@ class AnalyticalDashboardController extends Controller
 
         $activeProjects = $projects->where('status_id', '!=', $completedStatusId);
 
-        $critical = $activeProjects->filter(function ($p) use ($now) {
+        $critical = $activeProjects->filter(function ($p) {
             $totalBudget = (float) $p->total_budget;
             $spent = $p->total_approved_expense;
             $budgetUtilization = $totalBudget > 0 ? ($spent / $totalBudget) * 100 : 0;
             $isOverdue = $p->end_date && $p->end_date->isPast();
+
             return $budgetUtilization > 95 || $isOverdue || $budgetUtilization > 100;
-        })->take(5)->map(fn($p) => $this->formatProjectAlert($p, 'critical'));
+        })->take(5)->map(fn ($p) => $this->formatProjectAlert($p, 'critical'));
 
         $warning = $activeProjects->filter(function ($p) use ($now) {
             $totalBudget = (float) $p->total_budget;
@@ -1156,15 +1160,17 @@ class AnalyticalDashboardController extends Controller
             $budgetUtilization = $totalBudget > 0 ? ($spent / $totalBudget) * 100 : 0;
             $daysRemaining = $p->end_date ? $p->end_date->diffInDays($now, false) : 999;
             $progress = (float) ($p->progress ?? 0);
+
             return ($daysRemaining > 0 && $daysRemaining <= 14 && $progress < 80) ||
                 ($budgetUtilization > 85 && $budgetUtilization <= 95);
-        })->take(5)->map(fn($p) => $this->formatProjectAlert($p, 'warning'));
+        })->take(5)->map(fn ($p) => $this->formatProjectAlert($p, 'warning'));
 
         $notable = $activeProjects->filter(function ($p) use ($now) {
             $progress = (float) ($p->progress ?? 0);
             $daysRemaining = $p->end_date ? $p->end_date->diffInDays($now, false) : 0;
+
             return $progress >= 90 && $daysRemaining > 7;
-        })->take(3)->map(fn($p) => $this->formatProjectAlert($p, 'notable'));
+        })->take(3)->map(fn ($p) => $this->formatProjectAlert($p, 'notable'));
 
         return [
             'critical' => $critical->toArray(),
@@ -1175,10 +1181,10 @@ class AnalyticalDashboardController extends Controller
 
     private function getResourceAllocation(Collection $projects): array
     {
-        $totalTasks = $projects->sum(fn($p) => $p->tasks->count());
-        $completedTasks = $projects->sum(fn($p) => $p->tasks->whereNotNull('completion_date')->count());
-        $totalContracts = $projects->sum(fn($p) => $p->contracts->count());
-        $totalContractValue = $projects->sum(fn($p) => $p->contracts->sum('contract_amount'));
+        $totalTasks = $projects->sum(fn ($p) => $p->tasks->count());
+        $completedTasks = $projects->sum(fn ($p) => $p->tasks->whereNotNull('completion_date')->count());
+        $totalContracts = $projects->sum(fn ($p) => $p->contracts->count());
+        $totalContractValue = $projects->sum(fn ($p) => $p->contracts->sum('contract_amount'));
 
         return [
             'tasks_count' => $totalTasks,
@@ -1201,8 +1207,8 @@ class AnalyticalDashboardController extends Controller
 
     private function getTaskContractChart(Collection $projects): array
     {
-        $tasksCount = $projects->sum(fn($p) => $p->tasks->count());
-        $contractsCount = $projects->sum(fn($p) => $p->contracts->count());
+        $tasksCount = $projects->sum(fn ($p) => $p->tasks->count());
+        $contractsCount = $projects->sum(fn ($p) => $p->contracts->count());
 
         return [
             'labels' => ['Tasks', 'Contracts'],
@@ -1214,11 +1220,11 @@ class AnalyticalDashboardController extends Controller
     {
         $projects = $baseQuery->clone()
             ->with([
-                'directorate' => fn($q) => $q->select('id', 'title'),
-                'status' => fn($q) => $q->select('id', 'title', 'color'),
-                'priority' => fn($q) => $q->select('id', 'title'),
-                'contracts' => fn($q) => $q->select('id', 'project_id', 'contract_amount'),
-                'budgets' => fn($q) => $q->latest()->limit(1),
+                'directorate' => fn ($q) => $q->select('id', 'title'),
+                'status' => fn ($q) => $q->select('id', 'title', 'color'),
+                'priority' => fn ($q) => $q->select('id', 'title'),
+                'contracts' => fn ($q) => $q->select('id', 'project_id', 'contract_amount'),
+                'budgets' => fn ($q) => $q->latest()->limit(1),
             ])
             ->paginate(10);
 
@@ -1233,19 +1239,20 @@ class AnalyticalDashboardController extends Controller
             $budgetOverrun = max(0, $budgetUtilization - 100) / 10;
             $scheduleDelay = $project->end_date && $project->end_date->isPast() ?
                 min(5, $project->end_date->diffInDays(now()) / 10) : 0;
-            $progressLag = max(0, (100 - (float)($project->progress ?? 0)) / 20);
+            $progressLag = max(0, (100 - (float) ($project->progress ?? 0)) / 20);
             $riskScore = min(10, round($budgetOverrun + $scheduleDelay + $progressLag, 1));
 
             $project->tableData = [
                 'risk_score' => $riskScore,
                 'budget_utilization' => round($budgetUtilization, 1),
             ];
+
             return $project;
         });
 
         return [
             'paginated' => $projects,
-            'tableData' => $projects->map(fn($p) => $p->tableData)->toArray(),
+            'tableData' => $projects->map(fn ($p) => $p->tableData)->toArray(),
         ];
     }
 
@@ -1258,6 +1265,7 @@ class AnalyticalDashboardController extends Controller
             $options['directorates'] = collect();
         }
         $options['departments'] = Department::select('id', 'title')->get();
+
         return $options;
     }
 
@@ -1271,14 +1279,14 @@ class AnalyticalDashboardController extends Controller
 
         if ($type === 'critical') {
             if ($budgetUtilization > 100) {
-                $message = "{$project->title} - Budget exceeded by $" . number_format($spent - $totalBudget, 0);
+                $message = "{$project->title} - Budget exceeded by $".number_format($spent - $totalBudget, 0);
             } elseif ($daysRemaining < 0) {
-                $message = "{$project->title} - " . abs($daysRemaining) . " days overdue";
+                $message = "{$project->title} - ".abs($daysRemaining).' days overdue';
             } else {
-                $message = "{$project->title} - " . round($budgetUtilization) . "% budget, " . round($progress) . "% progress";
+                $message = "{$project->title} - ".round($budgetUtilization).'% budget, '.round($progress).'% progress';
             }
         } elseif ($type === 'warning') {
-            $message = "{$project->title} - Due in " . abs($daysRemaining) . " days, " . round($progress) . "% complete";
+            $message = "{$project->title} - Due in ".abs($daysRemaining).' days, '.round($progress).'% complete';
         } else {
             $message = "{$project->title} - Excellent performance! ⭐";
         }

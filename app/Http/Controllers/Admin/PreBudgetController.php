@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\Reports\PreBudgetMultiSheetExport;
+use App\Http\Controllers\Controller;
+use App\Models\FiscalYear;
 use App\Models\PreBudget;
 use App\Models\PreBudgetQuarterAllocation;
-use App\Models\FiscalYear;
-use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use App\Exports\Reports\PreBudgetMultiSheetExport;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Models\Role;
 use App\Models\Project;
-use Illuminate\Support\Facades\Gate;
+use App\Models\Role;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PreBudgetController extends Controller
 {
@@ -36,7 +36,7 @@ class PreBudgetController extends Controller
         $isAdmin = $user->hasRole(Role::ADMIN);
         $isDirectorateUser = $user->hasRole(Role::DIRECTORATE_USER);
 
-        $isProjectUser = !$isSuperAdmin && !$isAdmin && !$isDirectorateUser;
+        $isProjectUser = ! $isSuperAdmin && ! $isAdmin && ! $isDirectorateUser;
 
         $projectsQuery = Project::query();
 
@@ -61,7 +61,7 @@ class PreBudgetController extends Controller
         })->values();
 
         $directorates = collect();
-        if (!$isProjectUser) {
+        if (! $isProjectUser) {
             if ($isSuperAdmin || $isAdmin) {
                 $directorates = \App\Models\Directorate::all();
             } elseif ($isDirectorateUser && $user->directorate_id) {
@@ -104,7 +104,7 @@ class PreBudgetController extends Controller
 
         if ($search) {
             $query->whereHas('project', function ($q) use ($search) {
-                $q->where('title', 'like', '%' . $search . '%');
+                $q->where('title', 'like', '%'.$search.'%');
             });
         }
 
@@ -112,12 +112,12 @@ class PreBudgetController extends Controller
 
         if ($request->wantsJson() || $request->ajax()) {
             $data = $preBudgets->getCollection()->transform(function ($item) {
-                $total = (float)($item->internal_budget ?? 0) +
-                    (float)($item->government_share ?? 0) +
-                    (float)($item->government_loan ?? 0) +
-                    (float)($item->foreign_loan_budget ?? 0) +
-                    (float)($item->foreign_subsidy_budget ?? 0) +
-                    (float)($item->company_budget ?? 0);
+                $total = (float) ($item->internal_budget ?? 0) +
+                    (float) ($item->government_share ?? 0) +
+                    (float) ($item->government_loan ?? 0) +
+                    (float) ($item->foreign_loan_budget ?? 0) +
+                    (float) ($item->foreign_subsidy_budget ?? 0) +
+                    (float) ($item->company_budget ?? 0);
 
                 return [
                     'id' => $item->id,
@@ -125,12 +125,12 @@ class PreBudgetController extends Controller
                     'project' => $item->project ? $item->project->title : 'N/A',
                     'directorate' => ($item->project && $item->project->directorate) ? $item->project->directorate->title : 'Unknown',
                     'directorate_id' => ($item->project && $item->project->directorate) ? $item->project->directorate->id : null,
-                    'internal_budget' => number_format((float)($item->internal_budget ?? 0), 2, '.', ''),
-                    'government_share' => number_format((float)($item->government_share ?? 0), 2, '.', ''),
-                    'government_loan' => number_format((float)($item->government_loan ?? 0), 2, '.', ''),
-                    'foreign_loan' => number_format((float)($item->foreign_loan_budget ?? 0), 2, '.', ''),
-                    'foreign_subsidy' => number_format((float)($item->foreign_subsidy_budget ?? 0), 2, '.', ''),
-                    'company_budget' => number_format((float)($item->company_budget ?? 0), 2, '.', ''),
+                    'internal_budget' => number_format((float) ($item->internal_budget ?? 0), 2, '.', ''),
+                    'government_share' => number_format((float) ($item->government_share ?? 0), 2, '.', ''),
+                    'government_loan' => number_format((float) ($item->government_loan ?? 0), 2, '.', ''),
+                    'foreign_loan' => number_format((float) ($item->foreign_loan_budget ?? 0), 2, '.', ''),
+                    'foreign_subsidy' => number_format((float) ($item->foreign_subsidy_budget ?? 0), 2, '.', ''),
+                    'company_budget' => number_format((float) ($item->company_budget ?? 0), 2, '.', ''),
                     'total_budget' => number_format($total, 2, '.', ''),
                 ];
             });
@@ -163,7 +163,7 @@ class PreBudgetController extends Controller
             'Foreign Loan',
             'Foreign Subsidy',
             'Company',
-            'Total'
+            'Total',
         ]]);
 
         return view('admin.preBudgets.index', $viewData);
@@ -180,7 +180,7 @@ class PreBudgetController extends Controller
 
         $user = Auth::user();
 
-        $projects = $user->projects->map(fn($project) => [
+        $projects = $user->projects->map(fn ($project) => [
             'id' => $project->id,
             'title' => $project->title,
         ]);
@@ -401,7 +401,7 @@ class PreBudgetController extends Controller
     public function export()
     {
         return Excel::download(
-            new PreBudgetMultiSheetExport(),
+            new PreBudgetMultiSheetExport,
             'pre_budget_multisheet_report.xlsx'
         );
     }

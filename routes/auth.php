@@ -16,7 +16,7 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
     Route::post('login', [LoginController::class, 'store']);
 
-    //Socialite Login
+    // Socialite Login
     Route::get('login/{provider}', [SocialLoginController::class, 'redirectToProvider'])->name('social.login');
     Route::get('login/{provider}/callback', [SocialLoginController::class, 'handleProviderCallback']);
 

@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\ReportController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(ReportController::class)->prefix('reports')->name('reports.')->group(function () {
     Route::get('consolidated-annual', 'showConsolidatedAnnualReport')->name('consolidatedAnnual.view');

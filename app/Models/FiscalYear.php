@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use App\Models\Builders\ModelBuilder;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FiscalYear extends Model
 {
@@ -35,14 +35,12 @@ class FiscalYear extends Model
 
     /**
      * Get the previous fiscal year relative to the current one.
-     *
-     * @return FiscalYear|null
      */
     public static function previousFiscalYear(): ?self
     {
         $current = self::currentFiscalYear();
 
-        if (!$current) {
+        if (! $current) {
             return null;
         }
 
@@ -54,8 +52,6 @@ class FiscalYear extends Model
 
     /**
      * Get the fiscal year that contains today's date.
-     *
-     * @return FiscalYear|null
      */
     public static function currentFiscalYear(): ?self
     {
@@ -66,8 +62,6 @@ class FiscalYear extends Model
 
     /**
      * Get fiscal years formatted for a dropdown menu.
-     *
-     * @return array
      */
     public static function getFiscalYearOptions(): array
     {
@@ -75,8 +69,8 @@ class FiscalYear extends Model
 
         return self::all()->map(function ($fy) use ($currentFiscalYearId) {
             return [
-                'value'    => (string) $fy->id,
-                'label'    => $fy->title,
+                'value' => (string) $fy->id,
+                'label' => $fy->title,
                 'selected' => $fy->id === $currentFiscalYearId,
             ];
         })->toArray();

@@ -2,8 +2,8 @@
 
 namespace App\Helpers\Task;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class TaskListFormatter
 {

@@ -14,11 +14,11 @@ class TaskItemNormalizer
             // Task linked to projects
             if ($task->projects->isNotEmpty()) {
                 return $task->projects
-                    ->filter(fn($project) => $project && $project->id)
+                    ->filter(fn ($project) => $project && $project->id)
                     ->map(function ($project) use ($task) {
                         $statusId = $task->status_id;
 
-                        return (object)[
+                        return (object) [
                             'task' => $task,
                             'project' => $project,
                             'project_id' => $project->id,
@@ -32,7 +32,7 @@ class TaskItemNormalizer
             // Task without project
             $statusId = $task->status_id;
 
-            return [(object)[
+            return [(object) [
                 'task' => $task,
                 'project' => null,
                 'project_id' => null,
@@ -40,6 +40,6 @@ class TaskItemNormalizer
                 'status' => $statusId ? Status::find($statusId) : null,
                 'progress' => $task->progress,
             ]];
-        })->filter(fn($item) => $item->task && $item->task->id);
+        })->filter(fn ($item) => $item->task && $item->task->id);
     }
 }

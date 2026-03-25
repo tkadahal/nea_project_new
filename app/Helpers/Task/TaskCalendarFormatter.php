@@ -2,8 +2,8 @@
 
 namespace App\Helpers\Task;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class TaskCalendarFormatter
 {
@@ -18,7 +18,7 @@ class TaskCalendarFormatter
                         ? Carbon::parse($task->start_date)
                         : ($task->due_date ? Carbon::parse($task->due_date) : null);
 
-                    if (!$start) {
+                    if (! $start) {
                         return null;
                     }
 

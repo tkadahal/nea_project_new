@@ -4,32 +4,31 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Carbon\Carbon;
-use App\Models\Role;
-use App\Models\Task;
-use App\Models\User;
-use App\Models\Status;
-use App\Models\Comment;
-use App\Models\Project;
-use App\Models\Priority;
-use Illuminate\View\View;
-use App\Models\Department;
-use App\Models\Directorate;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Http\JsonResponse;
-use App\Notifications\TaskCreated;
-use App\Notifications\TaskDeleted;
-use App\Notifications\TaskUpdated;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Cache;
 use App\Http\Requests\Task\StoreTaskRequest;
 use App\Http\Requests\Task\UpdateTaskRequest;
+use App\Models\Comment;
+use App\Models\Department;
+use App\Models\Directorate;
+use App\Models\Priority;
+use App\Models\Project;
+use App\Models\Role;
+use App\Models\Status;
+use App\Models\Task;
+use App\Models\User;
+use App\Notifications\TaskCreated;
+use App\Notifications\TaskUpdated;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\View\View;
 
 class TaskController extends Controller
 {
@@ -41,8 +40,8 @@ class TaskController extends Controller
         $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
 
-        $statuses = Cache::remember('task_statuses', 86400, fn() => Status::all());
-        $priorities = Cache::remember('task_priorities', 86400, fn() => Priority::all());
+        $statuses = Cache::remember('task_statuses', 86400, fn () => Status::all());
+        $priorities = Cache::remember('task_priorities', 86400, fn () => Priority::all());
         $statusColors = $statuses->pluck('color', 'id')->toArray();
         $priorityColors = config('colors.priority');
 
@@ -58,8 +57,8 @@ class TaskController extends Controller
             'statuses' => $statuses,
             'priorities' => $priorities,
             'directorates' => $directorates,
-            'departments' => Cache::remember('departments', 86400, fn() => Department::all()),
-            'projectsForFilter' => Cache::remember('projects_for_filter', 86400, fn() => Project::whereNull('deleted_at')->get()),
+            'departments' => Cache::remember('departments', 86400, fn () => Department::all()),
+            'projectsForFilter' => Cache::remember('projects_for_filter', 86400, fn () => Project::whereNull('deleted_at')->get()),
             'statusColors' => $statusColors,
             'priorityColors' => $priorityColors,
             'routePrefix' => 'admin.task',
@@ -69,11 +68,11 @@ class TaskController extends Controller
 
         $withRelations = [
             'priority',
-            'projects' => fn($query) => $query->withPivot('status_id', 'progress'),
+            'projects' => fn ($query) => $query->withPivot('status_id', 'progress'),
             'users',
             'directorate',
             'parent',
-            'subTasks'
+            'subTasks',
         ];
         $taskQuery = Task::with($withRelations)->latest();
 
@@ -85,7 +84,7 @@ class TaskController extends Controller
             } elseif (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
                 $taskQuery->where('directorate_id', $user->directorate_id);
             } elseif (in_array(Role::DEPARTMENT_USER, $roleIds) && $user->directorate_id) {
-                $departmentIds = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+                $departmentIds = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                     ->pluck('id');
                 if ($departmentIds->isEmpty()) {
                     $taskQuery->whereRaw('1 = 0');
@@ -97,10 +96,10 @@ class TaskController extends Controller
                 if ($projectIds->isEmpty()) {
                     $taskQuery->whereRaw('1 = 0');
                 } else {
-                    $taskQuery->whereHas('projects', fn($q) => $q->whereIn('projects.id', $projectIds)->whereNull('deleted_at'));
+                    $taskQuery->whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projectIds)->whereNull('deleted_at'));
                 }
             } else {
-                $taskQuery->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $taskQuery->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
 
             if ($request->filled('department_id')) {
@@ -113,7 +112,7 @@ class TaskController extends Controller
                 if ($request->input('project_id') === 'none') {
                     $taskQuery->whereDoesntHave('projects');
                 } else {
-                    $taskQuery->whereHas('projects', fn($q) => $q->where('projects.id', $request->input('project_id')));
+                    $taskQuery->whereHas('projects', fn ($q) => $q->where('projects.id', $request->input('project_id')));
                 }
             }
             if ($request->filled('date_start') && $request->filled('date_end')) {
@@ -132,17 +131,18 @@ class TaskController extends Controller
             $tasks = $taskQuery->get();
 
             $taskDirectorateIds = $tasks->pluck('directorate_id')->filter()->unique()->toArray();
-            $data['directorates'] = $directorates->isEmpty() && !empty($taskDirectorateIds)
+            $data['directorates'] = $directorates->isEmpty() && ! empty($taskDirectorateIds)
                 ? Directorate::whereIn('id', $taskDirectorateIds)->get()
                 : $directorates;
 
-            $allTasks = $tasks->flatMap(function ($task) use ($statusColors, $priorityColors) {
+            $allTasks = $tasks->flatMap(function ($task) {
                 $results = [];
                 if ($task->projects->isNotEmpty()) {
                     $results = $task->projects->filter(function ($project) {
-                        return !is_null($project->id);
-                    })->map(function ($project) use ($task, $statusColors, $priorityColors) {
+                        return ! is_null($project->id);
+                    })->map(function ($project) use ($task) {
                         $status = $project->pivot->status_id ? Status::find($project->pivot->status_id) : ($task->status_id ? Status::find($task->status_id) : null);
+
                         return (object) [
                             'task' => $task,
                             'project' => $project,
@@ -163,9 +163,10 @@ class TaskController extends Controller
                         'project_id' => null,
                     ];
                 }
+
                 return $results;
             })->filter(function ($taskItem) {
-                return !is_null($taskItem->task->id);
+                return ! is_null($taskItem->task->id);
             });
 
             if ($activeView === 'board') {
@@ -174,6 +175,7 @@ class TaskController extends Controller
                 })->map(function ($group) use ($statusColors, $priorityColors) {
                     return $group->map(function ($taskItem) use ($statusColors, $priorityColors) {
                         $task = $taskItem->task;
+
                         return [
                             'id' => $task->id,
                             'title' => $task->title ?? 'Untitled Task',
@@ -223,6 +225,7 @@ class TaskController extends Controller
             } elseif ($activeView === 'list') {
                 $data['tasksFlat'] = $allTasks->map(function ($taskItem) use ($statusColors, $priorityColors) {
                     $task = $taskItem->task;
+
                     return [
                         'id' => $task->id,
                         'title' => $task->title,
@@ -272,6 +275,7 @@ class TaskController extends Controller
                     $task = $taskItem->task;
                     $startDate = $task->start_date ? Carbon::parse($task->start_date) : ($task->due_date ? Carbon::parse($task->due_date) : null);
                     $endDate = $task->due_date ? Carbon::parse($task->due_date) : null;
+
                     return [
                         'id' => $task->id,
                         'title' => $task->title ?? 'Untitled Task',
@@ -295,7 +299,7 @@ class TaskController extends Controller
                             'parent_title' => $task->parent ? $task->parent->title : null,
                         ],
                     ];
-                })->filter(fn($event) => $event['start'] !== null)->values()->all();
+                })->filter(fn ($event) => $event['start'] !== null)->values()->all();
             } elseif ($activeView === 'table') {
                 $data['tableHeaders'] = [
                     trans('global.task.fields.id'),
@@ -307,6 +311,7 @@ class TaskController extends Controller
                 $data['tableData'] = $allTasks->map(function ($taskItem) use ($statusColors, $priorityColors) {
                     $task = $taskItem->task;
                     $viewUrl = $taskItem->project_id ? route('admin.task.show', [$task->id, $taskItem->project_id]) : route('admin.task.show', $task->id);
+
                     return [
                         'id' => $task->id,
                         'title' => $task->title,
@@ -325,22 +330,22 @@ class TaskController extends Controller
                         'directorate_id' => $task->directorate_id ? (string) $task->directorate_id : '',
                         'department_id' => $task->department_id ? (string) $task->department_id : '',
                         'search_data' => strtolower(
-                            $task->title . ' ' .
-                                ($taskItem->status ? $taskItem->status->title : '') . ' ' .
-                                ($task->priority ? $task->priority->title : '') . ' ' .
-                                ($task->due_date ? $task->due_date->format('Y-m-d') : '') . ' ' .
-                                ($taskItem->project?->title ?? '') . ' ' .
-                                ($task->users->pluck('name')->join(' ') ?? '') . ' ' .
-                                ($task->directorate?->title ?? '') . ' ' .
-                                ($task->directorate_id ?? '') . ' ' .
-                                ($task->department_id ?? '') . ' ' .
+                            $task->title.' '.
+                                ($taskItem->status ? $taskItem->status->title : '').' '.
+                                ($task->priority ? $task->priority->title : '').' '.
+                                ($task->due_date ? $task->due_date->format('Y-m-d') : '').' '.
+                                ($taskItem->project?->title ?? '').' '.
+                                ($task->users->pluck('name')->join(' ') ?? '').' '.
+                                ($task->directorate?->title ?? '').' '.
+                                ($task->directorate_id ?? '').' '.
+                                ($task->department_id ?? '').' '.
                                 ($task->parent ? $task->parent->title : '')
                         ),
                     ];
                 })->values()->toArray();
             }
         } catch (\Exception $e) {
-            $data['error'] = 'Unable to load tasks due to an error: ' . $e->getMessage();
+            $data['error'] = 'Unable to load tasks due to an error: '.$e->getMessage();
         }
 
         return view('admin.tasks.index', $data);
@@ -363,7 +368,7 @@ class TaskController extends Controller
         if ($projectId) {
             $project = Project::where('id', $projectId)
                 ->whereNull('deleted_at')
-                ->when(!(in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)), function ($query) use ($user, $roleIds) {
+                ->when(! (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)), function ($query) use ($user, $roleIds) {
                     if (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
                         $query->where('directorate_id', $user->directorate_id);
                     } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
@@ -382,19 +387,19 @@ class TaskController extends Controller
                 $departments = $project->department_id ? collect([$project->department_id => $department?->title ?? 'N/A']) : collect();
                 $projects = collect([$project->id => $project->title]);
                 $users = $project->users()->pluck('name', 'id');
-                $tasks = Task::whereHas('projects', fn($q) => $q->where('projects.id', $projectId))->pluck('title', 'id');
+                $tasks = Task::whereHas('projects', fn ($q) => $q->where('projects.id', $projectId))->pluck('title', 'id');
                 $preselectedData = [
                     'directorate_id' => $directorateId ? (string) $directorateId : null,
                     'department_id' => $project->department_id ? (string) $project->department_id : null,
                     'projects' => [(string) $project->id],
-                    'users' => $users->keys()->map(fn($id) => (string) $id)->toArray(),
+                    'users' => $users->keys()->map(fn ($id) => (string) $id)->toArray(),
                 ];
             } else {
                 $projectId = null;
             }
         }
 
-        if (!$projectId) {
+        if (! $projectId) {
             if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
                 $directorates = Directorate::pluck('title', 'id');
                 $departments = Department::pluck('title', 'id');
@@ -403,30 +408,30 @@ class TaskController extends Controller
                 $tasks = Task::pluck('title', 'id');
             } elseif (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
                 $directorates = collect([$user->directorate_id => Directorate::find($user->directorate_id)?->title ?? 'N/A']);
-                $departments = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+                $departments = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                     ->pluck('title', 'id');
                 $projects = Project::where('directorate_id', $user->directorate_id)
                     ->whereNull('deleted_at')
                     ->pluck('title', 'id');
                 $users = User::where('directorate_id', $user->directorate_id)
-                    ->whereHas('roles', fn($q) => $q->where('id', Role::DIRECTORATE_USER))
+                    ->whereHas('roles', fn ($q) => $q->where('id', Role::DIRECTORATE_USER))
                     ->pluck('name', 'id');
                 $tasks = Task::where('directorate_id', $user->directorate_id)->pluck('title', 'id');
             } elseif (in_array(Role::PROJECT_USER, $roleIds) && $user->directorate_id) {
                 $directorates = collect([$user->directorate_id => Directorate::find($user->directorate_id)?->title ?? 'N/A']);
-                $departments = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+                $departments = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                     ->pluck('title', 'id');
                 $projects = $user->projects()
                     ->whereNull('deleted_at')
                     ->pluck('title', 'id');
                 $users = User::where(function ($q) use ($projects, $user) {
-                    $q->whereHas('projects', fn($pq) => $pq->whereIn('projects.id', $projects->keys()->toArray()))
+                    $q->whereHas('projects', fn ($pq) => $pq->whereIn('projects.id', $projects->keys()->toArray()))
                         ->orWhere(function ($q2) use ($user) {
                             $q2->where('directorate_id', $user->directorate_id)
-                                ->whereHas('roles', fn($rq) => $rq->where('id', Role::DIRECTORATE_USER));
+                                ->whereHas('roles', fn ($rq) => $rq->where('id', Role::DIRECTORATE_USER));
                         });
                 })->pluck('name', 'id');
-                $tasks = Task::whereHas('projects', fn($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))->pluck('title', 'id');
+                $tasks = Task::whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))->pluck('title', 'id');
             }
         }
 
@@ -450,7 +455,7 @@ class TaskController extends Controller
 
         // Prepare project sync data for parent task and subtasks
         $projectSyncData = [];
-        if (!empty($validated['projects'])) {
+        if (! empty($validated['projects'])) {
             foreach ($validated['projects'] as $projectId) {
                 $projectSyncData[$projectId] = [
                     'status_id' => $validated['status_id'],
@@ -466,9 +471,9 @@ class TaskController extends Controller
         $task->users()->sync($validated['users'] ?? []);
 
         // Create subtasks as child tasks, sync projects and users
-        if (!empty($subtasks)) {
+        if (! empty($subtasks)) {
             foreach ($subtasks as $subtaskData) {
-                if (!empty($subtaskData['title'])) {
+                if (! empty($subtaskData['title'])) {
                     $subtask = Task::create([
                         'title' => $subtaskData['title'],
                         'status_id' => $subtaskData['completed'] ? 2 : 1, // 2 = completed, 1 = pending
@@ -483,7 +488,7 @@ class TaskController extends Controller
                         'updated_at' => now(),
                     ]);
                     // Sync the same projects to the subtask
-                    if (!empty($projectSyncData)) {
+                    if (! empty($projectSyncData)) {
                         $subtask->projects()->sync($projectSyncData);
                     }
                     // Sync the same users to the subtask
@@ -494,12 +499,12 @@ class TaskController extends Controller
 
         // Notify users
         $notifiedUsers = collect();
-        if (!empty($validated['projects'])) {
+        if (! empty($validated['projects'])) {
             foreach ($validated['projects'] as $projectId) {
                 $project = Project::findOrFail($projectId);
                 $users = $project->users;
                 foreach ($users as $user) {
-                    if (!$notifiedUsers->contains($user->id)) {
+                    if (! $notifiedUsers->contains($user->id)) {
                         $user->notify(new TaskCreated($task, $projectId));
                         $notifiedUsers->push($user->id);
                     }
@@ -507,34 +512,34 @@ class TaskController extends Controller
             }
         }
 
-        if (!empty($validated['department_id'])) {
+        if (! empty($validated['department_id'])) {
             $department = Department::findOrFail($validated['department_id']);
             $directorateIds = $department->directorates()->pluck('directorates.id');
             $users = User::whereIn('directorate_id', $directorateIds)
-                ->whereHas('roles', fn($q) => $q->where('id', Role::DEPARTMENT_USER))
+                ->whereHas('roles', fn ($q) => $q->where('id', Role::DEPARTMENT_USER))
                 ->get();
             foreach ($users as $user) {
-                if (!$notifiedUsers->contains($user->id)) {
+                if (! $notifiedUsers->contains($user->id)) {
                     $user->notify(new TaskCreated($task, null));
                     $notifiedUsers->push($user->id);
                 }
             }
-        } elseif (!empty($validated['directorate_id']) && empty($validated['projects'])) {
+        } elseif (! empty($validated['directorate_id']) && empty($validated['projects'])) {
             $users = User::where('directorate_id', $validated['directorate_id'])
-                ->whereHas('roles', fn($q) => $q->where('id', Role::DIRECTORATE_USER))
+                ->whereHas('roles', fn ($q) => $q->where('id', Role::DIRECTORATE_USER))
                 ->get();
             foreach ($users as $user) {
-                if (!$notifiedUsers->contains($user->id)) {
+                if (! $notifiedUsers->contains($user->id)) {
                     $user->notify(new TaskCreated($task, null));
                     $notifiedUsers->push($user->id);
                 }
             }
         }
 
-        if (!empty($validated['parent_id'])) {
+        if (! empty($validated['parent_id'])) {
             $parentTask = Task::findOrFail($validated['parent_id']);
             foreach ($parentTask->users as $user) {
-                if (!$notifiedUsers->contains($user->id)) {
+                if (! $notifiedUsers->contains($user->id)) {
                     $user->notify(new TaskCreated($task, null));
                     $notifiedUsers->push($user->id);
                 }
@@ -551,11 +556,11 @@ class TaskController extends Controller
         $roleIds = $user->roles->pluck('id')->toArray();
 
         try {
-            if (!Directorate::where('id', $directorateId)->exists()) {
+            if (! Directorate::where('id', $directorateId)->exists()) {
                 return response()->json(['message' => 'Invalid directorate ID'], 400);
             }
 
-            $query = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $directorateId));
+            $query = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $directorateId));
 
             if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
                 // No additional filtering needed
@@ -580,7 +585,7 @@ class TaskController extends Controller
 
             return response()->json($departments);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to fetch departments: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to fetch departments: '.$e->getMessage()], 500);
         }
     }
 
@@ -592,7 +597,7 @@ class TaskController extends Controller
         $departmentId = $request->query('department_id');
 
         try {
-            if (!$directorateId && !$departmentId) {
+            if (! $directorateId && ! $departmentId) {
                 return response()->json([]);
             }
 
@@ -612,10 +617,10 @@ class TaskController extends Controller
                 $department = Department::findOrFail($departmentId);
                 $directorateIds = $department->directorates()->pluck('directorates.id');
                 $query->whereIn('directorate_id', $directorateIds)
-                    ->whereHas('roles', fn($q) => $q->where('id', Role::DEPARTMENT_USER));
+                    ->whereHas('roles', fn ($q) => $q->where('id', Role::DEPARTMENT_USER));
             } elseif ($directorateId) {
                 $query->where('directorate_id', $directorateId)
-                    ->whereHas('roles', fn($q) => $q->where('id', Role::DIRECTORATE_USER));
+                    ->whereHas('roles', fn ($q) => $q->where('id', Role::DIRECTORATE_USER));
             }
 
             $users = $query->get()->map(function ($user) {
@@ -627,7 +632,7 @@ class TaskController extends Controller
 
             return response()->json($users);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to fetch users: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to fetch users: '.$e->getMessage()], 500);
         }
     }
 
@@ -635,19 +640,19 @@ class TaskController extends Controller
     {
         abort_if(Gate::denies('task_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $task->load(['priority', 'projects' => fn($query) => $query->withPivot('status_id', 'progress'), 'users', 'directorate', 'department', 'subTasks', 'parent']);
+        $task->load(['priority', 'projects' => fn ($query) => $query->withPivot('status_id', 'progress'), 'users', 'directorate', 'department', 'subTasks', 'parent']);
 
         $project = null;
         if ($project_id !== null) {
-            if (!is_numeric($project_id)) {
+            if (! is_numeric($project_id)) {
                 abort(404, 'Invalid project ID');
             }
             $project = Project::find($project_id);
-            if (!$project) {
+            if (! $project) {
                 abort(404, 'Project not found');
             }
             $projectTask = $task->projects()->where('project_id', $project->id)->first();
-            if (!$projectTask) {
+            if (! $projectTask) {
                 abort(404, 'Task not associated with this project');
             }
         }
@@ -656,14 +661,14 @@ class TaskController extends Controller
         $roleIds = $user->roles->pluck('id')->toArray();
 
         if ($project) {
-            if (!(in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
+            if (! (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
                 $canAccess = false;
                 if (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id && $project->directorate_id == $user->directorate_id) {
                     $canAccess = true;
                 } elseif (in_array(Role::PROJECT_USER, $roleIds) && $user->projects()->where('id', $project->id)->exists()) {
                     $canAccess = true;
                 }
-                if (!$canAccess) {
+                if (! $canAccess) {
                     abort(403, 'Unauthorized: You do not have access to this project.');
                 }
             }
@@ -686,13 +691,13 @@ class TaskController extends Controller
             'progress' => $progress,
             'project_id' => $project?->id,
             'project_name' => $project?->title ?? 'N/A',
-            'projects' => $task->projects->map(fn($p) => [
+            'projects' => $task->projects->map(fn ($p) => [
                 'id' => $p->id,
                 'title' => $p->title,
                 'status_id' => $p->pivot->status_id,
                 'progress' => $p->pivot->progress,
             ])->toArray(),
-            'users' => $task->users->map(fn($user) => [
+            'users' => $task->users->map(fn ($user) => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'initials' => $user->initials(),
@@ -708,7 +713,7 @@ class TaskController extends Controller
             'updated_at' => $task->updated_at,
             'parent_id' => $task->parent_id,
             'parent_title' => $task->parent ? $task->parent->title : 'N/A',
-            'sub_tasks' => $task->subTasks->map(fn($subTask) => [
+            'sub_tasks' => $task->subTasks->map(fn ($subTask) => [
                 'id' => $subTask->id,
                 'title' => $subTask->title,
                 'description' => $subTask->description,
@@ -722,7 +727,7 @@ class TaskController extends Controller
         ];
 
         $comments = Comment::forTaskProject($task->id, $project?->id)
-            ->with(['user', 'replies' => fn($query) => $query->orderBy('created_at', 'asc')])
+            ->with(['user', 'replies' => fn ($query) => $query->orderBy('created_at', 'asc')])
             ->whereNull('parent_id')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -739,9 +744,9 @@ class TaskController extends Controller
                 Auth::user()->comments()->updateExistingPivot($commentId, ['read_at' => now()]);
             }
         } catch (\Exception $e) {
-            Log::error("Failed to mark comments as read for task {$task->id}, project " . ($project?->id ?? 'null'), [
+            Log::error("Failed to mark comments as read for task {$task->id}, project ".($project?->id ?? 'null'), [
                 'error' => $e->getMessage(),
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
         }
 
@@ -758,19 +763,19 @@ class TaskController extends Controller
     {
         abort_if(Gate::denies('task_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $task->load(['priority', 'projects' => fn($query) => $query->withPivot('status_id', 'progress'), 'users', 'directorate', 'department', 'subTasks', 'parent']);
+        $task->load(['priority', 'projects' => fn ($query) => $query->withPivot('status_id', 'progress'), 'users', 'directorate', 'department', 'subTasks', 'parent']);
 
         $project = null;
         if ($project_id !== null) {
-            if (!is_numeric($project_id)) {
+            if (! is_numeric($project_id)) {
                 abort(404, 'Invalid project ID');
             }
             $project = Project::find($project_id);
-            if (!$project) {
+            if (! $project) {
                 abort(404, 'Project not found');
             }
             $projectTask = $task->projects()->where('project_id', $project->id)->first();
-            if (!$projectTask) {
+            if (! $projectTask) {
                 abort(404, 'Task not associated with this project');
             }
         }
@@ -779,14 +784,14 @@ class TaskController extends Controller
         $roleIds = $user->roles->pluck('id')->toArray();
 
         if ($project) {
-            if (!(in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
+            if (! (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
                 $canAccess = false;
                 if (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id && $project->directorate_id == $user->directorate_id) {
                     $canAccess = true;
                 } elseif (in_array(Role::PROJECT_USER, $roleIds) && $user->projects()->where('id', $project->id)->exists()) {
                     $canAccess = true;
                 }
-                if (!$canAccess) {
+                if (! $canAccess) {
                     abort(403, 'Unauthorized: You do not have access to this project.');
                 }
             }
@@ -808,13 +813,13 @@ class TaskController extends Controller
             $tasks = Task::where('id', '!=', $task->id)->pluck('title', 'id');
         } elseif (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
             $directorates = collect([$user->directorate_id => Directorate::find($user->directorate_id)?->title ?? 'N/A']);
-            $departments = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+            $departments = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                 ->pluck('title', 'id');
             $projects = Project::where('directorate_id', $user->directorate_id)
                 ->whereNull('deleted_at')
                 ->pluck('title', 'id');
             $users = User::where('directorate_id', $user->directorate_id)
-                ->whereHas('roles', fn($q) => $q->where('id', Role::DIRECTORATE_USER))
+                ->whereHas('roles', fn ($q) => $q->where('id', Role::DIRECTORATE_USER))
                 ->pluck('name', 'id');
             $tasks = Task::where('directorate_id', $user->directorate_id)
                 ->where('id', '!=', $task->id)
@@ -824,14 +829,14 @@ class TaskController extends Controller
             }
         } elseif (in_array(Role::PROJECT_USER, $roleIds) && $user->directorate_id) {
             $directorates = collect([$user->directorate_id => Directorate::find($user->directorate_id)?->title ?? 'N/A']);
-            $departments = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+            $departments = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                 ->pluck('title', 'id');
             $projects = Auth::user()->projects()
                 ->whereNull('deleted_at')
                 ->pluck('title', 'id');
-            $users = User::whereHas('projects', fn($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))
+            $users = User::whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))
                 ->pluck('name', 'id');
-            $tasks = Task::whereHas('projects', fn($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))
+            $tasks = Task::whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projects->keys()->toArray()))
                 ->where('id', '!=', $task->id)
                 ->pluck('title', 'id');
             if ($task->directorate_id && $task->directorate_id != $user->directorate_id) {
@@ -855,7 +860,7 @@ class TaskController extends Controller
             $taskData = array_diff_key($validated, array_flip(['status_id', 'progress', 'projects', 'users']));
             $task->update($taskData);
 
-            if (!empty($validated['projects'])) {
+            if (! empty($validated['projects'])) {
                 $projectSyncData = [];
                 foreach ($validated['projects'] as $projectId) {
                     $projectSyncData[$projectId] = [
@@ -903,7 +908,7 @@ class TaskController extends Controller
             return redirect()->route('admin.task.show', [$task->id, $project?->id])
                 ->with('message', 'Task updated successfully.');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to update task: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update task: '.$e->getMessage());
         }
     }
 
@@ -930,7 +935,7 @@ class TaskController extends Controller
         // Check if the task has subtasks
         if ($task->subTasks()->exists()) {
             return response()->json([
-                'message' => 'This task has subtasks, please update the subtask first'
+                'message' => 'This task has subtasks, please update the subtask first',
             ], 422);
         }
 
@@ -964,7 +969,8 @@ class TaskController extends Controller
             return response()->json(['message' => 'Task status updated successfully']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Error updating task status: ' . $e->getMessage()], 500);
+
+            return response()->json(['message' => 'Error updating task status: '.$e->getMessage()], 500);
         }
     }
 
@@ -981,7 +987,7 @@ class TaskController extends Controller
         $roleIds = $user->roles->pluck('id')->toArray();
 
         try {
-            if (!Directorate::where('id', $directorateId)->exists()) {
+            if (! Directorate::where('id', $directorateId)->exists()) {
                 return response()->json(['message' => 'Invalid directorate ID'], 400);
             }
 
@@ -1012,7 +1018,7 @@ class TaskController extends Controller
 
             return response()->json($projects);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to fetch projects: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to fetch projects: '.$e->getMessage()], 500);
         }
     }
 
@@ -1027,13 +1033,13 @@ class TaskController extends Controller
                 return response()->json([]);
             }
 
-            if (!Project::whereIn('id', $projectIds)->exists()) {
+            if (! Project::whereIn('id', $projectIds)->exists()) {
                 return response()->json(['message' => 'Invalid project IDs'], 400);
             }
 
-            $query = User::whereHas('projects', fn($q) => $q->whereIn('projects.id', $projectIds)->whereNull('projects.deleted_at'));
+            $query = User::whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projectIds)->whereNull('projects.deleted_at'));
 
-            if (!(in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
+            if (! (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
                 if (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
                     $validProjectIds = Project::whereIn('id', $projectIds)
                         ->where('directorate_id', $user->directorate_id)
@@ -1053,7 +1059,7 @@ class TaskController extends Controller
                     if (count($validProjectIds) !== count($projectIds)) {
                         return response()->json(['message' => 'Unauthorized: You can only fetch users for your assigned projects in your directorate.'], 403);
                     }
-                    $query->whereHas('projects', fn($q) => $q->whereIn('projects.id', $userProjectIds));
+                    $query->whereHas('projects', fn ($q) => $q->whereIn('projects.id', $userProjectIds));
                 } else {
                     return response()->json(['message' => 'Unauthorized: No valid role or directorate assigned.'], 403);
                 }
@@ -1072,7 +1078,7 @@ class TaskController extends Controller
 
             return response()->json($users);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to fetch users: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to fetch users: '.$e->getMessage()], 500);
         }
     }
 
@@ -1094,14 +1100,14 @@ class TaskController extends Controller
                 $canAccess = true;
             }
 
-            if (!$canAccess) {
+            if (! $canAccess) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
             $data = [
                 'directorate_id' => (string) $project->directorate_id,
                 'projects' => [
-                    ['value' => (string) $project->id, 'label' => $project->title]
+                    ['value' => (string) $project->id, 'label' => $project->title],
                 ],
                 'users' => $project->users->map(function ($user) {
                     return ['value' => (string) $user->id, 'label' => $user->name];
@@ -1110,7 +1116,7 @@ class TaskController extends Controller
 
             return response()->json($data);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to fetch project info: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to fetch project info: '.$e->getMessage()], 500);
         }
     }
 
@@ -1133,7 +1139,7 @@ class TaskController extends Controller
             $query->where('directorate_id', $directorateId);
         } elseif (in_array(Role::DEPARTMENT_USER, $roles) && $user->directorate_id) {
             // Department User: Filter by departments under user's directorate
-            $departmentIds = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+            $departmentIds = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                 ->pluck('id');
             if ($departmentIds->isEmpty()) {
                 $query->whereRaw('1 = 0'); // Force empty result if no departments
@@ -1146,7 +1152,7 @@ class TaskController extends Controller
             if ($projectIds->isEmpty()) {
                 $query->whereRaw('1 = 0'); // Force empty result if no projects
             } else {
-                $query->whereHas('projects', fn($pq) => $pq->whereIn('projects.id', $projectIds));
+                $query->whereHas('projects', fn ($pq) => $pq->whereIn('projects.id', $projectIds));
             }
         } else {
             // Fallback: No tasks if no matching role
@@ -1160,7 +1166,7 @@ class TaskController extends Controller
 
         $rawTasks = $query->get();
 
-        $tasks = $rawTasks->map(function ($task) use ($request) {
+        $tasks = $rawTasks->map(function ($task) {
             // Determine entity (project, department, or directorate)
             $project = $task->projects->first();
             $department = $task->department;
@@ -1183,7 +1189,7 @@ class TaskController extends Controller
 
             // Compute gantt_cal as date range
             $ganttCal = ($task->start_date && $task->due_date)
-                ? $task->start_date->format('Y-m-d') . ' to ' . $task->due_date->format('Y-m-d')
+                ? $task->start_date->format('Y-m-d').' to '.$task->due_date->format('Y-m-d')
                 : 'N/A';
 
             // Map relations
@@ -1207,11 +1213,11 @@ class TaskController extends Controller
                 'description' => $description,
                 'status' => $statusTitle,
                 'priority' => $priorityTitle,
-                'tags' => $tags
+                'tags' => $tags,
             ];
         })->filter(function ($task) {
             // Ensure tasks have valid start and end dates
-            return !is_null($task['start']) && !is_null($task['end']);
+            return ! is_null($task['start']) && ! is_null($task['end']);
         })->values()->all();
 
         // Prepare links for parent-to-child relationships
@@ -1219,7 +1225,7 @@ class TaskController extends Controller
         foreach ($tasks as $task) {
             if ($task['parent_id']) {
                 $links[] = [
-                    'id' => $task['id'] . '_link_' . $task['parent_id'],
+                    'id' => $task['id'].'_link_'.$task['parent_id'],
                     'source' => $task['parent_id'],
                     'target' => $task['id'],
                     'type' => 0, // finish-to-start
@@ -1265,7 +1271,7 @@ class TaskController extends Controller
 
         $query = Task::query()->with([
             'priority',
-            'projects' => fn($query) => $query->withPivot('status_id', 'progress'),
+            'projects' => fn ($query) => $query->withPivot('status_id', 'progress'),
             'users',
             'directorate',
             'parent',
@@ -1281,7 +1287,7 @@ class TaskController extends Controller
             if ($validated['project_id'] === 'none') {
                 $query->whereDoesntHave('projects');
             } else {
-                $query->whereHas('projects', fn($q) => $q->where('projects.id', $validated['project_id']));
+                $query->whereHas('projects', fn ($q) => $q->where('projects.id', $validated['project_id']));
             }
         }
         if ($validated['priority_id']) {
@@ -1302,24 +1308,24 @@ class TaskController extends Controller
 
         $user = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
-        if (!(in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
+        if (! (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds))) {
             $query->where(function ($query) use ($user, $roleIds) {
                 if (in_array(Role::DIRECTORATE_USER, $roleIds) && $user->directorate_id) {
                     $query->where('directorate_id', $user->directorate_id);
                 }
                 if (in_array(Role::PROJECT_USER, $roleIds)) {
                     $projectIds = $user->projects()->whereNull('deleted_at')->pluck('id');
-                    $query->orWhereHas('projects', fn($q) => $q->whereIn('projects.id', $projectIds)->whereNull('deleted_at'));
+                    $query->orWhereHas('projects', fn ($q) => $q->whereIn('projects.id', $projectIds)->whereNull('deleted_at'));
                 }
                 if (in_array(Role::DEPARTMENT_USER, $roleIds) && $user->directorate_id) {
-                    $departmentIds = Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $user->directorate_id))
+                    $departmentIds = Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $user->directorate_id))
                         ->pluck('id');
                     $query->orWhereIn('department_id', $departmentIds);
                 }
             });
         }
 
-        $tasks = $query->skip($validated['offset'])->take(5)->get()->map(function ($task) use ($validated) {
+        $tasks = $query->skip($validated['offset'])->take(5)->get()->map(function ($task) {
             $statusColors = Status::all()->pluck('color', 'id')->toArray();
             $priorityColors = config('colors.priority');
             $project = $task->projects->first();

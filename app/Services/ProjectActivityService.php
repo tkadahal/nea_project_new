@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Project;
-use Illuminate\Support\Facades\DB;
-use App\Models\ProjectActivityPlan;
-use Illuminate\Support\Facades\Log;
-use App\Models\ProjectActivityDefinition;
 use App\Exceptions\StructuralChangeRequiresConfirmationException;
+use App\Models\Project;
+use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use Illuminate\Support\Facades\DB;
 
 class ProjectActivityService
 {
@@ -56,9 +55,9 @@ class ProjectActivityService
             ->whereNull('parent_id')
             ->with([
                 'children.children',
-                'plans' => fn($q) => $q->where('fiscal_year_id', $fiscalYearId),
-                'children.plans' => fn($q) => $q->where('fiscal_year_id', $fiscalYearId),
-                'children.children.plans' => fn($q) => $q->where('fiscal_year_id', $fiscalYearId),
+                'plans' => fn ($q) => $q->where('fiscal_year_id', $fiscalYearId),
+                'children.plans' => fn ($q) => $q->where('fiscal_year_id', $fiscalYearId),
+                'children.children.plans' => fn ($q) => $q->where('fiscal_year_id', $fiscalYearId),
             ])
             ->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ->get();
@@ -68,9 +67,9 @@ class ProjectActivityService
             ->whereNull('parent_id')
             ->with([
                 'children.children',
-                'plans' => fn($q) => $q->where('fiscal_year_id', $fiscalYearId),
-                'children.plans' => fn($q) => $q->where('fiscal_year_id', $fiscalYearId),
-                'children.children.plans' => fn($q) => $q->where('fiscal_year_id', $fiscalYearId),
+                'plans' => fn ($q) => $q->where('fiscal_year_id', $fiscalYearId),
+                'children.plans' => fn ($q) => $q->where('fiscal_year_id', $fiscalYearId),
+                'children.children.plans' => fn ($q) => $q->where('fiscal_year_id', $fiscalYearId),
             ])
             ->orderByRaw("string_to_array(sort_index, '.')::int[]")
             ->get();
@@ -92,11 +91,11 @@ class ProjectActivityService
 
     public function getActivityDataForAjax(Project $project, ?int $fiscalYearId): array
     {
-        if (!$fiscalYearId) {
+        if (! $fiscalYearId) {
             return $this->buildRowsForProject($project, null);
         }
 
-        $hasPlans = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $project->id))
+        $hasPlans = ProjectActivityPlan::whereHas('definitionVersion', fn ($q) => $q->where('project_id', $project->id))
             ->where('fiscal_year_id', $fiscalYearId)
             ->exists();
 
@@ -118,12 +117,13 @@ class ProjectActivityService
             // Check if any plans exist for this project in ANY fiscal year
             $existingPlans = ProjectActivityPlan::whereHas(
                 'definitionVersion',
-                fn($q) => $q->where('project_id', $projectId)
+                fn ($q) => $q->where('project_id', $projectId)
             )->exists();
 
-            if (!$existingPlans) {
+            if (! $existingPlans) {
                 // Case 2: First time setup - store both definitions and plans
                 $this->storeNewDefinitionsAndPlans($validated, $projectId, $fiscalYearId);
+
                 return;
             }
 
@@ -157,14 +157,14 @@ class ProjectActivityService
             // Check if plans already exist for THIS fiscal year
             $plansExistForThisFiscalYear = ProjectActivityPlan::whereHas(
                 'definitionVersion',
-                fn($q) => $q->where('project_id', $projectId)
+                fn ($q) => $q->where('project_id', $projectId)
             )
                 ->where('fiscal_year_id', $fiscalYearId)
                 ->exists();
 
             if ($structureChanged) {
                 // Case 3: Structure changed - requires confirmation
-                if (!$confirmStructureChange) {
+                if (! $confirmStructureChange) {
                     throw new StructuralChangeRequiresConfirmationException(
                         'The structure of activities has changed. This will create a new version and affect all fiscal years. Please confirm to proceed.'
                     );
@@ -194,7 +194,7 @@ class ProjectActivityService
             $projectId = (int) $validated['project_id'];
             $fiscalYearId = (int) $validated['fiscal_year_id'];
 
-            $currentStatus = ProjectActivityPlan::whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId))
+            $currentStatus = ProjectActivityPlan::whereHas('definitionVersion', fn ($q) => $q->where('project_id', $projectId))
                 ->where('fiscal_year_id', $fiscalYearId)
                 ->value('status');
 
@@ -218,6 +218,7 @@ class ProjectActivityService
 
         $ids = array_map('intval', array_filter(explode(',', $idsString)));
         sort($ids);
+
         return $ids;
     }
 
@@ -228,6 +229,7 @@ class ProjectActivityService
     {
         $ids = array_map('intval', array_keys($rows));
         sort($ids);
+
         return $ids;
     }
 
@@ -319,27 +321,29 @@ class ProjectActivityService
 
         foreach (['capital' => 1, 'recurrent' => 2] as $section => $expenditureId) {
             $rows = $validated[$section] ?? [];
-            if (empty($rows)) continue;
+            if (empty($rows)) {
+                continue;
+            }
 
             foreach ($rows as $oldId => $row) {
                 $parentId = null;
-                if (!empty($row['parent_id']) && isset($idMap[$row['parent_id']])) {
+                if (! empty($row['parent_id']) && isset($idMap[$row['parent_id']])) {
                     $parentId = $idMap[$row['parent_id']];
                 }
 
                 $newDef = ProjectActivityDefinition::create([
-                    'project_id'          => $projectId,
-                    'expenditure_id'      => $expenditureId,
-                    'program'             => $row['program'] ?? null,
-                    'total_budget'        => (float) ($row['total_budget'] ?? 0),
-                    'total_quantity'      => (float) ($row['total_budget_quantity'] ?? 0),
-                    'parent_id'           => $parentId,
-                    'sort_index'          => $row['sort_index'] ?? '',
-                    'depth'               => (int) ($row['depth'] ?? 0),
-                    'version'             => $newVersion,
+                    'project_id' => $projectId,
+                    'expenditure_id' => $expenditureId,
+                    'program' => $row['program'] ?? null,
+                    'total_budget' => (float) ($row['total_budget'] ?? 0),
+                    'total_quantity' => (float) ($row['total_budget_quantity'] ?? 0),
+                    'parent_id' => $parentId,
+                    'sort_index' => $row['sort_index'] ?? '',
+                    'depth' => (int) ($row['depth'] ?? 0),
+                    'version' => $newVersion,
                     'previous_version_id' => $previousVersion > 0 ? $previousVersion : null,
-                    'is_current'          => true,
-                    'versioned_at'        => now(),
+                    'is_current' => true,
+                    'versioned_at' => now(),
                 ]);
 
                 $idMap[$oldId] = $newDef->id;
@@ -360,7 +364,7 @@ class ProjectActivityService
                 $newId = $idMap[$oldId] ?? $oldId;
                 $newRows[$newId] = $row;
                 // Update parent_id if it exists in the map
-                if (!empty($row['parent_id']) && isset($idMap[$row['parent_id']])) {
+                if (! empty($row['parent_id']) && isset($idMap[$row['parent_id']])) {
                     $newRows[$newId]['parent_id'] = $idMap[$row['parent_id']];
                 }
             }
@@ -388,9 +392,9 @@ class ProjectActivityService
             return;
         }
 
-        $isFirstTimeSetup = !ProjectActivityPlan::whereHas(
+        $isFirstTimeSetup = ! ProjectActivityPlan::whereHas(
             'definitionVersion',
-            fn($q) => $q
+            fn ($q) => $q
                 ->where('project_id', $projectId)
                 ->where('expenditure_id', $expenditureId)
         )
@@ -401,15 +405,15 @@ class ProjectActivityService
             $definitionId = (int) $id;
 
             $updateData = [
-                'sort_index'     => $row['sort_index'] ?? '',
-                'depth'          => (int) ($row['depth'] ?? 0),
-                'parent_id'      => empty($row['parent_id']) ? null : (int) $row['parent_id'],
+                'sort_index' => $row['sort_index'] ?? '',
+                'depth' => (int) ($row['depth'] ?? 0),
+                'parent_id' => empty($row['parent_id']) ? null : (int) $row['parent_id'],
             ];
 
             if ($isFirstTimeSetup || $allowProgramUpdate) {
                 $updateData += [
-                    'program'        => $row['program'] ?? null,
-                    'total_budget'   => (float) ($row['total_budget'] ?? 0),
+                    'program' => $row['program'] ?? null,
+                    'total_budget' => (float) ($row['total_budget'] ?? 0),
                     'total_quantity' => (float) ($row['total_budget_quantity'] ?? 0),
                 ];
             }

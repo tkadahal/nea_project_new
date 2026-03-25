@@ -30,7 +30,7 @@ class AccessControlService
     {
         if ($this->isSuperAdminOrAdmin($roleIds)) {
             return $directorateId
-                ? Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $directorateId))->get()
+                ? Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $directorateId))->get()
                 : Department::all();
         }
 
@@ -41,7 +41,7 @@ class AccessControlService
                 return collect();
             }
 
-            return Department::whereHas('directorates', fn($q) => $q->where('directorates.id', $targetDirectorateId))
+            return Department::whereHas('directorates', fn ($q) => $q->where('directorates.id', $targetDirectorateId))
                 ->get();
         }
 
@@ -137,8 +137,8 @@ class AccessControlService
     {
         $query = User::query();
 
-        if (!empty($projectIds)) {
-            return $query->whereHas('projects', fn($q) => $q->whereIn('projects.id', $projectIds))
+        if (! empty($projectIds)) {
+            return $query->whereHas('projects', fn ($q) => $q->whereIn('projects.id', $projectIds))
                 ->select('id', 'name')
                 ->get();
         }
@@ -147,8 +147,9 @@ class AccessControlService
             $department = Department::find($departmentId);
             if ($department) {
                 $directorateIds = $department->directorates()->pluck('directorates.id');
+
                 return $query->whereIn('directorate_id', $directorateIds)
-                    ->whereHas('roles', fn($q) => $q->where('id', Role::DEPARTMENT_USER))
+                    ->whereHas('roles', fn ($q) => $q->where('id', Role::DEPARTMENT_USER))
                     ->select('id', 'name')
                     ->get();
             }
@@ -156,7 +157,7 @@ class AccessControlService
 
         if ($directorateId) {
             return $query->where('directorate_id', $directorateId)
-                ->whereHas('roles', fn($q) => $q->where('id', Role::DIRECTORATE_USER))
+                ->whereHas('roles', fn ($q) => $q->where('id', Role::DIRECTORATE_USER))
                 ->select('id', 'name')
                 ->get();
         }

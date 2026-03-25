@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProjectExpenseFundingAllocation extends Model
 {
@@ -85,7 +85,9 @@ class ProjectExpenseFundingAllocation extends Model
             default => null,
         };
 
-        if (!$key) return 0.0;
+        if (! $key) {
+            return 0.0;
+        }
 
         $value = self::where('project_id', $projectId)
             ->where('fiscal_year_id', $fiscalYearId)

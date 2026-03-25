@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Role;
-use App\Models\User;
-use App\Models\Project;
-use Illuminate\View\View;
-use App\Models\Directorate;
-use Illuminate\Http\Request;
-use App\Services\User\UserService;
-use App\Trait\RoleBasedAccess;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Http\RedirectResponse;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
-use Symfony\Component\HttpFoundation\Response;
+use App\Models\Directorate;
+use App\Models\Project;
+use App\Models\Role;
+use App\Models\User;
+use App\Services\User\UserService;
+use App\Trait\RoleBasedAccess;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
@@ -36,6 +36,7 @@ class UserController extends Controller
         }
 
         $data = $this->userService->getIndexData();
+
         return view('admin.users.index', $data);
     }
 
@@ -58,7 +59,7 @@ class UserController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to load users',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -161,13 +162,13 @@ class UserController extends Controller
             $validated['directorate_id'] = $authUser->directorate_id;
         }
 
-        if (isset($validated['password']) && !empty($validated['password'])) {
+        if (isset($validated['password']) && ! empty($validated['password'])) {
             $validated['password'] = bcrypt($validated['password']);
         } else {
             unset($validated['password']);
         }
 
-        if (!$isDirectorateOrProjectUser && !isset($validated['directorate_id'])) {
+        if (! $isDirectorateOrProjectUser && ! isset($validated['directorate_id'])) {
             $validated['directorate_id'] = $user->directorate_id;
         }
 
@@ -220,6 +221,7 @@ class UserController extends Controller
         // SuperAdmin and Admin can actually delete users
         if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
             $user->delete();
+
             return back()->with('message', 'User deleted successfully.');
         }
 
@@ -240,7 +242,7 @@ class UserController extends Controller
         try {
             $projects = Project::where('directorate_id', $directorateId)
                 ->pluck('title', 'id')
-                ->map(fn($label, $value) => [
+                ->map(fn ($label, $value) => [
                     'value' => (string) $value,
                     'label' => $label,
                 ])
@@ -250,7 +252,7 @@ class UserController extends Controller
             return response()->json($projects);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to fetch projects: ' . $e->getMessage(),
+                'message' => 'Failed to fetch projects: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -297,12 +299,12 @@ class UserController extends Controller
         return response()->json($projects);
     }
 
-    public function assignUserToProject(): View | RedirectResponse
+    public function assignUserToProject(): View|RedirectResponse
     {
         $currentUser = Auth::user();
         $roleIds = $currentUser->roles->pluck('id')->toArray();
 
-        if (!in_array(Role::SUPERADMIN, $roleIds)) {
+        if (! in_array(Role::SUPERADMIN, $roleIds)) {
             abort(403, 'Only superadmin can assign users across directorates.');
         }
 
@@ -316,12 +318,12 @@ class UserController extends Controller
         $currentUser = Auth::user();
         $roleIds = $currentUser->roles->pluck('id')->toArray();
 
-        if (!in_array(Role::SUPERADMIN, $roleIds)) {
+        if (! in_array(Role::SUPERADMIN, $roleIds)) {
             abort(403, 'Unauthorized.');
         }
 
         $validated = $request->validate([
-            'user_id'    => 'required|numeric|exists:users,id',
+            'user_id' => 'required|numeric|exists:users,id',
             'project_id' => 'required|numeric|exists:projects,id',
         ]);
 

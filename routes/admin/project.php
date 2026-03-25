@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ChartController;
 use App\Http\Controllers\Admin\ProjectActivityScheduleController;
+use App\Http\Controllers\Admin\ProjectController;
+use Illuminate\Support\Facades\Route;
 
 // Projects
 Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {

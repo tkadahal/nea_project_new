@@ -6,8 +6,8 @@ namespace App\Services\User;
 
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 use App\Repositories\User\UserRepository;
+use Illuminate\Support\Facades\Auth;
 
 class UserService
 {
@@ -94,7 +94,7 @@ class UserService
             $targetUserProjectIds = $targetUser->projects()->pluck('projects.id')->toArray();
 
             // Can access if they share any project OR if it's themselves
-            return !empty(array_intersect($authUserProjectIds, $targetUserProjectIds))
+            return ! empty(array_intersect($authUserProjectIds, $targetUserProjectIds))
                 || $targetUser->id === $authUser->id;
         }
 

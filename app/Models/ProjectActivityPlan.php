@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Spatie\Activitylog\LogOptions;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProjectActivityPlan extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'activity_definition_version_id',
@@ -128,7 +128,7 @@ class ProjectActivityPlan extends Model
 
     public function scopeForProject($query, int $projectId)
     {
-        return $query->whereHas('definitionVersion', fn($q) => $q->where('project_id', $projectId));
+        return $query->whereHas('definitionVersion', fn ($q) => $q->where('project_id', $projectId));
     }
 
     public function scopeActive($query)
@@ -158,7 +158,9 @@ class ProjectActivityPlan extends Model
     public function canBeEditedBy(?User $user = null): bool
     {
         $user = $user ?? Auth::user();
-        if (!$user) return false;
+        if (! $user) {
+            return false;
+        }
 
         $roleIds = $user->roles->pluck('id')->toArray();
 
@@ -184,8 +186,7 @@ class ProjectActivityPlan extends Model
             ->logOnlyDirty()
             ->useLogName('projectActivityPlan')
             ->setDescriptionForEvent(
-                fn(string $eventName) =>
-                "Project Activity Plan {$eventName} by " . (Auth::user()?->name ?? 'System')
+                fn (string $eventName) => "Project Activity Plan {$eventName} by ".(Auth::user()?->name ?? 'System')
             );
     }
 }

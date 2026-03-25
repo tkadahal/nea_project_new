@@ -9,9 +9,9 @@ use Exception;
 class StructuralChangeRequiresConfirmationException extends Exception
 {
     public function __construct(
-        $message = "The uploaded program structure differs from the current version. Proceeding will create a new version and reset the plan to draft. This cannot be undone.",
+        $message = 'The uploaded program structure differs from the current version. Proceeding will create a new version and reset the plan to draft. This cannot be undone.',
         $code = 0,
-        Exception $previous = null
+        ?Exception $previous = null
     ) {
         parent::__construct($message, $code, $previous);
     }

@@ -2,7 +2,6 @@
 
 namespace App\Helpers\Task;
 
-use App\Models\Status;
 use Illuminate\Support\Collection;
 
 class TaskBoardFormatter
@@ -12,7 +11,7 @@ class TaskBoardFormatter
         array $statusColors,
         array $priorityColors
     ): array {
-        $grouped = $taskItems->groupBy(fn($item) => $item->status_id ?? 'none');
+        $grouped = $taskItems->groupBy(fn ($item) => $item->status_id ?? 'none');
 
         $tasks = $grouped->map(function ($group) use ($statusColors, $priorityColors) {
             return $group->map(function ($item) use ($statusColors, $priorityColors) {

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\File;
 
+use App\DTOs\File\FileDTO;
+use App\Helpers\File\FileHelper;
 use App\Models\File;
 use App\Models\User;
-use App\DTOs\File\FileDTO;
 use App\Repositories\File\FileRepository;
-use App\Helpers\File\FileHelper;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +47,7 @@ class FileService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return collect();
         }
     }
@@ -104,12 +105,12 @@ class FileService
      */
     public function uploadFile(FileDTO $dto, Model $modelInstance, User $user): File
     {
-        if (!FileHelper::canAccessModel($user, $modelInstance)) {
+        if (! FileHelper::canAccessModel($user, $modelInstance)) {
             throw new \Illuminate\Auth\Access\AuthorizationException('Unauthorized to upload files.');
         }
 
         // Generate unique filename and store
-        $uniqueName = uniqid() . '.' . $dto->getExtension();
+        $uniqueName = uniqid().'.'.$dto->getExtension();
         $path = $dto->file->storeAs('files', $uniqueName, 'public');
 
         // Create file record
@@ -135,14 +136,14 @@ class FileService
      */
     public function downloadFile(File $file, User $user): string
     {
-        if (!FileHelper::canAccessFile($user, $file)) {
+        if (! FileHelper::canAccessFile($user, $file)) {
             throw new \Illuminate\Auth\Access\AuthorizationException('Unauthorized to download file.');
         }
 
-        if (!$this->repository->exists($file->path)) {
+        if (! $this->repository->exists($file->path)) {
             Log::error('File not found for download', [
                 'file_id' => $file->id,
-                'path' => $file->path
+                'path' => $file->path,
             ]);
             throw new \Exception('File not found.');
         }
@@ -150,7 +151,7 @@ class FileService
         Log::info('File downloaded', [
             'file_id' => $file->id,
             'filename' => $file->filename,
-            'user_id' => $user->id
+            'user_id' => $user->id,
         ]);
 
         return $this->repository->getPath($file->path);
@@ -161,7 +162,7 @@ class FileService
      */
     public function deleteFile(File $file, User $user): void
     {
-        if (!FileHelper::canAccessFile($user, $file)) {
+        if (! FileHelper::canAccessFile($user, $file)) {
             throw new \Illuminate\Auth\Access\AuthorizationException('Unauthorized to delete file.');
         }
 
@@ -171,13 +172,13 @@ class FileService
             Log::info('File deleted', [
                 'file_id' => $file->id,
                 'filename' => $file->filename,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to delete file', [
                 'file_id' => $file->id,
                 'user_id' => $user->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
             throw new \Exception('Failed to delete file.');
         }

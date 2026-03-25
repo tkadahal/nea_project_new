@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Project;
-use App\Models\ProjectActivitySchedule;
 use App\Models\ProjectActivityDependency;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ProjectScheduleService
 {
@@ -29,14 +28,14 @@ class ProjectScheduleService
                     ->orderBy('code');
             }])->find($projectId);
 
-            if (!$project || $project->activitySchedules->isEmpty()) {
+            if (! $project || $project->activitySchedules->isEmpty()) {
                 return;
             }
 
             $schedules = $project->activitySchedules;
             $dependencies = [];
 
-            $phases = $schedules->groupBy(fn($s) => substr($s->code, 0, 1));
+            $phases = $schedules->groupBy(fn ($s) => substr($s->code, 0, 1));
 
             foreach ($phases as $phaseCode => $phaseSchedules) {
                 $topLevelInPhase = $phaseSchedules->where('level', 2)
@@ -105,7 +104,7 @@ class ProjectScheduleService
             }
 
             // 5. Bulk insert
-            if (!empty($dependencies)) {
+            if (! empty($dependencies)) {
                 ProjectActivityDependency::insert($dependencies);
             }
         });
@@ -144,14 +143,14 @@ class ProjectScheduleService
 
         foreach ($assignments as $assignment) {
             $scheduleId = $assignment->schedule_id;
-            if (!isset($graph[$scheduleId])) {
+            if (! isset($graph[$scheduleId])) {
                 $graph[$scheduleId] = [];
                 $inDegree[$scheduleId] = 0;
             }
         }
 
         foreach ($dependencies as $dep) {
-            if (!isset($assignments[$dep->predecessor_id]) || !isset($assignments[$dep->successor_id])) {
+            if (! isset($assignments[$dep->predecessor_id]) || ! isset($assignments[$dep->successor_id])) {
                 continue; // Skip if either schedule not in project or not active
             }
 
@@ -161,7 +160,7 @@ class ProjectScheduleService
                 'lag' => $dep->lag_days,
             ];
 
-            if (!isset($inDegree[$dep->successor_id])) {
+            if (! isset($inDegree[$dep->successor_id])) {
                 $inDegree[$dep->successor_id] = 0;
             }
             $inDegree[$dep->successor_id]++;
@@ -176,7 +175,7 @@ class ProjectScheduleService
         }
 
         $sorted = [];
-        while (!empty($queue)) {
+        while (! empty($queue)) {
             $current = array_shift($queue);
             $sorted[] = $current;
 
@@ -203,7 +202,7 @@ class ProjectScheduleService
 
         // Now ripple dates according to topological order
         foreach ($sorted as $scheduleId) {
-            if (!isset($assignments[$scheduleId])) {
+            if (! isset($assignments[$scheduleId])) {
                 continue;
             }
 
@@ -213,7 +212,7 @@ class ProjectScheduleService
             try {
                 $startDate = new \DateTime($assignment->start_date);
                 $endDate = new \DateTime($assignment->end_date);
-                $duration = max(0, (int)$startDate->diff($endDate)->days); // ✅ Use diff() and cast to int
+                $duration = max(0, (int) $startDate->diff($endDate)->days); // ✅ Use diff() and cast to int
             } catch (\Exception $e) {
                 // Skip if dates are invalid
                 continue;
@@ -227,14 +226,14 @@ class ProjectScheduleService
                     continue;
                 }
 
-                if (!isset($assignments[$dep->predecessor_id])) {
+                if (! isset($assignments[$dep->predecessor_id])) {
                     continue;
                 }
 
                 $predAssignment = $assignments[$dep->predecessor_id];
 
                 // Validate predecessor dates
-                if (!$predAssignment->start_date || !$predAssignment->end_date) {
+                if (! $predAssignment->start_date || ! $predAssignment->end_date) {
                     continue;
                 }
 
@@ -250,46 +249,46 @@ class ProjectScheduleService
                 switch ($dep->type) {
                     case 'FS': // Finish-to-Start (most common)
                         $constraintDate = clone $predEnd;
-                        $lagDays = (int)$dep->lag_days; // ✅ Cast to int
+                        $lagDays = (int) $dep->lag_days; // ✅ Cast to int
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
                         }
                         break;
 
                     case 'SS': // Start-to-Start
                         $constraintDate = clone $predStart;
-                        $lagDays = (int)$dep->lag_days;
+                        $lagDays = (int) $dep->lag_days;
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
                         }
                         break;
 
                     case 'FF': // Finish-to-Finish
                         $constraintDate = clone $predEnd;
-                        $lagDays = (int)$dep->lag_days;
+                        $lagDays = (int) $dep->lag_days;
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
                         }
                         // For FF, we need to work backwards from finish
                         if ($duration > 0) {
-                            $constraintDate->modify('-' . $duration . ' days');
+                            $constraintDate->modify('-'.$duration.' days');
                         }
                         break;
 
                     case 'SF': // Start-to-Finish (rare)
                         $constraintDate = clone $predStart;
-                        $lagDays = (int)$dep->lag_days;
+                        $lagDays = (int) $dep->lag_days;
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
                         }
                         if ($duration > 0) {
-                            $constraintDate->modify('-' . $duration . ' days');
+                            $constraintDate->modify('-'.$duration.' days');
                         }
                         break;
                 }
 
                 // Keep the latest constraint
-                if ($constraintDate && (!$latestConstraintDate || $constraintDate > $latestConstraintDate)) {
+                if ($constraintDate && (! $latestConstraintDate || $constraintDate > $latestConstraintDate)) {
                     $latestConstraintDate = $constraintDate;
                 }
             }
@@ -306,7 +305,7 @@ class ProjectScheduleService
 
                         // ✅ Use integer days for modification
                         if ($duration > 0) {
-                            $newEndDate->modify('+' . $duration . ' days');
+                            $newEndDate->modify('+'.$duration.' days');
                         }
 
                         // Update in database
@@ -374,7 +373,7 @@ class ProjectScheduleService
             try {
                 $start = new \DateTime($assignment->start_date);
                 $end = new \DateTime($assignment->end_date);
-                $duration = max(1, (int)$start->diff($end)->days);
+                $duration = max(1, (int) $start->diff($end)->days);
 
                 $durations[$assignment->schedule_id] = $duration;
                 $validScheduleIds[] = $assignment->schedule_id;
@@ -403,8 +402,8 @@ class ProjectScheduleService
 
         foreach ($dependencies as $dep) {
             if (
-                !in_array($dep->predecessor_id, $validScheduleIds) ||
-                !in_array($dep->successor_id, $validScheduleIds)
+                ! in_array($dep->predecessor_id, $validScheduleIds) ||
+                ! in_array($dep->successor_id, $validScheduleIds)
             ) {
                 continue;
             }
@@ -440,7 +439,7 @@ class ProjectScheduleService
             ];
         }
 
-        while (!empty($queue)) {
+        while (! empty($queue)) {
             $current = array_shift($queue);
 
             if (isset($visited[$current])) {
@@ -449,14 +448,15 @@ class ProjectScheduleService
 
             $allPredecessorsProcessed = true;
             foreach ($predecessors[$current] as $pred) {
-                if (!isset($visited[$pred])) {
+                if (! isset($visited[$pred])) {
                     $allPredecessorsProcessed = false;
                     break;
                 }
             }
 
-            if (!$allPredecessorsProcessed) {
+            if (! $allPredecessorsProcessed) {
                 $queue[] = $current;
+
                 continue;
             }
 
@@ -471,7 +471,7 @@ class ProjectScheduleService
             $visited[$current] = true;
 
             foreach ($successors[$current] as $succ) {
-                if (!isset($visited[$succ])) {
+                if (! isset($visited[$succ])) {
                     $queue[] = $succ;
                 }
             }
@@ -500,7 +500,7 @@ class ProjectScheduleService
             }
         }
 
-        while (!empty($queue)) {
+        while (! empty($queue)) {
             $current = array_shift($queue);
 
             if (isset($visited[$current])) {
@@ -509,14 +509,15 @@ class ProjectScheduleService
 
             $allSuccessorsProcessed = true;
             foreach ($successors[$current] as $succ) {
-                if (!isset($visited[$succ])) {
+                if (! isset($visited[$succ])) {
                     $allSuccessorsProcessed = false;
                     break;
                 }
             }
 
-            if (!$allSuccessorsProcessed) {
+            if (! $allSuccessorsProcessed) {
                 $queue[] = $current;
+
                 continue;
             }
 
@@ -531,7 +532,7 @@ class ProjectScheduleService
             $visited[$current] = true;
 
             foreach ($predecessors[$current] as $pred) {
-                if (!isset($visited[$pred])) {
+                if (! isset($visited[$pred])) {
                     $queue[] = $pred;
                 }
             }
@@ -587,7 +588,9 @@ class ProjectScheduleService
         $visited = [];
 
         $visit = function ($node) use (&$visit, &$sorted, &$visited, $graph) {
-            if (isset($visited[$node])) return;
+            if (isset($visited[$node])) {
+                return;
+            }
             $visited[$node] = true;
 
             if (isset($graph[$node])) {
@@ -615,12 +618,12 @@ class ProjectScheduleService
         $successors = [];
         $queue = [$startId];
 
-        while (!empty($queue)) {
+        while (! empty($queue)) {
             $current = array_shift($queue);
             $successors[] = $current;
 
             foreach ($graph as $node => $deps) {
-                if (in_array($current, $deps) && !in_array($node, $successors) && !in_array($node, $queue)) {
+                if (in_array($current, $deps) && ! in_array($node, $successors) && ! in_array($node, $queue)) {
                     $queue[] = $node;
                 }
             }

@@ -2,13 +2,14 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\ProjectActivity;
 use App\Models\ProjectExpense;
+use Illuminate\Console\Command;
 
 class BackfillWeightedAverages extends Command
 {
     protected $signature = 'project:backfill-weights';
+
     protected $description = 'Compute weighted progress for existing records';
 
     public function handle()

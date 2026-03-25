@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\View\View;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Directorate\StoreDirectorateRequest;
+use App\Http\Requests\Directorate\UpdateDirectorateRequest;
 use App\Models\Department;
 use App\Models\Directorate;
 use App\Trait\RoleBasedAccess;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
-use App\Http\Requests\Directorate\StoreDirectorateRequest;
-use App\Http\Requests\Directorate\UpdateDirectorateRequest;
 
 class DirectorateController extends Controller
 {

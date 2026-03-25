@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Budget;
 
+use App\Models\Directorate;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\Directorate;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Collection;
 use App\Repositories\Project\ProjectRepository;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class ProjectAccessService
 {
@@ -26,7 +26,7 @@ class ProjectAccessService
     {
         $user = $user ?? Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return 'All Directorates';
         }
 
@@ -59,7 +59,7 @@ class ProjectAccessService
         })->prepend([
             'value' => '',
             'label' => trans('global.all_directorates') ?? 'All Directorates',
-            'selected' => !$selectedDirectorateId,
+            'selected' => ! $selectedDirectorateId,
         ])->toArray();
     }
 }

@@ -4,36 +4,35 @@ declare(strict_types=1);
 
 namespace App\Exports\Reports\Consolidated;
 
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class AnnualProgramReportExport implements
-    FromCollection,
-    WithHeadings,
-    WithStyles,
-    WithColumnWidths,
-    WithTitle,
-    WithEvents,
-    WithColumnFormatting
+class AnnualProgramReportExport implements FromCollection, WithColumnFormatting, WithColumnWidths, WithEvents, WithHeadings, WithStyles, WithTitle
 {
     protected $fiscalYear;
+
     protected $quarter;
+
     protected $projects;
+
     protected $includeData;
+
     protected $rowCount;
+
     protected $directorateRows = [];
+
     protected $totalRows = [];
 
     public function __construct(array $parameters = [])
@@ -49,7 +48,7 @@ class AnnualProgramReportExport implements
     {
         $data = collect();
 
-        if ($this->includeData && !empty($this->projects)) {
+        if ($this->includeData && ! empty($this->projects)) {
             $groupedProjects = collect($this->projects)->groupBy('directorate_id');
             $currentRow = 8;
 
@@ -367,11 +366,11 @@ class AnnualProgramReportExport implements
                         'font' => ['bold' => true, 'size' => 11],
                         'alignment' => [
                             'horizontal' => Alignment::HORIZONTAL_LEFT,
-                            'vertical' => Alignment::VERTICAL_CENTER
+                            'vertical' => Alignment::VERTICAL_CENTER,
                         ],
                         'fill' => [
                             'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'D9E1F2']
+                            'startColor' => ['rgb' => 'D9E1F2'],
                         ],
                     ]);
                 }
@@ -382,7 +381,7 @@ class AnnualProgramReportExport implements
                         'font' => ['bold' => true],
                         'fill' => [
                             'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'FFF2CC']
+                            'startColor' => ['rgb' => 'FFF2CC'],
                         ],
                     ]);
                 }
@@ -423,6 +422,7 @@ class AnnualProgramReportExport implements
             'तेस्रो' => 'तेस्रो',
             'चौथो' => 'चौथो',
         ];
+
         return $quarters[$quarter] ?? 'प्रथम';
     }
 }

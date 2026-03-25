@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{
-    BelongsTo,
-    HasMany,
-};
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProjectExpense extends Model
@@ -90,16 +88,16 @@ class ProjectExpense extends Model
 
     public function scopeInCategory(Builder $query, int $expenditureId): void // 1=capital, 2=recurrent
     {
-        $query->whereHas('activityDefinition', fn($q) => $q->where('expenditure_id', $expenditureId));
+        $query->whereHas('activityDefinition', fn ($q) => $q->where('expenditure_id', $expenditureId));
     }
 
     public function scopeForDefinition(Builder $query, int $definitionId): void
     {
-        $query->whereHas('plan', fn($q) => $q->where('activity_definition_id', $definitionId));
+        $query->whereHas('plan', fn ($q) => $q->where('activity_definition_id', $definitionId));
     }
 
     public function scopeForFiscalYear(Builder $query, int $fiscalYearId): void
     {
-        $query->whereHas('plan', fn($q) => $q->where('fiscal_year_id', $fiscalYearId));
+        $query->whereHas('plan', fn ($q) => $q->where('fiscal_year_id', $fiscalYearId));
     }
 }

@@ -26,7 +26,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-03 09:45:57',
                 'updated_at' => '2025-09-03 09:45:57',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -42,7 +42,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -58,7 +58,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -74,7 +74,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -90,7 +90,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -106,7 +106,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -122,7 +122,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -138,7 +138,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -154,7 +154,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -170,7 +170,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -186,7 +186,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -202,7 +202,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -218,7 +218,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -234,7 +234,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -250,7 +250,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -266,7 +266,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -282,7 +282,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -298,7 +298,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -314,7 +314,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -330,7 +330,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -346,7 +346,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -362,7 +362,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -378,7 +378,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -394,7 +394,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -410,7 +410,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -426,7 +426,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -442,7 +442,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -458,7 +458,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -474,7 +474,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -490,7 +490,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -506,7 +506,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -522,7 +522,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -538,7 +538,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:55',
                 'updated_at' => '2025-09-28 10:20:55',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -554,7 +554,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -570,7 +570,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -586,7 +586,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -602,7 +602,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -618,7 +618,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -634,7 +634,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -650,7 +650,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -666,7 +666,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -682,7 +682,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -698,7 +698,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -714,7 +714,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -730,7 +730,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -746,7 +746,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -762,7 +762,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -778,7 +778,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -794,7 +794,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -810,7 +810,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -826,7 +826,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -842,7 +842,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -858,7 +858,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -874,7 +874,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -890,7 +890,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -906,7 +906,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -922,7 +922,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -938,7 +938,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -954,7 +954,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-09-28 10:20:56',
                 'updated_at' => '2025-09-28 10:20:56',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -970,7 +970,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:34',
                 'updated_at' => '2025-10-12 05:22:34',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -986,7 +986,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1002,7 +1002,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1018,7 +1018,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1034,7 +1034,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1050,7 +1050,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1066,7 +1066,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1082,7 +1082,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1098,7 +1098,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1114,7 +1114,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1130,7 +1130,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1146,7 +1146,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1162,7 +1162,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1178,7 +1178,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1194,7 +1194,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1210,7 +1210,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:22:35',
                 'updated_at' => '2025-10-12 05:22:35',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1226,7 +1226,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1242,7 +1242,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1258,7 +1258,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1274,7 +1274,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1290,7 +1290,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1306,7 +1306,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1322,7 +1322,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1338,7 +1338,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1354,7 +1354,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1370,7 +1370,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1386,7 +1386,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1402,7 +1402,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1418,7 +1418,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1434,7 +1434,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1450,7 +1450,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1466,7 +1466,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1482,7 +1482,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1498,7 +1498,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1514,7 +1514,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-12 05:32:16',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1530,7 +1530,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1546,7 +1546,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1562,7 +1562,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1578,7 +1578,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1594,7 +1594,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1610,7 +1610,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1626,7 +1626,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1642,7 +1642,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1658,7 +1658,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1674,7 +1674,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1690,7 +1690,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1706,7 +1706,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1722,7 +1722,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1738,7 +1738,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1754,7 +1754,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1770,7 +1770,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1786,7 +1786,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1802,7 +1802,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1818,7 +1818,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1834,7 +1834,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1850,7 +1850,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1866,7 +1866,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1882,7 +1882,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1898,7 +1898,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1914,7 +1914,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1930,7 +1930,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1946,7 +1946,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1962,7 +1962,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1978,7 +1978,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -1994,7 +1994,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2010,7 +2010,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2026,7 +2026,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2042,7 +2042,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2058,7 +2058,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2074,7 +2074,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2090,7 +2090,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2106,7 +2106,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2122,7 +2122,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2138,7 +2138,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2154,7 +2154,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2170,7 +2170,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2186,7 +2186,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2202,7 +2202,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2218,7 +2218,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2234,7 +2234,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2250,7 +2250,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2266,7 +2266,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2282,7 +2282,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2298,7 +2298,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2314,7 +2314,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2330,7 +2330,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2346,7 +2346,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2362,7 +2362,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2378,7 +2378,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2394,7 +2394,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2410,7 +2410,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2426,7 +2426,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2442,7 +2442,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2458,7 +2458,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2474,7 +2474,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2490,7 +2490,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2506,7 +2506,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2522,7 +2522,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2538,7 +2538,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2554,7 +2554,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2570,7 +2570,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2586,7 +2586,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2602,7 +2602,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2618,7 +2618,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2634,7 +2634,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:20',
                 'updated_at' => '2025-10-12 05:46:20',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2650,7 +2650,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:21',
                 'updated_at' => '2025-10-12 05:46:21',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2666,7 +2666,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:21',
                 'updated_at' => '2025-10-12 05:46:21',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2682,7 +2682,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2698,7 +2698,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2714,7 +2714,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2730,7 +2730,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2746,7 +2746,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2762,7 +2762,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2778,7 +2778,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2794,7 +2794,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2810,7 +2810,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:46:23',
                 'updated_at' => '2025-10-12 05:46:23',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2826,7 +2826,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-13 06:31:29',
                 'updated_at' => '2025-10-13 06:31:29',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2842,7 +2842,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-13 06:48:29',
                 'updated_at' => '2025-10-13 06:48:29',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2858,7 +2858,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-13 06:57:59',
                 'updated_at' => '2025-10-13 06:57:59',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2874,7 +2874,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-13 08:39:45',
                 'updated_at' => '2025-10-13 08:39:45',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2890,7 +2890,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:05:43',
                 'updated_at' => '2025-10-16 06:33:09',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
 
             [
@@ -2906,7 +2906,7 @@ class BudgetsTableSeeder extends Seeder
                 'budget_revision' => 1,
                 'created_at' => '2025-10-12 05:32:16',
                 'updated_at' => '2025-10-16 06:33:09',
-                'deleted_at' => NULL,
+                'deleted_at' => null,
             ],
         ];
 

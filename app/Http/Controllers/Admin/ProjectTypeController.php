@@ -53,7 +53,7 @@ class ProjectTypeController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:project_types,code,' . $projectType->id,
+            'code' => 'required|string|max:50|unique:project_types,code,'.$projectType->id,
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'sort_order' => 'integer',

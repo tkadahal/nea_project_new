@@ -17,7 +17,7 @@ class CreateProgressSnapshot
             'schedule_id' => $event->schedule->id,
             'progress' => $event->updateData['progress'],
             'previous_progress' => $event->updateData['previous_progress'] ?? 'null',
-            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5)
+            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5),
         ]);
 
         $previousProgress = $event->updateData['previous_progress'] ?? null;
@@ -25,6 +25,7 @@ class CreateProgressSnapshot
 
         if ($previousProgress !== null && $previousProgress == (float) $newProgress) {
             Log::info('Skipping snapshot - progress unchanged');
+
             return;
         }
 

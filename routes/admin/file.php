@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\FileController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(FileController::class)->group(function () {
     Route::get('files', 'index')->name('file.index');

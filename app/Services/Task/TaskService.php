@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Task;
 
+use App\Helpers\Task\TaskHelper;
 use App\Models\Task;
 use App\Models\User;
-use App\DTOs\Task\TaskDTO;
-use App\Helpers\Task\TaskHelper;
-use App\Notifications\TaskCreated;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use App\Repositories\Task\TaskRepository;
 use App\Notifications\Task\NotificationService;
+use App\Repositories\Task\TaskRepository;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TaskService
 {
@@ -27,11 +25,11 @@ class TaskService
     {
         $relations = [
             'priority',
-            'projects' => fn($query) => $query->withPivot('status_id', 'progress'),
+            'projects' => fn ($query) => $query->withPivot('status_id', 'progress'),
             'users',
             'directorate',
             'parent',
-            'subTasks'
+            'subTasks',
         ];
 
         $query = $this->taskRepository->query()->with($relations)->latest();
@@ -54,7 +52,7 @@ class TaskService
             $task = $this->taskRepository->create($taskData);
 
             // Sync projects
-            if (!empty($validated['projects'])) {
+            if (! empty($validated['projects'])) {
                 $this->taskRepository->syncProjects($task, $validated['projects'], [
                     'status_id' => $validated['status_id'],
                     'progress' => $validated['progress'] ?? null,
@@ -65,12 +63,12 @@ class TaskService
             $this->taskRepository->syncUsers($task, $validated['users'] ?? []);
 
             // Create subtasks
-            if (!empty($subtasks)) {
+            if (! empty($subtasks)) {
                 $this->createSubtasks($task, $subtasks, $validated);
             }
 
             // Send notifications
-            //$this->notificationService->notifyTaskCreated($task, $validated);
+            // $this->notificationService->notifyTaskCreated($task, $validated);
 
             return $task;
         });
@@ -84,7 +82,7 @@ class TaskService
             $this->taskRepository->update($task, $taskData);
 
             // Sync projects
-            if (!empty($validated['projects'])) {
+            if (! empty($validated['projects'])) {
                 $projectSyncData = $this->taskHelper->prepareProjectSyncData(
                     $validated['projects'],
                     $validated,
@@ -119,7 +117,7 @@ class TaskService
     {
         $task = $this->taskRepository->findById($taskId, ['subTasks']);
 
-        if (!$task) {
+        if (! $task) {
             throw new \Exception('Task not found');
         }
 
@@ -159,7 +157,7 @@ class TaskService
     private function createSubtasks(Task $parentTask, array $subtasks, array $parentValidated): void
     {
         $projectSyncData = [];
-        if (!empty($parentValidated['projects'])) {
+        if (! empty($parentValidated['projects'])) {
             foreach ($parentValidated['projects'] as $projectId) {
                 $projectSyncData[$projectId] = [
                     'status_id' => $parentValidated['status_id'],
@@ -171,7 +169,7 @@ class TaskService
         }
 
         foreach ($subtasks as $subtaskData) {
-            if (!empty($subtaskData['title'])) {
+            if (! empty($subtaskData['title'])) {
                 $subtask = $this->taskRepository->create([
                     'title' => $subtaskData['title'],
                     'status_id' => $subtaskData['completed'] ? 2 : 1,
@@ -184,7 +182,7 @@ class TaskService
                     'priority_id' => $parentTask->priority_id,
                 ]);
 
-                if (!empty($projectSyncData)) {
+                if (! empty($projectSyncData)) {
                     $subtask->projects()->sync($projectSyncData);
                 }
 

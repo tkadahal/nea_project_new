@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\View\View;
-use App\Models\FiscalYear;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FiscalYear\StoreFiscalYearRequest;
 use App\Http\Requests\FiscalYear\UpdateFiscalYearRequest;
+use App\Models\FiscalYear;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
 class FiscalYearController extends Controller
@@ -70,7 +70,6 @@ class FiscalYearController extends Controller
 
         return view('admin.fiscalYears.edit', compact('fiscalYear'));
     }
-
 
     public function update(UpdateFiscalYearRequest $request, FiscalYear $fiscalYear)
     {

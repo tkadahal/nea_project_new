@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin\Charts;
 
-use App\Models\Role;
-use App\Models\Project;
-use App\Models\FiscalYear;
-use Illuminate\View\View;
-use Illuminate\Http\Request;
-use App\Models\ProjectExpense;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use App\Models\ProjectActivityPlan;
+use App\Models\FiscalYear;
+use App\Models\Project;
 use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use App\Models\ProjectExpense;
+use App\Models\Role;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\View\View;
 
 class ProjectChartController extends Controller
 {
@@ -43,7 +42,7 @@ class ProjectChartController extends Controller
                 'topProjects' => $topProjects,
             ]);
         } catch (\Exception $e) {
-            Log::error('Project Charts Error: ' . $e->getMessage());
+            Log::error('Project Charts Error: '.$e->getMessage());
             abort(500, 'Error loading charts data');
         }
     }
@@ -65,7 +64,7 @@ class ProjectChartController extends Controller
                 'progressHistory' => $this->getProgressHistory($projectId),
             ]);
         } catch (\Exception $e) {
-            Log::error('Project Detail Charts Error: ' . $e->getMessage());
+            Log::error('Project Detail Charts Error: '.$e->getMessage());
             abort(500, 'Error loading project charts');
         }
     }
@@ -86,11 +85,11 @@ class ProjectChartController extends Controller
             ->whereNotNull('end_date');
 
         // Apply role filtering
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 $query->where('directorate_id', $user->directorate_id);
             } elseif (in_array(Role::PROJECT_USER, $roles)) {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
         }
 
@@ -144,7 +143,7 @@ class ProjectChartController extends Controller
     {
         $currentFiscalYear = FiscalYear::where('active', true)->first();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [
                 'labels' => ['Q1', 'Q2', 'Q3', 'Q4'],
                 'planned' => [0, 0, 0, 0],
@@ -175,12 +174,12 @@ class ProjectChartController extends Controller
         $expenses = ProjectExpense::whereHas('plan.definitionVersion', function ($q) use ($projectIds) {
             $q->whereIn('project_id', $projectIds)->where('is_current', true);
         })
-            ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
+            ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')])
             ->get();
 
         foreach ($expenses as $expense) {
             foreach ($expense->quarters as $quarter) {
-                $quarterLabel = 'Q' . $quarter->quarter;
+                $quarterLabel = 'Q'.$quarter->quarter;
                 if (isset($actualQuarterly[$quarterLabel])) {
                     $actualQuarterly[$quarterLabel] += (float) $quarter->amount;
                 }
@@ -189,8 +188,8 @@ class ProjectChartController extends Controller
 
         return [
             'labels' => array_keys($plannedQuarterly),
-            'planned' => array_values(array_map(fn($v) => round($v, 2), $plannedQuarterly)),
-            'actual' => array_values(array_map(fn($v) => round($v, 2), $actualQuarterly)),
+            'planned' => array_values(array_map(fn ($v) => round($v, 2), $plannedQuarterly)),
+            'actual' => array_values(array_map(fn ($v) => round($v, 2), $actualQuarterly)),
         ];
     }
 
@@ -208,7 +207,7 @@ class ProjectChartController extends Controller
             $q->whereIn('project_id', $projectIds)->where('is_current', true);
         })
             ->where('effective_date', '>=', $startDate)
-            ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
+            ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')])
             ->get();
 
         // Group by month
@@ -219,7 +218,7 @@ class ProjectChartController extends Controller
                 $month = $expense->effective_date->format('Y-m');
                 $total = $expense->quarters->sum('amount');
 
-                if (!isset($monthlySpending[$month])) {
+                if (! isset($monthlySpending[$month])) {
                     $monthlySpending[$month] = 0;
                 }
                 $monthlySpending[$month] += (float) $total;
@@ -231,7 +230,7 @@ class ProjectChartController extends Controller
         $end = now();
         while ($current <= $end) {
             $monthKey = $current->format('Y-m');
-            if (!isset($monthlySpending[$monthKey])) {
+            if (! isset($monthlySpending[$monthKey])) {
                 $monthlySpending[$monthKey] = 0;
             }
             $current->addMonth();
@@ -240,8 +239,8 @@ class ProjectChartController extends Controller
         ksort($monthlySpending);
 
         return [
-            'labels' => array_map(fn($m) => date('M Y', strtotime($m . '-01')), array_keys($monthlySpending)),
-            'data' => array_values(array_map(fn($v) => round($v, 2), $monthlySpending)),
+            'labels' => array_map(fn ($m) => date('M Y', strtotime($m.'-01')), array_keys($monthlySpending)),
+            'data' => array_values(array_map(fn ($v) => round($v, 2), $monthlySpending)),
         ];
     }
 
@@ -252,11 +251,11 @@ class ProjectChartController extends Controller
     {
         $query = Project::query()->whereNull('deleted_at');
 
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 $query->where('directorate_id', $user->directorate_id);
             } elseif (in_array(Role::PROJECT_USER, $roles)) {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
         }
 
@@ -279,19 +278,19 @@ class ProjectChartController extends Controller
     private function getTopProjectsByBudget($user, array $roles): array
     {
         $query = Project::query()
-            ->with(['directorate:id,title', 'budgets' => fn($q) => $q->latest('id')->limit(1)])
+            ->with(['directorate:id,title', 'budgets' => fn ($q) => $q->latest('id')->limit(1)])
             ->whereNull('deleted_at');
 
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 $query->where('directorate_id', $user->directorate_id);
             } elseif (in_array(Role::PROJECT_USER, $roles)) {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
         }
 
         $projects = $query->get()
-            ->sortByDesc(fn($p) => $p->total_budget)
+            ->sortByDesc(fn ($p) => $p->total_budget)
             ->take(10)
             ->map(function ($project) {
                 return [
@@ -302,7 +301,7 @@ class ProjectChartController extends Controller
 
         return [
             'labels' => $projects->pluck('title')->toArray(),
-            'data' => $projects->pluck('budget')->map(fn($v) => round($v, 2))->toArray(),
+            'data' => $projects->pluck('budget')->map(fn ($v) => round($v, 2))->toArray(),
             'ids' => $projects->pluck('id')->toArray(),
         ];
     }
@@ -318,7 +317,7 @@ class ProjectChartController extends Controller
     {
         $currentFiscalYear = FiscalYear::where('active', true)->first();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [
                 'labels' => ['Q1', 'Q2', 'Q3', 'Q4'],
                 'planned' => [0, 0, 0, 0],
@@ -357,12 +356,12 @@ class ProjectChartController extends Controller
         $expenses = ProjectExpense::whereHas('plan.definitionVersion', function ($q) use ($projectId) {
             $q->where('project_id', $projectId)->where('is_current', true);
         })
-            ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
+            ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')])
             ->get();
 
         foreach ($expenses as $expense) {
             foreach ($expense->quarters as $quarter) {
-                $quarterLabel = 'Q' . $quarter->quarter;
+                $quarterLabel = 'Q'.$quarter->quarter;
                 if (isset($actualQuarterly[$quarterLabel])) {
                     $actualQuarterly[$quarterLabel] += (float) $quarter->amount;
                 }
@@ -392,7 +391,7 @@ class ProjectChartController extends Controller
     {
         $currentFiscalYear = FiscalYear::where('active', true)->first();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [];
         }
 
@@ -407,16 +406,16 @@ class ProjectChartController extends Controller
 
         foreach ($quarters as $index => $quarter) {
             $quarterNum = $index + 1;
-            $field = 'q' . $quarterNum . '_amount';
+            $field = 'q'.$quarterNum.'_amount';
 
             $planned = $plans->sum($field);
 
             $actual = ProjectExpense::whereHas('plan.definitionVersion', function ($q) use ($projectId) {
                 $q->where('project_id', $projectId)->where('is_current', true);
             })
-                ->with(['quarters' => fn($q) => $q->where('status', 'finalized')->where('quarter', $quarterNum)])
+                ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')->where('quarter', $quarterNum)])
                 ->get()
-                ->sum(fn($e) => $e->quarters->sum('amount'));
+                ->sum(fn ($e) => $e->quarters->sum('amount'));
 
             $variance = (float) $actual - (float) $planned;
             $variancePercent = $planned > 0 ? ($variance / $planned) * 100 : 0;
@@ -444,7 +443,7 @@ class ProjectChartController extends Controller
             $q->where('project_id', $projectId)->where('is_current', true);
         })
             ->where('effective_date', '>=', $startDate)
-            ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
+            ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')])
             ->get();
 
         $monthlySpending = [];
@@ -454,7 +453,7 @@ class ProjectChartController extends Controller
                 $month = $expense->effective_date->format('Y-m');
                 $total = $expense->quarters->sum('amount');
 
-                if (!isset($monthlySpending[$month])) {
+                if (! isset($monthlySpending[$month])) {
                     $monthlySpending[$month] = 0;
                 }
                 $monthlySpending[$month] += (float) $total;
@@ -464,8 +463,8 @@ class ProjectChartController extends Controller
         ksort($monthlySpending);
 
         return [
-            'labels' => array_map(fn($m) => date('M Y', strtotime($m . '-01')), array_keys($monthlySpending)),
-            'data' => array_values(array_map(fn($v) => round($v, 2), $monthlySpending)),
+            'labels' => array_map(fn ($m) => date('M Y', strtotime($m.'-01')), array_keys($monthlySpending)),
+            'data' => array_values(array_map(fn ($v) => round($v, 2), $monthlySpending)),
         ];
     }
 
@@ -482,10 +481,10 @@ class ProjectChartController extends Controller
             $expenses = ProjectExpense::whereHas('plan', function ($q) use ($activity) {
                 $q->where('activity_definition_version_id', $activity->id);
             })
-                ->with(['quarters' => fn($q) => $q->where('status', 'finalized')])
+                ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')])
                 ->get();
 
-            $totalSpent = $expenses->sum(fn($e) => $e->quarters->sum('amount'));
+            $totalSpent = $expenses->sum(fn ($e) => $e->quarters->sum('amount'));
             $plannedBudget = (float) $activity->total_budget;
             $utilization = $plannedBudget > 0 ? ($totalSpent / $plannedBudget) * 100 : 0;
 
@@ -519,9 +518,9 @@ class ProjectChartController extends Controller
             $quarterSpending = ProjectExpense::whereHas('plan.definitionVersion', function ($q) use ($projectId) {
                 $q->where('project_id', $projectId)->where('is_current', true);
             })
-                ->with(['quarters' => fn($q) => $q->where('status', 'finalized')->where('quarter', $index + 1)])
+                ->with(['quarters' => fn ($q) => $q->where('status', 'finalized')->where('quarter', $index + 1)])
                 ->get()
-                ->sum(fn($e) => $e->quarters->sum('amount'));
+                ->sum(fn ($e) => $e->quarters->sum('amount'));
 
             $cumulativeSpent += (float) $quarterSpending;
             $financialProgress = $totalBudget > 0 ? ($cumulativeSpent / $totalBudget) * 100 : 0;
@@ -544,11 +543,11 @@ class ProjectChartController extends Controller
     {
         $query = Project::query()->whereNull('deleted_at');
 
-        if (!in_array(Role::SUPERADMIN, $roles) && !in_array(Role::ADMIN, $roles)) {
+        if (! in_array(Role::SUPERADMIN, $roles) && ! in_array(Role::ADMIN, $roles)) {
             if (in_array(Role::DIRECTORATE_USER, $roles) && $user->directorate_id) {
                 $query->where('directorate_id', $user->directorate_id);
             } elseif (in_array(Role::PROJECT_USER, $roles)) {
-                $query->whereHas('users', fn($q) => $q->where('users.id', $user->id));
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
         }
 

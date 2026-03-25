@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\Admin\ExpenseController;
+use Illuminate\Support\Facades\Route;
 
 Route::controller(ExpenseController::class)->group(function () {
     Route::get('fiscal-years/by-date', 'byDate')->name('fiscal-years.by-date');

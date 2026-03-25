@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
-use Livewire\Component;
-use App\Models\Task;
 use App\Models\Directorate;
 use App\Models\Priority;
+use App\Models\Task;
+use Livewire\Component;
 
 class TaskGanttChart extends Component
 {
     public $directorateId = null;
+
     public $priorityId = null;
+
     public $tasks;
+
     public $availableDirectorates;
+
     public $priorities;
+
     public $viewMode = 'Week'; // Default view mode
 
     public function mount()

@@ -2,21 +2,25 @@
 
 namespace App\Livewire;
 
-use App\Models\User;
 use App\Models\Message;
-use Livewire\Component;
-use Illuminate\Support\Facades\DB;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Livewire\Component;
 
 class OnlineUsers extends Component
 {
     public int $thresholdMinutes = 3;
+
     public array $onlineUsers = [];
 
     // Chat properties
     public ?int $selectedRecipientId = null;
+
     public ?string $selectedRecipientName = null;
+
     public string $newChatMessage = '';
+
     public array $chatMessages = [];
 
     public function mount()
@@ -37,7 +41,7 @@ class OnlineUsers extends Component
             })
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'employee_id'])
-            ->map(function ($user) use ($cutoff) {
+            ->map(function ($user) {
                 $lastActivity = DB::table('sessions')
                     ->where('user_id', $user->id)
                     ->max('last_activity');
@@ -59,11 +63,11 @@ class OnlineUsers extends Component
     public function openChatWith($userId)
     {
         $user = User::find($userId);
-        if (!$user) {
+        if (! $user) {
             return;
         }
 
-        $this->selectedRecipientId   = $userId;
+        $this->selectedRecipientId = $userId;
         $this->selectedRecipientName = $user->name;
 
         // Mark messages from this user as read (optional but recommended)
@@ -77,15 +81,15 @@ class OnlineUsers extends Component
 
     public function closeChat()
     {
-        $this->selectedRecipientId   = null;
+        $this->selectedRecipientId = null;
         $this->selectedRecipientName = null;
-        $this->chatMessages          = [];
-        $this->newChatMessage        = '';
+        $this->chatMessages = [];
+        $this->newChatMessage = '';
     }
 
     public function loadChatMessages()
     {
-        if (!$this->selectedRecipientId) {
+        if (! $this->selectedRecipientId) {
             return;
         }
 
@@ -103,14 +107,14 @@ class OnlineUsers extends Component
 
     public function sendMessage()
     {
-        if (!trim($this->newChatMessage) || !$this->selectedRecipientId) {
+        if (! trim($this->newChatMessage) || ! $this->selectedRecipientId) {
             return;
         }
 
         Message::create([
-            'sender_id'   => Auth::id(),
+            'sender_id' => Auth::id(),
             'receiver_id' => $this->selectedRecipientId,
-            'content'     => $this->newChatMessage,
+            'content' => $this->newChatMessage,
         ]);
 
         $this->newChatMessage = '';

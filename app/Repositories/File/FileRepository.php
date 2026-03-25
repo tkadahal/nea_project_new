@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Repositories\File;
 
+use App\DTOs\File\FileDTO;
 use App\Models\File;
 use App\Models\Project;
-use App\DTOs\File\FileDTO;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
 
 class FileRepository
 {
@@ -41,8 +41,9 @@ class FileRepository
      */
     private function getFilesForDirectorate(Builder $fileQuery, FileDTO $dto, array $filters = []): Collection|LengthAwarePaginator
     {
-        if (!$dto->hasDirectorate()) {
+        if (! $dto->hasDirectorate()) {
             Log::warning('No directorate_id assigned to user', ['user_id' => $dto->userId]);
+
             return collect();
         }
 
@@ -53,6 +54,7 @@ class FileRepository
                 'user_id' => $dto->userId,
                 'directorate_id' => $dto->directorateId,
             ]);
+
             return collect();
         }
 
@@ -84,8 +86,9 @@ class FileRepository
      */
     private function getFilesForProjectUser(Builder $fileQuery, FileDTO $dto, array $filters = []): Collection|LengthAwarePaginator
     {
-        if (!$dto->hasProjects()) {
+        if (! $dto->hasProjects()) {
             Log::warning('No projects assigned to user', ['user_id' => $dto->userId]);
+
             return collect();
         }
 
@@ -133,7 +136,7 @@ class FileRepository
     private function applyFilters(Builder $fileQuery, array $filters): void
     {
         // Filter by directorate
-        if (!empty($filters['directorate_id'])) {
+        if (! empty($filters['directorate_id'])) {
             $projectIds = Project::where('directorate_id', $filters['directorate_id'])->pluck('id');
 
             $fileQuery->where(function ($query) use ($projectIds) {
@@ -153,7 +156,7 @@ class FileRepository
         }
 
         // Filter by project
-        if (!empty($filters['project_id'])) {
+        if (! empty($filters['project_id'])) {
             $projectId = $filters['project_id'];
 
             $fileQuery->where(function ($query) use ($projectId) {
@@ -179,7 +182,7 @@ class FileRepository
         }
 
         // Search by filename
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $fileQuery->where('filename', 'LIKE', "%{$search}%");
         }

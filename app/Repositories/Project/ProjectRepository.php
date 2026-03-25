@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Repositories\Project;
 
-use App\Models\User;
-use App\Models\Project;
 use App\Models\Directorate;
+use App\Models\Project;
+use App\Models\User;
 use App\Trait\RoleBasedAccess;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class ProjectRepository
 {
@@ -35,7 +35,7 @@ class ProjectRepository
                 'priority_id',
                 'progress',
                 'project_manager',
-                'status_id'
+                'status_id',
             ])
             ->orderBy('id', 'desc');
 
@@ -79,7 +79,7 @@ class ProjectRepository
                 'priority_id',
                 'progress',
                 'project_manager',
-                'status_id'
+                'status_id',
             ])
             ->orderBy('id', 'desc');
 

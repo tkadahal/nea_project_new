@@ -2,46 +2,33 @@
 
 declare(strict_types=1);
 
-use App\Http\Middleware\AuthGates;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Admin\BudgetHeadingController;
+use App\Http\Controllers\Admin\Charts\ProjectChartController;
 /*
 |--------------------------------------------------------------------------
 | Controllers
 |--------------------------------------------------------------------------
 */
-use App\Http\Controllers\Admin\{
-    DashboardController,
-
-    UserController,
-    RoleController,
-    PermissionController,
-
-    DirectorateController,
-    DepartmentController,
-    StatusController,
-    PriorityController,
-    FiscalYearController,
-    BudgetHeadingController,
-
-    ProjectActivityController,
-
-    EventController,
-
-    NotificationController,
-    ChartController,
-    LibraryController,
-    ProjectTypeController,
-};
-
-use App\Http\Controllers\Settings\{
-    ProfileController,
-    PasswordController,
-    AppearanceController
-};
-
-use App\Http\Controllers\Admin\Charts\ProjectChartController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DepartmentController;
+use App\Http\Controllers\Admin\DirectorateController;
+use App\Http\Controllers\Admin\EventController;
+use App\Http\Controllers\Admin\FiscalYearController;
+use App\Http\Controllers\Admin\LibraryController;
+use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\PreBudgetController;
+use App\Http\Controllers\Admin\PriorityController;
+use App\Http\Controllers\Admin\ProjectActivityController;
+use App\Http\Controllers\Admin\ProjectTypeController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\StatusController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Settings\AppearanceController;
+use App\Http\Controllers\Settings\PasswordController;
+use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Middleware\AuthGates;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -212,25 +199,24 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
 
         // Comments
 
-
         // Events
         Route::resource('event', EventController::class);
 
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
 
-        require __DIR__ . '/admin/analytics.php';
-        require __DIR__ . '/admin/schedule.php';
-        require __DIR__ . '/admin/project.php';
-        require __DIR__ . '/admin/contract.php';
-        require __DIR__ . '/admin/task.php';
-        require __DIR__ . '/admin/file.php';
-        require __DIR__ . '/admin/reports.php';
-        require __DIR__ . '/admin/projectExpense.php';
-        require __DIR__ . '/admin/expense.php';
-        require __DIR__ . '/admin/comment.php';
-        require __DIR__ . '/admin/budget.php';
+        require __DIR__.'/admin/analytics.php';
+        require __DIR__.'/admin/schedule.php';
+        require __DIR__.'/admin/project.php';
+        require __DIR__.'/admin/contract.php';
+        require __DIR__.'/admin/task.php';
+        require __DIR__.'/admin/file.php';
+        require __DIR__.'/admin/reports.php';
+        require __DIR__.'/admin/projectExpense.php';
+        require __DIR__.'/admin/expense.php';
+        require __DIR__.'/admin/comment.php';
+        require __DIR__.'/admin/budget.php';
     });
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

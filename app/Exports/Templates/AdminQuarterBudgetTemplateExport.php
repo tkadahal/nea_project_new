@@ -3,20 +3,22 @@
 namespace App\Exports\Templates;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class AdminQuarterBudgetTemplateExport implements FromCollection, WithHeadings, WithTitle, WithStyles, WithEvents
+class AdminQuarterBudgetTemplateExport implements FromCollection, WithEvents, WithHeadings, WithStyles, WithTitle
 {
     protected $projects;
+
     protected $directorateTitle;
+
     protected $fiscalYearTitle;
 
     public function __construct($projects, $directorateTitle, $fiscalYearTitle)
@@ -60,12 +62,12 @@ class AdminQuarterBudgetTemplateExport implements FromCollection, WithHeadings, 
 
                     if ($budget) {
                         $total = match ($type) {
-                            'Government Share'     => $budget->government_share ?? 0,
-                            'Government Loan'       => $budget->government_loan ?? 0,
-                            'Foreign Loan'         => $budget->foreign_loan_budget ?? 0,
-                            'Foreign Subsidy'      => $budget->foreign_subsidy_budget ?? 0,
-                            'Internal Resources'   => $budget->internal_budget ?? 0,
-                            default                => 0,
+                            'Government Share' => $budget->government_share ?? 0,
+                            'Government Loan' => $budget->government_loan ?? 0,
+                            'Foreign Loan' => $budget->foreign_loan_budget ?? 0,
+                            'Foreign Subsidy' => $budget->foreign_subsidy_budget ?? 0,
+                            'Internal Resources' => $budget->internal_budget ?? 0,
+                            default => 0,
                         };
 
                         if (in_array($type, ['Foreign Loan', 'Foreign Subsidy'])) {
@@ -84,7 +86,7 @@ class AdminQuarterBudgetTemplateExport implements FromCollection, WithHeadings, 
                         '',
                         '',
                         '',
-                        $source
+                        $source,
                     ];
                 }
 
@@ -165,6 +167,7 @@ class AdminQuarterBudgetTemplateExport implements FromCollection, WithHeadings, 
 
                     if (empty($projectTitle)) {
                         $currentRow++;
+
                         continue;
                     }
 
@@ -215,6 +218,7 @@ class AdminQuarterBudgetTemplateExport implements FromCollection, WithHeadings, 
                     $projectTitle = $sheet->getCell("B{$currentRow}")->getValue();
                     if (empty($projectTitle)) {
                         $currentRow++;
+
                         continue;
                     }
                     $startRow = $currentRow;

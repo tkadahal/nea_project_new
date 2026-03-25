@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Helpers\Budget;
 
-use Normalizer;
 use App\Models\Project;
+use Normalizer;
 
 class BudgetHelper
 {
@@ -16,6 +16,7 @@ class BudgetHelper
     {
         return Project::all()->mapWithKeys(function ($project) {
             $title = self::normalizeString($project->title);
+
             return [$title => $project->id];
         })->toArray();
     }
@@ -30,6 +31,7 @@ class BudgetHelper
         }
 
         $normalized = normalizer_normalize(trim($string), Normalizer::FORM_C);
+
         return preg_replace('/\s+/', ' ', $normalized);
     }
 
@@ -76,10 +78,10 @@ class BudgetHelper
         $filename = 'budget_template';
 
         if ($directorateTitle !== 'All Directorates') {
-            $filename .= '_' . \Illuminate\Support\Str::slug($directorateTitle);
+            $filename .= '_'.\Illuminate\Support\Str::slug($directorateTitle);
         }
 
-        $filename .= '_' . now()->format('Y-m-d') . '.xlsx';
+        $filename .= '_'.now()->format('Y-m-d').'.xlsx';
 
         return $filename;
     }

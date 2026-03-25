@@ -7,8 +7,8 @@ namespace App\Services\Project;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectFileService
 {
@@ -16,6 +16,7 @@ class ProjectFileService
     {
         if (! $request->hasFile('files')) {
             self::clearTempFiles();
+
             return;
         }
 
@@ -23,11 +24,11 @@ class ProjectFileService
             $path = $file->store('projects', 'public');
 
             $project->files()->create([
-                'filename'  => $file->getClientOriginalName(),
-                'path'      => $path,
+                'filename' => $file->getClientOriginalName(),
+                'path' => $path,
                 'file_type' => $file->extension(),
                 'file_size' => $file->getSize(),
-                'user_id'   => Auth::id(),
+                'user_id' => Auth::id(),
             ]);
         }
 

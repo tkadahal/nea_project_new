@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\File;
 use App\DTOs\File\FileDTO;
-use App\Services\File\FileService;
 use App\Helpers\File\FileHelper;
+use App\Http\Controllers\Controller;
+use App\Models\File;
+use App\Services\File\FileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Controller;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,7 +22,7 @@ class FileController extends Controller
         private readonly FileService $fileService
     ) {}
 
-    public function index(Request $request): View | JsonResponse
+    public function index(Request $request): View|JsonResponse
     {
         $user = Auth::user();
 
@@ -41,7 +41,7 @@ class FileController extends Controller
         ]);
 
         $groupedFiles = collect($files->items())->groupBy(function ($file) {
-            return $file->fileable_type . '|' . $file->fileable_id;
+            return $file->fileable_type.'|'.$file->fileable_id;
         });
 
         if ($request->ajax() || $request->input('ajax')) {

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Project;
-use Illuminate\View\View;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Project;
 use App\Models\ProjectActivityDefinition;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class DefinitionController extends Controller
 {
@@ -28,7 +28,7 @@ class DefinitionController extends Controller
         $selectedProjectId = $request->input('project_id') ?? $projects->first()?->id;
         $selectedProject = $projects->find($selectedProjectId) ?? $projects->first();
 
-        $projectOptions = $projects->map(fn(Project $project) => [
+        $projectOptions = $projects->map(fn (Project $project) => [
             'value' => $project->id,
             'label' => $project->title,
             'selected' => $project->id === $selectedProjectId,

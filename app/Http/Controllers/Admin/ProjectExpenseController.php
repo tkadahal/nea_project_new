@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Project;
-use Illuminate\View\View;
-use App\Models\FiscalYear;
-use App\Models\Directorate;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProjectExpense\StoreProjectExpenseRequest;
+use App\Models\Directorate;
+use App\Models\FiscalYear;
+use App\Models\Project;
+use App\Services\ProjectExpense\ExpenseExportService;
+use App\Services\ProjectExpense\ExpenseImportService;
+use App\Services\ProjectExpense\ExpenseQuarterService;
+use App\Services\ProjectExpense\ProjectExpenseService;
+use App\Trait\RoleBasedAccess;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use App\Trait\RoleBasedAccess;
-use App\Services\ProjectExpense\ProjectExpenseService;
-use App\Services\ProjectExpense\ExpenseQuarterService;
-use App\Services\ProjectExpense\ExpenseImportService;
-use App\Services\ProjectExpense\ExpenseExportService;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use App\Http\Requests\ProjectExpense\StoreProjectExpenseRequest;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProjectExpenseController extends Controller
 {
@@ -45,13 +45,13 @@ class ProjectExpenseController extends Controller
             'directorate_filter' => null,
             'project_filter' => null,
             'fiscal_year_filter' => null,
-            'search' => null
+            'search' => null,
         ];
 
         $defaultFiscalYearId = null;
         $defaultProjectId = null;
 
-        if (!request()->wantsJson() && !request()->ajax()) {
+        if (! request()->wantsJson() && ! request()->ajax()) {
             $currentFiscalYear = \App\Models\FiscalYear::currentFiscalYear();
             if ($currentFiscalYear) {
                 $filters['fiscal_year_filter'] = $currentFiscalYear->id;
@@ -93,13 +93,14 @@ class ProjectExpenseController extends Controller
 
         return view('admin.projectExpenses.index', [
             'filters' => $filtersData,
-            'aggregated' => $aggregated
+            'aggregated' => $aggregated,
         ]);
     }
 
     private function getFiltersData(): array
     {
         $user = Auth::user();
+
         return [
             'directorates' => Directorate::whereIn('id', self::getAccessibleDirectorateIds($user))->orderBy('title')->get(),
             'projects' => Project::whereIn('id', self::getAccessibleProjectIds($user))->orderBy('title')->get(),
@@ -107,7 +108,7 @@ class ProjectExpenseController extends Controller
         ];
     }
 
-    public function create(Request $request): View | RedirectResponse
+    public function create(Request $request): View|RedirectResponse
     {
         abort_if(Gate::denies('projectExpense_create'), Response::HTTP_FORBIDDEN);
 
@@ -128,7 +129,7 @@ class ProjectExpenseController extends Controller
                 (int) $viewData['selectedFiscalYearId']
             );
 
-            if (!$isApproved) {
+            if (! $isApproved) {
                 return back()->with('error', 'Activities must be approved before entering expenses.');
             }
         }
@@ -149,7 +150,7 @@ class ProjectExpenseController extends Controller
                 ])
                 ->with('info', "Q{$result->quarterNumber} expenses saved as <strong>draft</strong>. Complete funding allocation to finalize.");
         } catch (\Exception $e) {
-            return back()->withInput()->withErrors(['error' => 'Save failed: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['error' => 'Save failed: '.$e->getMessage()]);
         }
     }
 
@@ -166,11 +167,12 @@ class ProjectExpenseController extends Controller
     {
         try {
             $data = $this->expenseService->getProjectExpenseData($projectId, $fiscalYearId);
+
             return response()->json(['success' => true] + $data);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error loading activities: ' . $e->getMessage(),
+                'message' => 'Error loading activities: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -222,7 +224,7 @@ class ProjectExpenseController extends Controller
         $fiscalYearModel = FiscalYear::findOrFail($fiscalYear);
         $quarter = $request->query('quarter', 'q1');
 
-        if (!in_array($quarter, ['q1', 'q2', 'q3', 'q4'])) {
+        if (! in_array($quarter, ['q1', 'q2', 'q3', 'q4'])) {
             abort(400, 'Invalid quarter selected.');
         }
 
@@ -250,7 +252,7 @@ class ProjectExpenseController extends Controller
                 ])
                 ->with('info', "Excel uploaded! Q{$result->quarterNumber} saved as <strong>draft</strong> ({$result->processedCount} activities). Complete funding to finalize.");
         } catch (\Exception $e) {
-            return back()->withErrors(['excel_file' => 'Upload failed: ' . $e->getMessage()]);
+            return back()->withErrors(['excel_file' => 'Upload failed: '.$e->getMessage()]);
         }
     }
 }

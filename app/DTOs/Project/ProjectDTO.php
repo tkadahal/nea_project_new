@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\DTOs\Project;
 
 use Carbon\Carbon;
-use Illuminate\Support\Arr;
 
 class ProjectDTO
 {
@@ -72,6 +71,6 @@ class ProjectDTO
             'total_budget' => $this->total_budget,
             'progress' => $this->progress,
             'location' => $this->location,
-        ], fn($value) => $value !== null);
+        ], fn ($value) => $value !== null);
     }
 }

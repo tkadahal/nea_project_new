@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\{
-    HasMany,
-    BelongsTo,
-    BelongsToMany
-};
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProjectActivitySchedule extends Model
 {
@@ -30,8 +28,8 @@ class ProjectActivitySchedule extends Model
     ];
 
     protected $casts = [
-        'weightage'  => 'decimal:2',
-        'level'      => 'integer',
+        'weightage' => 'decimal:2',
+        'level' => 'integer',
         'sort_order' => 'integer',
         'project_type_id' => 'integer',
     ];
@@ -198,7 +196,7 @@ class ProjectActivitySchedule extends Model
 
         $parent = $this->parent;
 
-        while ($parent && !$parent->isTopLevel()) {
+        while ($parent && ! $parent->isTopLevel()) {
             $parent = $parent->parent;
         }
 
@@ -217,7 +215,7 @@ class ProjectActivitySchedule extends Model
      */
     public function getLeafSchedules(?int $projectId = null, string $status = 'active'): array
     {
-        if (!$this->hasChildren()) {
+        if (! $this->hasChildren()) {
             if ($projectId !== null) {
                 $pivot = $this->projects()
                     ->where('project_id', $projectId)
@@ -288,7 +286,7 @@ class ProjectActivitySchedule extends Model
         return cache()->remember(
             "schedule_{$this->id}_project_{$projectId}_progress",
             300,
-            fn() => $this->calculateProgressForProject($projectId)
+            fn () => $this->calculateProgressForProject($projectId)
         );
     }
 
@@ -435,9 +433,9 @@ class ProjectActivitySchedule extends Model
         int $projectId
     ): Builder {
         return $query
-            ->whereHas('projects', fn($q) => $q->where('project_id', $projectId))
+            ->whereHas('projects', fn ($q) => $q->where('project_id', $projectId))
             ->with([
-                'projects' => fn($q) => $q->where('project_id', $projectId)
+                'projects' => fn ($q) => $q->where('project_id', $projectId),
             ]);
     }
 

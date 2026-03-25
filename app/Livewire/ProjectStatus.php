@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Models\Directorate;
+use App\Models\Project;
 use App\Models\Role;
 use App\Models\Status;
-use App\Models\Project;
-use Livewire\Component;
-use App\Models\Directorate;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
 
 class ProjectStatus extends Component
 {
@@ -78,7 +78,7 @@ class ProjectStatus extends Component
         }
 
         $total = max(1, $query->count());
-        Log::debug('Total projects: ' . $total);
+        Log::debug('Total projects: '.$total);
 
         $statusCounts = $query->select('status_id', DB::raw('count(*) as count'))
             ->groupBy('status_id')

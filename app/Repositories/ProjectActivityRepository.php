@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
-use App\Models\Role;
-use App\Models\User;
 use App\Models\Budget;
 use App\Models\Project;
+use App\Models\ProjectActivityDefinition;
+use App\Models\ProjectActivityPlan;
+use App\Models\Role;
+use App\Models\User;
+use App\Trait\RoleBasedAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use App\Models\ProjectActivityPlan;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\Response;
-use App\Models\ProjectActivityDefinition;
-use Illuminate\Database\Eloquent\Builder;
-use App\Trait\RoleBasedAccess; // <--- 1. Import the Trait
+use Symfony\Component\HttpFoundation\Response; // <--- 1. Import the Trait
 
 class ProjectActivityRepository
 {
@@ -67,13 +67,13 @@ class ProjectActivityRepository
         // PERFORMANCE OPTIMIZATION:
         // If SuperAdmin or Admin, skip filtering entirely.
         // This avoids loading "All Project IDs" into memory via the trait.
-        if (!in_array(Role::SUPERADMIN, $roleIds) && !in_array(Role::ADMIN, $roleIds)) {
+        if (! in_array(Role::SUPERADMIN, $roleIds) && ! in_array(Role::ADMIN, $roleIds)) {
 
             // Use the Trait to get the specific list of IDs this user is allowed to see.
             // This efficiently handles Directorate Users and Project Users.
             $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
 
-            if (!empty($accessibleProjectIds)) {
+            if (! empty($accessibleProjectIds)) {
                 $query->whereIn('project_activity_definitions.project_id', $accessibleProjectIds);
             } else {
                 // User has no access (e.g., new user with no projects), return no results safely
@@ -85,10 +85,10 @@ class ProjectActivityRepository
         // APPLY UI FILTERS (Directorate, Project, Fiscal Year, Search)
         // ============================================================
 
-        $query->when($filters['directorate_id'] ?? null, fn($q, $id) => $q->where('projects.directorate_id', $id))
-            ->when($filters['project_id'] ?? null, fn($q, $id) => $q->where('project_activity_definitions.project_id', $id))
-            ->when($filters['fiscal_year_id'] ?? null, fn($q, $id) => $q->where('project_activity_plans.fiscal_year_id', $id))
-            ->when($search, fn($q) => $q->where('projects.title', 'like', "%{$search}%"));
+        $query->when($filters['directorate_id'] ?? null, fn ($q, $id) => $q->where('projects.directorate_id', $id))
+            ->when($filters['project_id'] ?? null, fn ($q, $id) => $q->where('project_activity_definitions.project_id', $id))
+            ->when($filters['fiscal_year_id'] ?? null, fn ($q, $id) => $q->where('project_activity_plans.fiscal_year_id', $id))
+            ->when($search, fn ($q) => $q->where('projects.title', 'like', "%{$search}%"));
 
         return $query->orderBy('project_activity_plans.fiscal_year_id', 'desc')
             ->orderBy('project_activity_definitions.project_id', 'desc')
@@ -101,13 +101,14 @@ class ProjectActivityRepository
 
     /**
      * Get base query for activities accessible by user
+     *
      * @deprecated Consider migrating to getPaginatedFilteredActivities
      */
     public function getActivitiesQueryForUser(?User $user = null): Builder
     {
         $user = $user ?? Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return ProjectActivityPlan::query()->whereRaw('1 = 0');
         }
 
@@ -132,7 +133,7 @@ class ProjectActivityRepository
                               THEN project_activity_definitions.total_budget ELSE 0 END) as capital_budget'),
                 DB::raw('SUM(CASE WHEN project_activity_definitions.expenditure_id = 2 
                               THEN project_activity_definitions.total_budget ELSE 0 END) as recurrent_budget'),
-                DB::raw('(' . $projectTitleSubquery->toSql() . ') as project_title')
+                DB::raw('('.$projectTitleSubquery->toSql().') as project_title'),
             ])
             ->join('project_activity_definitions', 'project_activity_plans.activity_definition_version_id', '=', 'project_activity_definitions.id')
             ->join('projects', 'project_activity_plans.project_id', '=', 'projects.id')
@@ -147,7 +148,7 @@ class ProjectActivityRepository
             ]);
 
         // Apply role-based access control (Legacy logic)
-        if (!in_array(Role::SUPERADMIN, $roleIds) && !in_array(Role::ADMIN, $roleIds)) {
+        if (! in_array(Role::SUPERADMIN, $roleIds) && ! in_array(Role::ADMIN, $roleIds)) {
             if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
                 if ($user->directorate_id) {
                     $query->where('projects.directorate_id', $user->directorate_id);
@@ -156,7 +157,7 @@ class ProjectActivityRepository
                 }
             } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
                 $userProjectIds = Auth::user()->projects()->pluck('projects.id')->toArray();
-                if (!empty($userProjectIds)) {
+                if (! empty($userProjectIds)) {
                     $query->whereIn('project_activity_plans.project_id', $userProjectIds);
                 } else {
                     $query->whereRaw('1 = 0');
@@ -177,7 +178,7 @@ class ProjectActivityRepository
         $accessibleProjectIds = Project::query()
             ->with('users')
             ->get()
-            ->filter(fn($project) => $this->userCanAccessProject($user, $project))
+            ->filter(fn ($project) => $this->userCanAccessProject($user, $project))
             ->pluck('id')
             ->toArray();
 
@@ -243,7 +244,7 @@ class ProjectActivityRepository
     {
         $project = Project::with('users')->findOrFail($projectId);
 
-        if (!$this->userCanAccessProject(Auth::user(), $project)) {
+        if (! $this->userCanAccessProject(Auth::user(), $project)) {
             abort(Response::HTTP_FORBIDDEN, '403 Forbidden');
         }
 
@@ -310,17 +311,17 @@ class ProjectActivityRepository
     private function computeSubtreeSums(Collection $activities, int $fiscalYearId): void
     {
         $activities->each(function (ProjectActivityDefinition $activity) use ($fiscalYearId) {
-            $activity->subtree_total_budget   = $this->sumSubtreeDefinitions($activity, 'total_budget');
+            $activity->subtree_total_budget = $this->sumSubtreeDefinitions($activity, 'total_budget');
             $activity->subtree_total_quantity = $this->sumSubtreeDefinitions($activity, 'total_quantity');
 
-            $activity->subtree_planned_budget     = $activity->subtreeSum('planned_budget', $fiscalYearId);
-            $activity->subtree_planned_quantity   = $activity->subtreeSum('planned_quantity', $fiscalYearId);
-            $activity->subtree_total_expense      = $activity->subtreeSum('total_expense', $fiscalYearId);
+            $activity->subtree_planned_budget = $activity->subtreeSum('planned_budget', $fiscalYearId);
+            $activity->subtree_planned_quantity = $activity->subtreeSum('planned_quantity', $fiscalYearId);
+            $activity->subtree_total_expense = $activity->subtreeSum('total_expense', $fiscalYearId);
             $activity->subtree_completed_quantity = $activity->subtreeSum('completed_quantity', $fiscalYearId);
 
             foreach (['q1', 'q2', 'q3', 'q4'] as $quarter) {
-                $activity->{'subtree_' . $quarter . '_amount'}   = $activity->subtreeQuarterSum($quarter, $fiscalYearId);
-                $activity->{'subtree_' . $quarter . '_quantity'} = $activity->subtreeSum($quarter . '_quantity', $fiscalYearId);
+                $activity->{'subtree_'.$quarter.'_amount'} = $activity->subtreeQuarterSum($quarter, $fiscalYearId);
+                $activity->{'subtree_'.$quarter.'_quantity'} = $activity->subtreeSum($quarter.'_quantity', $fiscalYearId);
             }
         });
     }
@@ -345,7 +346,7 @@ class ProjectActivityRepository
             ->where('fiscal_year_id', $fiscalYearId)
             ->first();
 
-        if (!$budget) {
+        if (! $budget) {
             return null;
         }
 
@@ -371,10 +372,10 @@ class ProjectActivityRepository
 
         if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
             $directorateId = $user->directorate ? [$user->directorate->id] : [];
-            $query->whereHas('activityDefinition.project', fn($q) => $q->whereIn('id', $directorateId));
+            $query->whereHas('activityDefinition.project', fn ($q) => $q->whereIn('id', $directorateId));
         } elseif (in_array(Role::PROJECT_USER, $roleIds)) {
             $projectIds = $user->projects->pluck('id')->toArray();
-            $query->whereHas('activityDefinition.project', fn($q) => $q->whereIn('id', $projectIds));
+            $query->whereHas('activityDefinition.project', fn ($q) => $q->whereIn('id', $projectIds));
         } else {
             $query->where('project_activity_plans.id', $user->id);
         }
@@ -383,13 +384,13 @@ class ProjectActivityRepository
     private function plansWithHierarchy(int $fiscalYearId): array
     {
         return [
-            'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId),
-            'children' => fn($childQ) => $childQ->orderBy('sort_index')->with([
-                'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId),
-                'children' => fn($grandQ) => $grandQ->orderBy('sort_index')->with([
-                    'plans' => fn($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId)
-                ])
-            ])
+            'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId),
+            'children' => fn ($childQ) => $childQ->orderBy('sort_index')->with([
+                'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId),
+                'children' => fn ($grandQ) => $grandQ->orderBy('sort_index')->with([
+                    'plans' => fn ($pQ) => $pQ->where('fiscal_year_id', $fiscalYearId),
+                ]),
+            ]),
         ];
     }
 
@@ -441,6 +442,7 @@ class ProjectActivityRepository
             if ($item->relationLoaded('children') && $item->children->isNotEmpty()) {
                 $item->setRelation('children', $this->sortHierarchyByNaturalSort($item->children));
             }
+
             return $item;
         })->values();
     }
@@ -462,6 +464,7 @@ class ProjectActivityRepository
 
         return $activities->map(function ($activity) use ($fiscalYears) {
             $activity->fiscalYear = $fiscalYears->get($activity->fiscal_year_id);
+
             return $activity;
         });
     }
