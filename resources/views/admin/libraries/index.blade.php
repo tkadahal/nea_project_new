@@ -57,7 +57,7 @@
                     Schedule Template Library
                 </h1>
                 <p class="text-gray-600 dark:text-gray-400 mt-1">
-                    Click project type to expand • Drag to reorder activities
+                    Click contract type to expand • Drag to reorder activities
                 </p>
             </div>
 
@@ -98,8 +98,8 @@
             </div>
         @endif
 
-        <!-- Project Types -->
-        @forelse($projectTypes as $typeKey => $typeName)
+        <!-- contract Types -->
+        @forelse($contractTypes as $typeKey => $typeName)
             @php
                 $schedules = $schedulesByType->get($typeKey, collect());
                 $count = $schedules->count();
@@ -135,7 +135,7 @@
                             </div>
 
                             <div class="flex items-center gap-4">
-                                <a href="{{ route('admin.library.create') }}?project_type={{ $typeKey }}"
+                                <a href="{{ route('admin.library.create') }}?contract_type={{ $typeKey }}"
                                     class="px-3 py-1.5 bg-white/25 hover:bg-white/35 rounded text-white text-sm flex items-center gap-1.5"
                                     onclick="event.stopPropagation()">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,14 +167,14 @@
                             <p class="text-gray-500 dark:text-gray-400 mb-4">
                                 No templates for <strong>{{ $typeName }}</strong> yet
                             </p>
-                            <a href="{{ route('admin.library.create') }}?project_type={{ $typeKey }}"
+                            <a href="{{ route('admin.library.create') }}?contract_type={{ $typeKey }}"
                                 class="inline-flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                                 Create First Template
                             </a>
                         </div>
                     @else
                         <div id="sortable-{{ $typeKey }}" class="divide-y divide-gray-200 dark:divide-gray-700"
-                            data-project-type="{{ $typeKey }}">
+                            data-contract-type="{{ $typeKey }}">
                             @foreach ($schedules as $schedule)
                                 <div class="p-5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                                     data-id="{{ $schedule->id }}">
@@ -265,7 +265,7 @@
         @empty
             <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-6 rounded">
                 <p class="text-yellow-700 dark:text-yellow-300">
-                    No project types configured yet.
+                    No contract types configured yet.
                 </p>
             </div>
         @endforelse
@@ -453,7 +453,7 @@
                             'X-CSRF-TOKEN': csrfToken
                         },
                         body: JSON.stringify({
-                            project_type: typeKey
+                            contract_type: typeKey
                         })
                     });
                     const data = await res.json();

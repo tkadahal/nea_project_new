@@ -254,7 +254,7 @@
             totalRecords: 0,
             debounceTimer: null,
             isLoading: false,
-            currentView: 'list'
+            currentView: 'grid' // Default is Grid View
         };
 
         let elements = {};
@@ -290,6 +290,42 @@
             return div.innerHTML;
         }
 
+        // ==================== PROGRESS BAR ====================
+        function generateProgressBar(progress) {
+            const percent = Math.min(100, Math.max(0, parseFloat(progress) || 0));
+
+            let colorClass = 'bg-red-500';
+            if (percent >= 90) colorClass = 'bg-green-500';
+            else if (percent >= 70) colorClass = 'bg-blue-500';
+            else if (percent >= 40) colorClass = 'bg-yellow-500';
+
+            return `
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                    <div class="${colorClass} h-3 rounded-full transition-all duration-300 ease-out" 
+                         style="width: ${percent}%">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-1 text-xs">
+                    <span class="font-semibold text-gray-700 dark:text-gray-300">${percent.toFixed(1)}%</span>
+                    <span class="text-gray-500 dark:text-gray-400">Physical Progress</span>
+                </div>
+            `;
+        }
+
+        function getStatusClass(status) {
+            const s = String(status || '').toLowerCase();
+            if (s.includes('completed') || s.includes('finish')) {
+                return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
+            }
+            if (s.includes('progress') || s.includes('ongoing')) {
+                return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
+            }
+            if (s.includes('delay') || s.includes('hold')) {
+                return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
+            }
+            return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+        }
+
         function showError(message) {
             console.error('Error:', message);
             if (elements.errorDisplay && elements.errorMessage) {
@@ -300,21 +336,15 @@
         }
 
         function hideError() {
-            if (elements.errorDisplay) {
-                elements.errorDisplay.classList.add('hidden');
-            }
+            if (elements.errorDisplay) elements.errorDisplay.classList.add('hidden');
         }
 
         function showLoading() {
-            if (elements.loadingIndicator) {
-                elements.loadingIndicator.classList.remove('hidden');
-            }
+            if (elements.loadingIndicator) elements.loadingIndicator.classList.remove('hidden');
         }
 
         function hideLoading() {
-            if (elements.loadingIndicator) {
-                elements.loadingIndicator.classList.add('hidden');
-            }
+            if (elements.loadingIndicator) elements.loadingIndicator.classList.add('hidden');
         }
 
         window.deleteContract = function(contractId) {
@@ -340,58 +370,157 @@
             form.submit();
         };
 
-        // --- Helper to generate Actions HTML (Refactored) ---
         function generateActionsHtml(contract) {
             const canEdit = canPerformAction('edit');
             const canExtend = canPerformAction('extend');
             const canDelete = canPerformAction('delete');
 
-            // 1. Primary Action: View
             let html = `
-            <a href="${CONFIG.viewRoute}${contract.id}"
-               class="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors shadow-sm">
-               View
-            </a>
+                <a href="${CONFIG.viewRoute}${contract.id}" 
+                   class="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
+                    View
+                </a>
             `;
 
-            // 2. Secondary Actions: Dropdown (⋮)
             html += `
-            <details class="relative inline-block text-left">
-                <summary class="cursor-pointer list-none p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors ml-1">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                </summary>
-
-                <!-- Dropdown Menu -->
-                <div class="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50 overflow-hidden">
-                    <!-- Edit -->
-                    ${canEdit ? `
-                        <a href="${CONFIG.viewRoute}${contract.id}/edit"
-                           class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-yellow-50 dark:hover:bg-gray-700">
-                           <span class="text-yellow-600 mr-2">✎</span> Edit
-                        </a>
-                    ` : ''}
-
-                    <!-- Extend -->
-                    ${canExtend ? `
-                        <a href="${CONFIG.viewRoute}${contract.id}/extend"
-                           class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-gray-700">
-                           <span class="text-green-600 mr-2">↗</span> Extend
-                        </a>
-                    ` : ''}
-
-                    <!-- Delete -->
-                    ${canDelete ? `
-                        <button type="button" onclick="deleteContract(${contract.id})"
-                                class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-700 mt-1">
-                           <span class="mr-2">🗑</span> Delete
-                        </button>
-                    ` : ''}
-
-                </div>
-            </details>
+                <details class="relative inline-block text-left">
+                    <summary class="cursor-pointer list-none p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a2 2 0 11-4 0 2 2 0 014 0zm7 0a2 2 0 11-4 0 2 2 0 014 0zm7 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </summary>
+                    <div class="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                        ${canEdit ? `
+                            <a href="${CONFIG.viewRoute}${contract.id}/edit" 
+                               class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-yellow-600">
+                                ✏️ Edit
+                            </a>
+                        ` : ''}
+                        ${canExtend ? `
+                            <a href="${CONFIG.viewRoute}${contract.id}/extend" 
+                               class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-green-600">
+                                ↗ Extend
+                            </a>
+                        ` : ''}
+                        ${canDelete ? `
+                            <button onclick="deleteContract(${contract.id})" 
+                                    class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-700">
+                                🗑 Delete
+                            </button>
+                        ` : ''}
+                    </div>
+                </details>
             `;
 
             return html;
+        }
+
+        // ==================== RENDER FUNCTIONS ====================
+        function renderTableView(contracts) {
+            if (!elements.tableBody) return;
+
+            if (!contracts || contracts.length === 0) {
+                elements.tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-12 text-gray-500 dark:text-gray-400">
+                            No contracts found
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            const rows = contracts.map(contract => {
+                const progressHtml = generateProgressBar(contract.progress);
+                const actionsHtml = generateActionsHtml(contract);
+
+                return `
+                    <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <td class="py-4 px-6 font-mono text-sm">${escapeHtml(contract.id)}</td>
+                        <td class="py-4 px-6 font-medium">${escapeHtml(contract.title)}</td>
+                        <td class="py-4 px-6">${escapeHtml(contract.project)}</td>
+                        <td class="py-4 px-6">${escapeHtml(contract.directorate)}</td>
+                        <td class="py-4 px-6 text-right font-medium">${escapeHtml(contract.contract_amount)}</td>
+                        <td class="py-4 px-6 w-48">${progressHtml}</td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex px-3 py-1 text-xs font-medium rounded-full ${getStatusClass(contract.status)}">
+                                ${escapeHtml(contract.status)}
+                            </span>
+                        </td>
+                        <td class="py-4 px-6">${escapeHtml(contract.priority)}</td>
+                        <td class="py-4 px-6">
+                            <div class="flex gap-2">
+                                ${actionsHtml}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            elements.tableBody.innerHTML = rows;
+        }
+
+        function renderGridView(contracts) {
+            if (!elements.gridView) return;
+
+            if (!contracts || contracts.length === 0) {
+                elements.gridView.innerHTML = `
+                    <p class="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
+                        No contracts found
+                    </p>`;
+                return;
+            }
+
+            const cards = contracts.map(contract => {
+                const progressHtml = generateProgressBar(contract.progress);
+                const actionsHtml = generateActionsHtml(contract);
+
+                return `
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex flex-col h-full border border-gray-100 dark:border-gray-700">
+                        <div class="p-6 flex-1">
+                            <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-100 leading-tight line-clamp-2">
+                                ${escapeHtml(contract.title)}
+                            </h3>
+
+                            <div class="mt-5 space-y-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500 dark:text-gray-400">Project</span>
+                                    <span class="font-medium text-right">${escapeHtml(contract.project)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500 dark:text-gray-400">Directorate</span>
+                                    <span class="font-medium text-right">${escapeHtml(contract.directorate)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500 dark:text-gray-400">Amount</span>
+                                    <span class="font-medium text-right">${escapeHtml(contract.contract_amount)}</span>
+                                </div>
+                            </div>
+
+                            <!-- Progress -->
+                            <div class="mt-7">
+                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">PHYSICAL PROGRESS</div>
+                                ${progressHtml}
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-100 dark:border-gray-700 p-5 flex justify-end gap-2 bg-gray-50 dark:bg-gray-900">
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            elements.gridView.innerHTML = cards;
+        }
+
+        function renderEmpty(message) {
+            if (state.currentView === 'list' && elements.tableBody) {
+                elements.tableBody.innerHTML = `
+                    <tr><td colspan="9" class="text-center py-12 text-gray-500">${escapeHtml(message)}</td></tr>`;
+            } else if (elements.gridView) {
+                elements.gridView.innerHTML = `
+                    <p class="col-span-full text-center py-12 text-gray-500">${escapeHtml(message)}</p>`;
+            }
         }
 
         async function loadContracts() {
@@ -412,16 +541,14 @@
                     search: state.searchQuery || ''
                 });
 
-                const response = await fetch(CONFIG.indexRoute + '?' + params, {
+                const response = await fetch(CONFIG.indexRoute + '?' + params.toString(), {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json'
                     }
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Server error (${response.status}): ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 const data = await response.json();
 
@@ -437,86 +564,11 @@
 
             } catch (error) {
                 console.error('Error loading contracts:', error);
-                showError('Failed to load contracts: ' + error.message);
-                renderEmpty('Error loading contracts. Please try again.');
+                showError('Failed to load contracts. Please try again.');
+                renderEmpty('Error loading contracts');
             } finally {
                 hideLoading();
                 state.isLoading = false;
-            }
-        }
-
-        function renderTableView(contracts) {
-            if (!elements.tableBody) return;
-
-            if (!contracts || contracts.length === 0) {
-                renderEmpty('No contracts found');
-                return;
-            }
-
-            const rows = contracts.map(contract => {
-                const actionsHtml = generateActionsHtml(contract);
-                return `
-            <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">
-                <td class="py-3 px-6">${escapeHtml(contract.id)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.title)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.project)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.directorate)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.contract_amount)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.progress)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.status)}</td>
-                <td class="py-3 px-6">${escapeHtml(contract.priority)}</td>
-                <td class="py-3 px-6 flex items-center gap-2">
-                    ${actionsHtml}
-                </td>
-            </tr>
-        `;
-            }).join('');
-
-            elements.tableBody.innerHTML = rows;
-        }
-
-        function renderGridView(contracts) {
-            if (!elements.gridView) return;
-
-            if (!contracts || contracts.length === 0) {
-                elements.gridView.innerHTML =
-                    '<p class="col-span-full text-center text-gray-500 py-8">No contracts found</p>';
-                return;
-            }
-
-            const cards = contracts.map(contract => {
-                const actionsHtml = generateActionsHtml(contract);
-                return `
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex flex-col">
-                <div class="flex-grow">
-                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(contract.title)}</h3>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">${escapeHtml(contract.description || '')}</p>
-                    <div class="mt-4 space-y-2">
-                        <p class="text-sm"><span class="font-semibold">Project:</span> ${escapeHtml(contract.project)}</p>
-                        <p class="text-sm"><span class="font-semibold">Directorate:</span> ${escapeHtml(contract.directorate)}</p>
-                        <p class="text-sm"><span class="font-semibold">Amount:</span> ${escapeHtml(contract.contract_amount)}</p>
-                        <p class="text-sm"><span class="font-semibold">Progress:</span> ${escapeHtml(contract.progress)}</p>
-                        <p class="text-sm"><span class="font-semibold">Status:</span> ${escapeHtml(contract.status)}</p>
-                        <p class="text-sm"><span class="font-semibold">Priority:</span> ${escapeHtml(contract.priority)}</p>
-                    </div>
-                </div>
-                <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end">
-                    ${actionsHtml}
-                </div>
-            </div>
-        `;
-            }).join('');
-
-            elements.gridView.innerHTML = cards;
-        }
-
-        function renderEmpty(message) {
-            if (state.currentView === 'list' && elements.tableBody) {
-                elements.tableBody.innerHTML =
-                    `<tr><td colspan="9" class="text-center text-gray-500 py-8">${escapeHtml(message)}</td></tr>`;
-            } else if (elements.gridView) {
-                elements.gridView.innerHTML =
-                    `<p class="col-span-full text-center text-gray-500 py-8">${escapeHtml(message)}</p>`;
             }
         }
 
@@ -527,7 +579,7 @@
             const end = Math.min(state.currentPage * state.perPage, state.totalRecords);
 
             elements.paginationInfo.textContent =
-                `Showing ${start} to ${end} of ${state.totalRecords} records (Page ${state.currentPage} of ${state.totalPages})`;
+                `Showing ${start} to ${end} of ${state.totalRecords} records`;
 
             if (elements.prevPage) elements.prevPage.disabled = state.currentPage <= 1;
             if (elements.nextPage) elements.nextPage.disabled = state.currentPage >= state.totalPages;
@@ -537,7 +589,6 @@
 
         function renderPageNumbers() {
             if (!elements.pageNumbers) return;
-
             elements.pageNumbers.innerHTML = '';
 
             const maxButtons = 5;
@@ -549,13 +600,13 @@
             }
 
             for (let i = startPage; i <= endPage; i++) {
-                const button = document.createElement('button');
-                button.textContent = i;
-                button.className = i === state.currentPage ?
-                    'px-3 py-1 rounded bg-blue-500 text-white' :
-                    'px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200';
-                button.addEventListener('click', () => goToPage(i));
-                elements.pageNumbers.appendChild(button);
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = i === state.currentPage ?
+                    'px-4 py-2 bg-blue-600 text-white rounded-lg' :
+                    'px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg';
+                btn.addEventListener('click', () => goToPage(i));
+                elements.pageNumbers.appendChild(btn);
             }
         }
 
@@ -567,6 +618,7 @@
 
         function switchView(view) {
             state.currentView = view;
+
             if (view === 'list') {
                 elements.listView.classList.remove('hidden');
                 elements.gridView.classList.add('hidden');
@@ -582,123 +634,95 @@
         }
 
         function setupEventListeners() {
-            if (elements.prevPage) {
-                elements.prevPage.addEventListener('click', () => {
-                    if (state.currentPage > 1) goToPage(state.currentPage - 1);
-                });
-            }
+            // Pagination
+            elements.prevPage?.addEventListener('click', () => {
+                if (state.currentPage > 1) goToPage(state.currentPage - 1);
+            });
 
-            if (elements.nextPage) {
-                elements.nextPage.addEventListener('click', () => {
-                    if (state.currentPage < state.totalPages) goToPage(state.currentPage + 1);
-                });
-            }
+            elements.nextPage?.addEventListener('click', () => {
+                if (state.currentPage < state.totalPages) goToPage(state.currentPage + 1);
+            });
 
-            if (elements.directorateFilter) {
-                elements.directorateFilter.addEventListener('change', (e) => {
-                    state.directorateFilter = e.target.value;
+            // Filters
+            elements.directorateFilter?.addEventListener('change', (e) => {
+                state.directorateFilter = e.target.value;
+                state.currentPage = 1;
+                loadContracts();
+            });
+
+            elements.projectFilter?.addEventListener('change', (e) => {
+                state.projectFilter = e.target.value;
+                state.currentPage = 1;
+                loadContracts();
+            });
+
+            elements.statusFilter?.addEventListener('change', (e) => {
+                state.statusFilter = e.target.value;
+                state.currentPage = 1;
+                loadContracts();
+            });
+
+            elements.priorityFilter?.addEventListener('change', (e) => {
+                state.priorityFilter = e.target.value;
+                state.currentPage = 1;
+                loadContracts();
+            });
+
+            // Search with debounce
+            elements.searchInput?.addEventListener('input', (e) => {
+                clearTimeout(state.debounceTimer);
+                state.debounceTimer = setTimeout(() => {
+                    state.searchQuery = e.target.value.trim();
                     state.currentPage = 1;
                     loadContracts();
-                });
-            }
+                }, 400);
+            });
 
-            if (elements.projectFilter) {
-                elements.projectFilter.addEventListener('change', (e) => {
-                    state.projectFilter = e.target.value;
-                    state.currentPage = 1;
-                    loadContracts();
-                });
-            }
+            elements.perPageSelect?.addEventListener('change', (e) => {
+                state.perPage = parseInt(e.target.value);
+                state.currentPage = 1;
+                loadContracts();
+            });
 
-            if (elements.statusFilter) {
-                elements.statusFilter.addEventListener('change', (e) => {
-                    state.statusFilter = e.target.value;
-                    state.currentPage = 1;
-                    loadContracts();
-                });
-            }
+            elements.clearFilters?.addEventListener('click', () => {
+                state.directorateFilter = '';
+                state.projectFilter = '';
+                state.statusFilter = '';
+                state.priorityFilter = '';
+                state.searchQuery = '';
+                state.currentPage = 1;
 
-            if (elements.priorityFilter) {
-                elements.priorityFilter.addEventListener('change', (e) => {
-                    state.priorityFilter = e.target.value;
-                    state.currentPage = 1;
-                    loadContracts();
-                });
-            }
+                elements.directorateFilter.value = '';
+                elements.projectFilter.value = '';
+                elements.statusFilter.value = '';
+                elements.priorityFilter.value = '';
+                elements.searchInput.value = '';
 
-            if (elements.searchInput) {
-                elements.searchInput.addEventListener('input', (e) => {
-                    clearTimeout(state.debounceTimer);
-                    state.debounceTimer = setTimeout(() => {
-                        state.searchQuery = e.target.value;
-                        state.currentPage = 1;
-                        loadContracts();
-                    }, 300);
-                });
-            }
+                loadContracts();
+            });
 
-            if (elements.perPageSelect) {
-                elements.perPageSelect.addEventListener('change', (e) => {
-                    state.perPage = parseInt(e.target.value);
-                    state.currentPage = 1;
-                    loadContracts();
-                });
-            }
-
-            if (elements.clearFilters) {
-                elements.clearFilters.addEventListener('click', () => {
-                    state.directorateFilter = '';
-                    state.projectFilter = '';
-                    state.statusFilter = '';
-                    state.priorityFilter = '';
-                    state.searchQuery = '';
-                    state.currentPage = 1;
-
-                    if (elements.directorateFilter) elements.directorateFilter.value = '';
-                    if (elements.projectFilter) elements.projectFilter.value = '';
-                    if (elements.statusFilter) elements.statusFilter.value = '';
-                    if (elements.priorityFilter) elements.priorityFilter.value = '';
-                    if (elements.searchInput) elements.searchInput.value = '';
-
-                    loadContracts();
-                });
-            }
-
-            if (elements.listViewButton) {
-                elements.listViewButton.addEventListener('click', () => switchView('list'));
-            }
-
-            if (elements.gridViewButton) {
-                elements.gridViewButton.addEventListener('click', () => switchView('grid'));
-            }
+            // View Switch
+            elements.listViewButton?.addEventListener('click', () => switchView('list'));
+            elements.gridViewButton?.addEventListener('click', () => switchView('grid'));
         }
 
         function init() {
             cacheElements();
             setupEventListeners();
 
-            // ---------------------------------------------------
-            // FIX START: Read project_id from URL and apply filter
-            // ---------------------------------------------------
+            // Handle pre-selected project from URL
             const urlParams = new URLSearchParams(window.location.search);
             const initialProjectId = urlParams.get('project_id');
-
             if (initialProjectId) {
-                // Set the state so the AJAX request sends the correct filter
                 state.projectFilter = initialProjectId;
-
-                // Visually select the project in the dropdown
-                if (elements.projectFilter) {
-                    elements.projectFilter.value = initialProjectId;
-                }
+                if (elements.projectFilter) elements.projectFilter.value = initialProjectId;
             }
-            // ---------------------------------------------------
-            // FIX END
-            // ---------------------------------------------------
 
-            switchView('list'); // This triggers loadContracts()
+            // Start with Grid View (as you wanted)
+            switchView('grid');
         }
 
+        // Initialize
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {

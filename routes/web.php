@@ -20,7 +20,7 @@ use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\PreBudgetController;
 use App\Http\Controllers\Admin\PriorityController;
 use App\Http\Controllers\Admin\ProjectActivityController;
-use App\Http\Controllers\Admin\ProjectTypeController;
+use App\Http\Controllers\Admin\ContractTypeController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Admin\UserController;
@@ -140,7 +140,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('fiscalYear', FiscalYearController::class);
         Route::resource('budgetHeading', BudgetHeadingController::class);
         Route::resource('library', LibraryController::class);
-        Route::resource('projectType', ProjectTypeController::class);
+        Route::resource('contractType', ContractTypeController::class);
 
         // Project Activities
         Route::controller(ProjectActivityController::class)->prefix('projectActivity')->name('projectActivity.')->group(function () {
@@ -205,18 +205,18 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
 
-        require __DIR__.'/admin/analytics.php';
-        require __DIR__.'/admin/schedule.php';
-        require __DIR__.'/admin/project.php';
-        require __DIR__.'/admin/contract.php';
-        require __DIR__.'/admin/task.php';
-        require __DIR__.'/admin/file.php';
-        require __DIR__.'/admin/reports.php';
-        require __DIR__.'/admin/projectExpense.php';
-        require __DIR__.'/admin/expense.php';
-        require __DIR__.'/admin/comment.php';
-        require __DIR__.'/admin/budget.php';
+        require __DIR__ . '/admin/analytics.php';
+        require __DIR__ . '/admin/schedule.php';
+        require __DIR__ . '/admin/project.php';
+        require __DIR__ . '/admin/contract.php';
+        require __DIR__ . '/admin/task.php';
+        require __DIR__ . '/admin/file.php';
+        require __DIR__ . '/admin/reports.php';
+        require __DIR__ . '/admin/projectExpense.php';
+        require __DIR__ . '/admin/expense.php';
+        require __DIR__ . '/admin/comment.php';
+        require __DIR__ . '/admin/budget.php';
     });
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

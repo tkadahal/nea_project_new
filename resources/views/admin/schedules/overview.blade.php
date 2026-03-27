@@ -9,7 +9,7 @@
                         Schedule Overview
                     </h1>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Overview of all accessible project schedules
+                        Overview of all accessible contract schedules
                     </p>
                 </div>
                 <div class="flex gap-2">
@@ -46,20 +46,20 @@
             </div>
         </div>
 
-        @if ($allProjects->isEmpty())
+        @if ($allContracts->isEmpty())
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">
                 <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
                     </path>
                 </svg>
-                <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Projects Available</h3>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">You don't have access to any projects yet.</p>
+                <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Contracts Available</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">You don't have access to any contracts yet.</p>
             </div>
         @else
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-6">
-                <!-- Total Projects -->
+                <!-- Total contracts -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
@@ -74,9 +74,9 @@
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total
-                                        Projects</dt>
+                                        Contracts</dt>
                                     <dd class="text-3xl font-semibold text-gray-900 dark:text-white">
-                                        {{ $statistics['total_projects'] }}</dd>
+                                        {{ $statistics['total_contracts'] }}</dd>
                                 </dl>
                             </div>
                         </div>
@@ -136,8 +136,8 @@
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
                 <div
                     class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Filter Projects</h3>
-                    @if (request()->hasAny(['directorate_id', 'project_id', 'status']))
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Filter Contracts</h3>
+                    @if (request()->hasAny(['directorate_id', 'contract_id', 'status']))
                         <a href="{{ route('admin.schedules.overview') }}"
                             class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">
                             <svg class="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor"
@@ -172,21 +172,21 @@
                             </div>
                         @endif
 
-                        <!-- Project Filter -->
+                        <!-- contract Filter -->
                         <div>
-                            <label for="project_id"
+                            <label for="contract_id"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Project
+                                contract
                             </label>
-                            <select name="project_id" id="project_id"
+                            <select name="contract_id" id="contract_id"
                                 class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border">
-                                <option value="">All Projects ({{ $allProjects->count() }})</option>
-                                @foreach ($allProjects as $project)
-                                    <option value="{{ $project->id }}"
-                                        {{ request('project_id') == $project->id ? 'selected' : '' }}>
-                                        {{ $project->title }}
-                                        @if ($project->directorate && $viewLevel === 'admin')
-                                            ({{ $project->directorate->title }})
+                                <option value="">All contracts ({{ $allContracts->count() }})</option>
+                                @foreach ($allContracts as $contract)
+                                    <option value="{{ $contract->id }}"
+                                        {{ request('contract_id') == $contract->id ? 'selected' : '' }}>
+                                        {{ $contract->title }}
+                                        @if ($contract->directorate && $viewLevel === 'admin')
+                                            ({{ $contract->directorate->title }})
                                         @endif
                                     </option>
                                 @endforeach
@@ -223,12 +223,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span>Showing {{ $projects->firstItem() ?? 0 }} to {{ $projects->lastItem() ?? 0 }} of
-                        {{ $projects->total() }} projects</span>
+                    <span>Showing {{ $contracts->firstItem() ?? 0 }} to {{ $contracts->lastItem() ?? 0 }} of
+                        {{ $contracts->total() }} contracts</span>
                 </div>
             </div>
 
-            @if ($projects->isEmpty())
+            @if ($contracts->isEmpty())
                 <!-- Empty State (when filters return no results) -->
                 <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">
                     <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor"
@@ -237,7 +237,7 @@
                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z">
                         </path>
                     </svg>
-                    <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Projects Found</h3>
+                    <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No contracts Found</h3>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                         Try adjusting your filters to see more results.
                     </p>
@@ -250,12 +250,12 @@
                 </div>
             @else
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                    @foreach ($projects as $project)
+                    @foreach ($contracts as $contract)
                         @php
-                            $progress = $project->cached_progress ?? 0;
-                            $totalSchedules = $project->cached_total_schedules ?? 0;
-                            $completed = $project->cached_leaf_completed ?? 0;
-                            $total = $project->cached_leaf_total ?? 0;
+                            $progress = $contract->cached_progress ?? 0;
+                            $totalSchedules = $contract->cached_total_schedules ?? 0;
+                            $completed = $contract->cached_leaf_completed ?? 0;
+                            $total = $contract->cached_leaf_total ?? 0;
                         @endphp
                         <div
                             class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
@@ -263,16 +263,16 @@
                                 <div class="flex items-start justify-between mb-4">
                                     <div class="flex-1 min-w-0">
                                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                                            {{ $project->title }}
+                                            {{ $contract->title }}
                                         </h3>
-                                        @if ($project->directorate)
+                                        @if ($contract->directorate)
                                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                                {{ $project->directorate->title }}
+                                                {{ $contract->directorate->title }}
                                             </p>
                                         @endif
                                     </div>
                                     @php
-                                        $status = $project->status;
+                                        $status = $contract->status;
 
                                         $bg = match (true) {
                                             $status?->isCompleted() => 'bg-green-100 dark:bg-green-900/30',
@@ -324,19 +324,19 @@
                                 <!-- Actions -->
                                 <div class="flex gap-2">
                                     @if ($totalSchedules === 0)
-                                        <a href="{{ route('admin.projects.schedules.assign-form', $project) }}"
+                                        <a href="{{ route('admin.contracts.schedules.assign-form', $contract) }}"
                                             class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
                                             Assign Schedule
                                         </a>
                                     @else
-                                        <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                        <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                             class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                                             View Schedules
                                         </a>
                                     @endif
 
                                     <!-- Dashboard button remains always visible -->
-                                    <a href="{{ route('admin.projects.schedules.dashboard', $project) }}"
+                                    <a href="{{ route('admin.contracts.schedules.dashboard', $contract) }}"
                                         class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                                         title="Dashboard">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor"
@@ -347,7 +347,7 @@
                                     </a>
 
                                     <!-- NEW CHARTS BUTTON -->
-                                    <a href="{{ route('admin.projects.schedules.charts', $project) }}"
+                                    <a href="{{ route('admin.contracts.schedules.charts', $contract) }}"
                                         class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                                         title="Charts">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor"
@@ -366,9 +366,9 @@
                 </div>
 
                 <!-- Pagination - REMOVED DIV IF NO PAGES -->
-                @if ($projects->hasPages())
+                @if ($contracts->hasPages())
                     <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-6 py-4">
-                        {{ $projects->links() }}
+                        {{ $contracts->links() }}
                     </div>
                 @endif
             @endif
@@ -380,22 +380,22 @@
             // Auto-submit form on filter change
             const filterForm = document.getElementById('filterForm');
             const directorateSelect = document.getElementById('directorate_id');
-            const projectSelect = document.getElementById('project_id');
+            const contractSelect = document.getElementById('contract_id');
             const statusSelect = document.getElementById('status');
 
             // Auto-submit on any filter change
             if (directorateSelect) {
                 directorateSelect.addEventListener('change', function() {
-                    // Clear project selection when directorate changes
-                    if (projectSelect) {
-                        projectSelect.value = '';
+                    // Clear contract selection when directorate changes
+                    if (contractSelect) {
+                        contractSelect.value = '';
                     }
                     filterForm.submit();
                 });
             }
 
-            if (projectSelect) {
-                projectSelect.addEventListener('change', function() {
+            if (contractSelect) {
+                contractSelect.addEventListener('change', function() {
                     filterForm.submit();
                 });
             }

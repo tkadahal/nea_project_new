@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Admin\ProjectActivityScheduleController;
+use App\Http\Controllers\Admin\ContractActivityScheduleController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('schedules')
     ->name('schedules.')
-    ->controller(ProjectActivityScheduleController::class)
+    ->controller(ContractActivityScheduleController::class)
     ->group(function () {
 
         Route::get('overview', 'overview')->name('overview');
@@ -17,11 +17,11 @@ Route::prefix('schedules')
 
         // API subgroup
         Route::prefix('api')->name('api.')->group(function () {
-            Route::get('projects-comparison', 'apiProjectsComparison')->name('projects-comparison');
+            Route::get('contracts-comparison', 'apicontractsComparison')->name('contracts-comparison');
             Route::get('directorates-comparison', 'apiDirectoratesComparison')->name('directorates-comparison');
-            Route::get('top-projects', 'apiTopProjects')->name('top-projects');
-            Route::get('projects-by-directorate', 'apiProjectsByDirectorate')->name('projects-by-directorate');
-            Route::get('project-attention-counts', 'apiProjectAttentionCounts')->name('project-attention-counts');
+            Route::get('top-contracts', 'apiTopcontracts')->name('top-contracts');
+            Route::get('contracts-by-directorate', 'apicontractsByDirectorate')->name('contracts-by-directorate');
+            Route::get('contract-attention-counts', 'apicontractAttentionCounts')->name('contract-attention-counts');
             Route::get('progress-buckets', 'apiProgressBuckets')->name('progress-buckets');
             Route::get('activity-extremes', 'apiActivityExtremes')->name('activity-extremes');
             Route::get('slippages', 'apiSlippages')->name('slippages');

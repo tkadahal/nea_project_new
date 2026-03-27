@@ -51,21 +51,22 @@
                 <form method="GET" action="{{ route('admin.schedules.all-files') }}"
                     class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                    <!-- Project Filter -->
+                    <!-- contract Filter -->
                     <div>
-                        <label for="project_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Filter by Project
+                        <label for="contract_id"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Filter by contract
                         </label>
                         <!-- ADDED w-full CLASS HERE -->
-                        <select name="project_id" id="project_id"
+                        <select name="contract_id" id="contract_id"
                             class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border">
-                            <option value="">All Projects ({{ $projects->count() }})</option>
-                            @foreach ($projects as $project)
-                                <option value="{{ $project->id }}"
-                                    {{ request('project_id') == $project->id ? 'selected' : '' }}>
-                                    {{ $project->title }}
-                                    @if ($project->directorate)
-                                        ({{ $project->directorate->title }})
+                            <option value="">All contracts ({{ $contracts->count() }})</option>
+                            @foreach ($contracts as $contract)
+                                <option value="{{ $contract->id }}"
+                                    {{ request('contract_id') == $contract->id ? 'selected' : '' }}>
+                                    {{ $contract->title }}
+                                    @if ($contract->directorate)
+                                        ({{ $contract->directorate->title }})
                                     @endif
                                 </option>
                             @endforeach
@@ -86,7 +87,7 @@
                             <option value="xer" {{ request('file_type') == 'xer' ? 'selected' : '' }}>XER (Primavera
                                 P6)</option>
                             <option value="mpp" {{ request('file_type') == 'mpp' ? 'selected' : '' }}>MPP (MS
-                                Project)</option>
+                                contract)</option>
                         </select>
                     </div>
 
@@ -143,7 +144,7 @@
                     </svg>
                     <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No files found</h3>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        @if (request()->hasAny(['project_id', 'file_type']))
+                        @if (request()->hasAny(['contract_id', 'file_type']))
                             Try adjusting your filters to see more results.
                         @else
                             No files have been uploaded yet.
@@ -221,9 +222,9 @@
                                                         d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
                                                     </path>
                                                 </svg>
-                                                {{ $file->project->title }}
+                                                {{ $file->contract->title }}
                                             </span>
-                                            @if ($file->project->directorate)
+                                            @if ($file->contract->directorate)
                                                 <span class="flex items-center">
                                                     <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
@@ -232,7 +233,7 @@
                                                             d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
                                                         </path>
                                                     </svg>
-                                                    {{ $file->project->directorate->title }}
+                                                    {{ $file->contract->directorate->title }}
                                                 </span>
                                             @endif
                                             <span class="flex items-center">
@@ -280,7 +281,7 @@
 
                                 <!-- Actions -->
                                 <div class="flex items-center space-x-2 ml-4 flex-shrink-0">
-                                    <a href="{{ route('admin.projects.schedules.download-file', [$file->project_id, $file]) }}"
+                                    <a href="{{ route('admin.contracts.schedules.download-file', [$file->contract_id, $file]) }}"
                                         class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                                         title="Download">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor"

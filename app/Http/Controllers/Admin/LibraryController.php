@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProjectActivitySchedule;
-use App\Models\ProjectType;
+use App\Models\ContractActivitySchedule;
+use App\Models\ContractType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,18 +16,18 @@ class LibraryController extends Controller
 {
     public function index(): View
     {
-        $projectTypes = ProjectType::orderBy('sort_order')
+        $contractTypes = ContractType::orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
 
-        $schedules = ProjectActivitySchedule::select([
+        $schedules = ContractActivitySchedule::select([
             'id',
             'code',
             'name',
             'description',
             'parent_id',
-            'project_type_id',
+            'contract_type_id',
             'level',
             'sort_order',
             'weightage',
@@ -35,36 +35,36 @@ class LibraryController extends Controller
             ->with([
                 'parent:id,code,name',
                 'children:id,parent_id',
-                'projectType:id,name',
+                'contractType:id,name',
             ])
             ->withCount('children')
             ->get();
 
         $schedules = $schedules->sortBy('code', SORT_NATURAL | SORT_FLAG_CASE);
 
-        $schedulesByType = $schedules->groupBy('project_type_id');
+        $schedulesByType = $schedules->groupBy('contract_type_id');
 
-        return view('admin.libraries.index', compact('projectTypes', 'schedulesByType'));
+        return view('admin.libraries.index', compact('contractTypes', 'schedulesByType'));
     }
 
     public function create()
     {
-        $projectTypes = ProjectType::orderBy('sort_order')
+        $contractTypes = ContractType::orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
 
-        $schedulesByProjectType = ProjectActivitySchedule::select([
+        $schedulesByContractType = ContractActivitySchedule::select([
             'id',
             'code',
             'name',
-            'project_type_id',
+            'contract_type_id',
             'weightage',
         ])
             ->withCount('children')
             ->orderBy('sort_order')
             ->get()
-            ->groupBy('project_type_id')
+            ->groupBy('contract_type_id')
             ->map(function ($schedules) {
                 return $schedules->map(function ($schedule) {
                     return [
@@ -77,25 +77,25 @@ class LibraryController extends Controller
                 });
             });
 
-        return view('admin.libraries.create', compact('projectTypes', 'schedulesByProjectType'));
+        return view('admin.libraries.create', compact('contractTypes', 'schedulesByContractType'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'project_type_id' => 'required|exists:project_types,id',
+            'contract_type_id' => 'required|exists:contract_types,id',
             'code' => [
                 'required',
                 'string',
                 'max:50',
                 'regex:/^[A-Z](\.\d+)*$/',
                 function ($attribute, $value, $fail) use ($request) {
-                    $exists = ProjectActivitySchedule::where('project_type_id', $request->project_type_id)
+                    $exists = ContractActivitySchedule::where('contract_type_id', $request->contract_type_id)
                         ->where('code', strtoupper($value))
                         ->whereNull('deleted_at')
                         ->exists();
                     if ($exists) {
-                        $fail('This activity code already exists for this project type.');
+                        $fail('This activity code already exists for this contract type.');
                     }
                 },
             ],
@@ -104,19 +104,19 @@ class LibraryController extends Controller
             'weightage' => 'nullable|numeric|min:0|max:100',
             'parent_id' => [
                 'nullable',
-                'exists:project_activity_schedules,id',
+                'exists:contract_activity_schedules,id',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($value) {
-                        $parent = ProjectActivitySchedule::find($value);
-                        if ($parent && $parent->project_type_id != $request->project_type_id) {
-                            $fail('Parent activity must belong to the same project type.');
+                        $parent = ContractActivitySchedule::find($value);
+                        if ($parent && $parent->contract_type_id != $request->contract_type_id) {
+                            $fail('Parent activity must belong to the same contract type.');
                         }
                     }
                 },
             ],
         ], [
-            'project_type_id.required' => 'Please select a project type.',
-            'project_type_id.exists' => 'Selected project type is invalid.',
+            'contract_type_id.required' => 'Please select a contract type.',
+            'contract_type_id.exists' => 'Selected contract type is invalid.',
             'code.required' => 'Activity code is required.',
             'code.regex' => 'Code must be: Letter (A, B) OR Letter.Number (A.1) OR Letter.Number.Number (A.1.1)',
             'name.required' => 'Activity name is required.',
@@ -126,12 +126,12 @@ class LibraryController extends Controller
 
         $level = 1;
         if ($request->parent_id) {
-            $parent = ProjectActivitySchedule::find($request->parent_id);
+            $parent = ContractActivitySchedule::find($request->parent_id);
             $level = $parent->level + 1;
         }
 
-        $schedule = ProjectActivitySchedule::create([
-            'project_type_id' => $validated['project_type_id'],
+        $schedule = ContractActivitySchedule::create([
+            'contract_type_id' => $validated['contract_type_id'],
             'code' => strtoupper($validated['code']),
             'name' => $validated['name'],
             'description' => $validated['description'],
@@ -141,24 +141,24 @@ class LibraryController extends Controller
             'sort_order' => 999,
         ]);
 
-        $projectTypeName = $schedule->projectType?->name ?? 'Unknown Type';
+        $contractTypeName = $schedule->contractType?->name ?? 'Unknown Type';
 
-        $assignedCount = $this->autoAssignToProjects($schedule);
+        $assignedCount = $this->autoAssignTocontracts($schedule);
 
         activity()
             ->performedOn($schedule)
             ->causedBy(Auth::user())
             ->withProperties([
-                'project_type_id' => $schedule->project_type_id,
-                'project_type' => $projectTypeName,
+                'contract_type_id' => $schedule->contract_type_id,
+                'contract_type' => $contractTypeName,
                 'code' => $schedule->code,
                 'name' => $schedule->name,
             ])
             ->log('Global schedule template created');
 
-        $message = "Schedule template '{$schedule->code} - {$schedule->name}' created successfully for {$projectTypeName} projects!";
+        $message = "Schedule template '{$schedule->code} - {$schedule->name}' created successfully for {$contractTypeName} contracts!";
         if ($assignedCount > 0) {
-            $message .= " Auto-assigned to {$assignedCount} existing projects.";
+            $message .= " Auto-assigned to {$assignedCount} existing contracts.";
         }
 
         return redirect()
@@ -173,26 +173,26 @@ class LibraryController extends Controller
 
     public function edit(string $id)
     {
-        $schedule = ProjectActivitySchedule::findOrFail($id);
-        $schedule->loadMissing(['parent:id,code,name', 'children:id,parent_id', 'projectType:id,name']);
+        $schedule = ContractActivitySchedule::findOrFail($id);
+        $schedule->loadMissing(['parent:id,code,name', 'children:id,parent_id', 'contractType:id,name']);
 
-        $projectTypes = ProjectType::orderBy('sort_order')
+        $contractTypes = ContractType::orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
 
-        $schedulesByProjectType = ProjectActivitySchedule::select([
+        $schedulesByContractType = ContractActivitySchedule::select([
             'id',
             'code',
             'name',
-            'project_type_id',
+            'contract_type_id',
             'weightage',           // ← IMPORTANT: added
             'sort_order',          // helpful for consistency
         ])
             ->withCount('children')
             ->orderBy('sort_order')
             ->get()
-            ->groupBy('project_type_id')
+            ->groupBy('contract_type_id')
             ->map(function ($schedules) {
                 return $schedules->map(function ($schedule) {
                     return [
@@ -205,20 +205,20 @@ class LibraryController extends Controller
                 })->values(); // .values() to get clean indexed array
             });
 
-        return view('admin.libraries.edit', compact('schedule', 'projectTypes', 'schedulesByProjectType'));
+        return view('admin.libraries.edit', compact('schedule', 'contractTypes', 'schedulesByContractType'));
     }
 
     public function update(Request $request, string $id)
     {
-        $schedule = ProjectActivitySchedule::findOrFail($id);
+        $schedule = ContractActivitySchedule::findOrFail($id);
 
         $validated = $request->validate([
-            'project_type_id' => [
+            'contract_type_id' => [
                 'required',
-                'exists:project_types,id',
+                'exists:contract_types,id',
                 function ($attribute, $value, $fail) use ($schedule) {
-                    if ((int) $value !== (int) $schedule->project_type_id) {
-                        $fail('Project type cannot be changed after creation.');
+                    if ((int) $value !== (int) $schedule->contract_type_id) {
+                        $fail('Contract type cannot be changed after creation.');
                     }
                 },
             ],
@@ -228,13 +228,13 @@ class LibraryController extends Controller
                 'max:50',
                 'regex:/^[A-Z](\.\d+)*$/',
                 function ($attribute, $value, $fail) use ($schedule) {
-                    $exists = ProjectActivitySchedule::where('project_type_id', $schedule->project_type_id)
+                    $exists = ContractActivitySchedule::where('contract_type_id', $schedule->contract_type_id)
                         ->where('code', strtoupper($value))
                         ->where('id', '!=', $schedule->id)
                         ->whereNull('deleted_at')
                         ->exists();
                     if ($exists) {
-                        $fail('This activity code already exists for this project type.');
+                        $fail('This activity code already exists for this contract type.');
                     }
                 },
             ],
@@ -243,7 +243,7 @@ class LibraryController extends Controller
             'weightage' => 'nullable|numeric|min:0|max:100',
             'parent_id' => [
                 'nullable',
-                'exists:project_activity_schedules,id',
+                'exists:contract_activity_schedules,id',
                 function ($attribute, $value, $fail) use ($schedule) {
                     if ($value && (int) $value === (int) $schedule->id) {
                         $fail('An activity cannot be its own parent.');
@@ -251,9 +251,9 @@ class LibraryController extends Controller
                 },
                 function ($attribute, $value, $fail) use ($schedule) {
                     if ($value) {
-                        $parent = ProjectActivitySchedule::find($value);
-                        if ($parent && $parent->project_type_id !== $schedule->project_type_id) {
-                            $fail('Parent activity must belong to the same project type.');
+                        $parent = ContractActivitySchedule::find($value);
+                        if ($parent && $parent->contract_type_id !== $schedule->contract_type_id) {
+                            $fail('Parent activity must belong to the same contract type.');
                         }
                     }
                 },
@@ -268,7 +268,7 @@ class LibraryController extends Controller
 
         $level = 1;
         if ($request->parent_id) {
-            $parent = ProjectActivitySchedule::find($request->parent_id);
+            $parent = ContractActivitySchedule::find($request->parent_id);
             $level = $parent->level + 1;
         }
 
@@ -293,7 +293,7 @@ class LibraryController extends Controller
 
     public function destroy(string $id)
     {
-        $schedule = ProjectActivitySchedule::findOrFail($id);
+        $schedule = ContractActivitySchedule::findOrFail($id);
 
         if ($schedule->children()->count() > 0) {
             return redirect()
@@ -301,16 +301,16 @@ class LibraryController extends Controller
                 ->with('error', 'Cannot delete this schedule because it has child activities. Delete children first.');
         }
 
-        $assignedCount = $schedule->projects()->count();
+        $assignedCount = $schedule->contracts()->count();
         if ($assignedCount > 0) {
             return redirect()
                 ->back()
-                ->with('error', "Cannot delete this schedule because it is assigned to {$assignedCount} project(s). Unassign first.");
+                ->with('error', "Cannot delete this schedule because it is assigned to {$assignedCount} contract(s). Unassign first.");
         }
 
         $code = $schedule->code;
         $name = $schedule->name;
-        $projectTypeName = $schedule->projectType?->name ?? 'Unknown';
+        $contractTypeName = $schedule->contractType?->name ?? 'Unknown';
 
         $schedule->delete();
 
@@ -319,7 +319,7 @@ class LibraryController extends Controller
             ->withProperties([
                 'code' => $code,
                 'name' => $name,
-                'project_type' => $projectTypeName,
+                'contract_type' => $contractTypeName,
             ])
             ->log('Global schedule template deleted');
 
@@ -329,44 +329,44 @@ class LibraryController extends Controller
     }
 
     /**
-     * Auto-assign a schedule to projects that have the same project type
+     * Auto-assign a schedule to contracts that have the same contract type
      */
-    private function autoAssignToProjects(ProjectActivitySchedule $schedule): int
+    private function autoAssignToContracts(ContractActivitySchedule $schedule): int
     {
-        // Get all projects with existing schedules, grouped by project_type_id
-        $projectsByType = DB::table('project_schedule_assignments as psa')
-            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
-            ->select('psa.project_id', 'pas.project_type_id')
+        // Get all contracts with existing schedules, grouped by contract_type_id
+        $contractsByType = DB::table('contract_schedule_assignments as psa')
+            ->join('contract_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->select('psa.contract_id', 'pas.contract_type_id')
             ->distinct()
             ->get()
-            ->groupBy('project_id');
+            ->groupBy('contract_id');
 
-        if ($projectsByType->isEmpty()) {
+        if ($contractsByType->isEmpty()) {
             return 0;
         }
 
-        $projectsToAssign = [];
+        $contractsToAssign = [];
 
-        // For each project, check if it has schedules of the same project_type
-        foreach ($projectsByType as $projectId => $schedules) {
-            // Get all unique project types this project has
-            $projectTypes = $schedules->pluck('project_type_id')->unique();
+        // For each contract, check if it has schedules of the same contract_type
+        foreach ($contractsByType as $contractId => $schedules) {
+            // Get all unique contract types this contract has
+            $contractTypes = $schedules->pluck('contract_type_id')->unique();
 
-            // ✅ Only assign if this project has schedules of the same type
-            if ($projectTypes->contains($schedule->project_type_id)) {
+            // ✅ Only assign if this contract has schedules of the same type
+            if ($contractTypes->contains($schedule->contract_type_id)) {
                 // Check if not already assigned
-                $exists = DB::table('project_schedule_assignments')
-                    ->where('project_id', $projectId)
+                $exists = DB::table('contract_schedule_assignments')
+                    ->where('contract_id', $contractId)
                     ->where('schedule_id', $schedule->id)
                     ->exists();
 
                 if (! $exists) {
-                    $projectsToAssign[] = $projectId;
+                    $contractsToAssign[] = $contractId;
                 }
             }
         }
 
-        if (empty($projectsToAssign)) {
+        if (empty($contractsToAssign)) {
             return 0;
         }
 
@@ -374,9 +374,9 @@ class LibraryController extends Controller
 
         // Bulk insert
         $assignments = [];
-        foreach ($projectsToAssign as $projectId) {
+        foreach ($contractsToAssign as $contractId) {
             $assignments[] = [
-                'project_id' => $projectId,
+                'contract_id' => $contractId,
                 'schedule_id' => $schedule->id,
                 'progress' => 0,
                 'status' => 'active',
@@ -394,13 +394,13 @@ class LibraryController extends Controller
             ];
         }
 
-        DB::table('project_schedule_assignments')->insert($assignments);
+        DB::table('contract_schedule_assignments')->insert($assignments);
 
         $auditRecords = [];
-        foreach ($projectsToAssign as $projectId) {
+        foreach ($contractsToAssign as $contractId) {
             $auditRecords[] = [
                 'schedule_id' => $schedule->id,
-                'project_id' => $projectId,
+                'contract_id' => $contractId,
                 'assigned_at' => $now,
                 'assigned_by' => Auth::id() ?? 'system',
                 'notes' => "Auto-assigned {$schedule->code}: {$schedule->name}",

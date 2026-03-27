@@ -14,7 +14,7 @@
              NEW: FILTER SECTION
         ============================ -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-            <form action="{{ route('admin.projects.schedules.progressHistory', [$project->id]) }}" method="GET"
+            <form action="{{ route('admin.contracts.schedules.progressHistory', [$contract->id]) }}" method="GET"
                 class="flex flex-col md:flex-row items-end md:items-center gap-4">
 
                 <!-- Start Date -->
@@ -47,7 +47,7 @@
                         Filter Report
                     </button>
 
-                    <a href="{{ route('admin.projects.schedules.progressHistory', [$project->id]) }}"
+                    <a href="{{ route('admin.contracts.schedules.progressHistory', [$contract->id]) }}"
                         class="w-full md:w-auto inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">
                         Reset
                     </a>

@@ -15,14 +15,14 @@
                 </div>
 
                 <p class="text-gray-600 dark:text-gray-400">
-                    Visual breakdown of project activities and their relationships.
+                    Visual breakdown of contract activities and their relationships.
                 </p>
 
                 <nav aria-label="Breadcrumb">
                     <ol class="inline-flex items-center space-x-1 md:space-x-3 text-sm">
                         <li class="inline-flex items-center">
-                            <a href="{{ route('admin.project.index') }}"
-                                class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">Projects</a>
+                            <a href="{{ route('admin.contract.index') }}"
+                                class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">contracts</a>
                         </li>
                         <li class="flex items-center">
                             <svg class="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor"
@@ -30,9 +30,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="m5 15 7-7 7 7" />
                             </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
+                            <a href="{{ route('admin.contract.show', $contract) }}"
                                 class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 truncate max-w-[200px] md:max-w-none">
-                                {{ Str::limit($project->title, 35) }}
+                                {{ Str::limit($contract->title, 35) }}
                             </a>
                         </li>
                         <li class="flex items-center">
@@ -41,7 +41,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="m5 15 7-7 7 7" />
                             </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300">Schedules</a>
                         </li>
                         <li class="flex items-center">
@@ -78,7 +78,7 @@
                 </div>
 
                 <div class="flex flex-wrap gap-3 border-l border-gray-300 dark:border-gray-600 pl-3">
-                    <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                         class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -86,7 +86,7 @@
                         </svg>
                         List View
                     </a>
-                    <a href="{{ route('admin.projects.schedules.dashboard', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.dashboard', $contract) }}"
                         class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -110,9 +110,9 @@
                     </svg>
                     <div>
                         <h3 class="text-lg font-semibold text-yellow-800 dark:text-yellow-200">No schedules found</h3>
-                        <p class="mt-2 text-gray-700 dark:text-gray-300">This project doesn't have any activities
+                        <p class="mt-2 text-gray-700 dark:text-gray-300">This contract doesn't have any activities
                             assigned yet.</p>
-                        <a href="{{ route('admin.projects.schedules.assign-form', $project) }}"
+                        <a href="{{ route('admin.contracts.schedules.assign-form', $contract) }}"
                             class="mt-4 inline-flex items-center px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
                             <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -133,7 +133,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                         </svg>
-                        <h2 class="text-lg font-semibold text-white">Project Schedule Structure</h2>
+                        <h2 class="text-lg font-semibold text-white">contract Schedule Structure</h2>
                     </div>
                     <div class="flex items-center gap-5 text-white text-sm">
                         <button onclick="expandAll()"
@@ -160,7 +160,7 @@
                         @foreach ($topLevelSchedules as $schedule)
                             @include('admin.schedules.partials.tree-node', [
                                 'schedule' => $schedule,
-                                'project' => $project,
+                                'contract' => $contract,
                                 'level' => 0,
                             ])
                         @endforeach
@@ -195,7 +195,7 @@
                             </span>
                         </div>
                         <p class="text-sm text-gray-600 dark:text-gray-400">Top-level major sections or phases of the
-                            project</p>
+                            contract</p>
                     </div>
 
                     <!-- Group -->

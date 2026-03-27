@@ -2,10 +2,10 @@
     <!-- Page Title -->
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Project Types
+            contract Types
         </h1>
         <p class="text-gray-600 dark:text-gray-400 mt-1">
-            {{ trans('global.create') }} Project Type
+            {{ trans('global.edit') }} contract Type
         </p>
     </div>
 
@@ -13,8 +13,10 @@
         <div class="flex-1">
             <div
                 class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 p-6">
-                <form class="max-w-3xl mx-auto" action="{{ route('admin.projectType.store') }}" method="POST">
+                <form class="max-w-3xl mx-auto" action="{{ route('admin.contractType.update', $contractType->id) }}"
+                    method="POST">
                     @csrf
+                    @method('PUT')
 
                     @if ($errors->any())
                         <div class="mb-6 p-4 bg-red-400 text-white border border-red-500 rounded-lg">
@@ -42,41 +44,46 @@
                         class="mb-8 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                         <h3
                             class="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-6 pb-3 border-b border-gray-200 dark:border-gray-600">
-                            Project Type Information
+                            contract Type Information
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="col-span-full">
-                                <x-forms.input label="Project Type Name" name="name" type="text" :value="old('name')"
-                                    placeholder="Enter project type name" :error="$errors->first('name')" />
+                                <x-forms.input label="contract Type Name" name="name" type="text"
+                                    :value="old('name', $contractType->name)" placeholder="Enter contract type name" :error="$errors->first('name')" />
                             </div>
 
                             <div class="col-span-full">
-                                <x-forms.input label="Project Type Code" name="code" type="text" :value="old('code')"
-                                    placeholder="Enter project type code (e.g. RD, INFRA)" :error="$errors->first('code')" />
+                                <x-forms.input label="contract Type Code" name="code" type="text"
+                                    :value="old('code', $contractType->code)" placeholder="Enter contract type code (e.g. RD, INFRA)"
+                                    :error="$errors->first('code')" />
                             </div>
 
                             <div class="col-span-full">
-                                <x-forms.text-area label="Description" name="description" :value="old('description')"
-                                    placeholder="Enter project type description" :error="$errors->first('description')" />
+                                <x-forms.text-area label="Description" name="description" :value="old('description', $contractType->description)"
+                                    placeholder="Enter contract type description" :error="$errors->first('description')" />
                             </div>
 
                             <div class="col-span-full">
-                                <x-forms.select label="Is Active" name="is_active" :options="[['value' => '1', 'label' => 'Yes'], ['value' => '0', 'label' => 'No']]" :selected="old('is_active', '1')"
+                                <x-forms.select label="Is Active" name="is_active" :options="[['value' => '1', 'label' => 'Yes'], ['value' => '0', 'label' => 'No']]" :selected="old('is_active', $contractType->is_active)"
                                     :error="$errors->first('is_active')" />
                             </div>
 
                             <div class="col-span-full">
-                                <x-forms.input label="Sort Order" name="sort_order" type="number" :value="old('sort_order')"
+                                <x-forms.input label="Sort Order" name="sort_order" type="number" :value="old('sort_order', $contractType->sort_order)"
                                     placeholder="Enter sort order (lower = higher priority)" :error="$errors->first('sort_order')" />
                             </div>
                         </div>
                     </div>
 
-                    <div class="mt-6 flex justify-end">
+                    <div class="mt-6 flex justify-end gap-3">
                         <x-buttons.primary>
                             {{ trans('global.save') }}
                         </x-buttons.primary>
+                        <a href="{{ route('admin.contractType.index') }}"
+                            class="px-4 py-2 text-sm text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500">
+                            {{ trans('global.cancel') }}
+                        </a>
                     </div>
                 </form>
             </div>

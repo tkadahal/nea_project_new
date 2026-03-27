@@ -283,7 +283,7 @@
             // =======================================================
             // 1. BURN CHART
             // =======================================================
-            fetch('{{ route('admin.projects.schedules.api.burn-chart', $project) }}')
+            fetch('{{ route('admin.contracts.schedules.api.burn-chart', $contract) }}')
                 .then(res => res.json())
                 .then(data => {
                     const ctx = document.getElementById('burnChart').getContext('2d');
@@ -381,7 +381,7 @@
             // =======================================================
             // 2. S-CURVE
             // =======================================================
-            fetch('{{ route('admin.projects.schedules.api.s-curve', $project) }}')
+            fetch('{{ route('admin.contracts.schedules.api.s-curve', $contract) }}')
                 .then(res => res.json())
                 .then(data => {
                     const ctx = document.getElementById('sCurve').getContext('2d');
@@ -481,7 +481,7 @@
             // =======================================================
             // 3. ACTIVITY CHART (Tailwind Table)
             // =======================================================
-            fetch('{{ route('admin.projects.schedules.api.activity-chart', $project) }}')
+            fetch('{{ route('admin.contracts.schedules.api.activity-chart', $contract) }}')
                 .then(res => res.json())
                 .then(activities => {
                     const container = document.getElementById('activityChart');
@@ -610,7 +610,7 @@
 
                 console.log('🚀 Fetching Gantt data...');
 
-                fetch('{{ route('admin.projects.schedules.api.gantt-data', $project) }}')
+                fetch('{{ route('admin.contracts.schedules.api.gantt-data', $contract) }}')
                     .then(res => {
                         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
                         return res.json();

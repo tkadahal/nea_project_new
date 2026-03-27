@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Contract extends Model
 {
@@ -89,7 +90,7 @@ class Contract extends Model
             if ($totalWeight == 0) {
                 return round($tasks->avg('progress'), 2);
             }
-            $weightedProgress = $tasks->sum(fn ($task) => $task->progress * $task->estimated_hours);
+            $weightedProgress = $tasks->sum(fn($task) => $task->progress * $task->estimated_hours);
 
             return round($weightedProgress / $totalWeight, 2);
         }
@@ -141,5 +142,179 @@ class Contract extends Model
     public function newEloquentBuilder($query): ModelBuilder
     {
         return new ModelBuilder($query);
+    }
+
+    public function contractType(): BelongsTo
+    {
+        return $this->belongsTo(ContractType::class);
+    }
+
+    // ────────────────────────────────────────────────
+    // Schedule Relationships
+    // ────────────────────────────────────────────────
+    public function activitySchedules(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ContractActivitySchedule::class,
+            'contract_schedule_assignments',
+            'contract_id',
+            'schedule_id'
+        )
+            ->withPivot([
+                'progress',
+                'start_date',
+                'end_date',
+                'actual_start_date',
+                'actual_end_date',
+                'remarks',
+                'status',
+                'target_quantity',
+                'completed_quantity',
+                'unit',
+                'use_quantity_tracking',
+            ])
+            ->withTimestamps()
+            ->orderBy('sort_order');
+    }
+
+    public function topLevelSchedules(): BelongsToMany
+    {
+        return $this->activitySchedules()
+            ->where('level', 1)
+            ->whereNotNull('weightage');
+    }
+
+    public function leafSchedules(): BelongsToMany
+    {
+        return $this->activitySchedules()
+            ->whereDoesntHave('children');
+    }
+
+    // ────────────────────────────────────────────────
+    // Progress Calculations
+    // ────────────────────────────────────────────────
+
+    public function calculatePhysicalProgress(): float
+    {
+        $topLevelSchedules = $this->topLevelSchedules()->get();
+
+        if ($topLevelSchedules->isNotEmpty()) {
+            $totalWeightedProgress = 0.0;
+            $totalWeightage = 0.0;
+
+            foreach ($topLevelSchedules as $schedule) {
+                $phaseWeightage = (float) $schedule->weightage;
+                $phaseProgress = $schedule->calculateProgressForProject($this->id);
+
+                $totalWeightedProgress += ($phaseProgress * $phaseWeightage);
+                $totalWeightage += $phaseWeightage;
+            }
+
+            if ($totalWeightage > 0) {
+                return round($totalWeightedProgress / $totalWeightage, 2);
+            }
+        }
+
+        return 0.0;
+    }
+
+    public function updatePhysicalProgress(): void
+    {
+        $this->updateQuietly(['progress' => $this->calculatePhysicalProgress()]);
+        $this->clearProgressCache();
+    }
+
+    // ────────────────────────────────────────────────
+    // NEW: Cached Progress Methods
+    // ────────────────────────────────────────────────
+
+    public function getCachedPhysicalProgress(): float
+    {
+        return cache()->remember(
+            "contract_{$this->id}_physical_progress",
+            300,
+            fn() => $this->calculatePhysicalProgress()
+        );
+    }
+
+    public function getCachedScheduleBreakdown(): array
+    {
+        return cache()->remember(
+            "contract_{$this->id}_schedule_breakdown",
+            300,
+            fn() => $this->getScheduleProgressBreakdown()
+        );
+    }
+
+    public function clearProgressCache(): void
+    {
+        cache()->forget("contract_{$this->id}_physical_progress");
+        cache()->forget("contract_{$this->id}_schedule_breakdown");
+
+        if ($this->relationLoaded('activitySchedules')) {
+            $this->activitySchedules->each(function ($schedule) {
+                cache()->forget("schedule_{$schedule->id}_contract_{$this->id}_progress");
+            });
+        }
+    }
+
+    // ────────────────────────────────────────────────
+    // Schedule Helper Methods
+    // ────────────────────────────────────────────────
+
+    public function getScheduleProgressBreakdown(): array
+    {
+        $breakdown = [];
+        $topLevelSchedules = $this->topLevelSchedules()
+            ->with([
+                'childrenRecursive',
+                'contracts' => fn($q) => $q->where('contract_id', $this->id),
+            ])
+            ->withCount('children')
+            ->get();
+
+        foreach ($topLevelSchedules as $schedule) {
+            $phaseProgress = $schedule->calculateProgressForContract($this->id);
+
+            $breakdown[] = [
+                'code' => $schedule->code,
+                'name' => $schedule->name,
+                'weightage' => (float) $schedule->weightage,
+                'progress' => $phaseProgress,
+                'weighted_contribution' => round(($phaseProgress * $schedule->weightage) / 100, 2),
+            ];
+        }
+
+        return $breakdown;
+    }
+
+    public function updateScheduleProgress(int $scheduleId, float $progress): void
+    {
+        $this->activitySchedules()->updateExistingPivot($scheduleId, [
+            'progress' => min(100, max(0, $progress)),
+            'updated_at' => now(),
+        ]);
+
+        $this->updatePhysicalProgress();
+    }
+
+    public function bulkUpdateScheduleProgress(array $progressData): void
+    {
+        foreach ($progressData as $scheduleId => $progress) {
+            $this->activitySchedules()->updateExistingPivot($scheduleId, [
+                'progress' => min(100, max(0, (float) $progress)),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $this->updatePhysicalProgress();
+    }
+
+    /**
+     * Activity dependencies for this contract
+     */
+    public function activityDependencies(): HasMany
+    {
+        return $this->hasMany(ContractActivityDependency::class);
     }
 }

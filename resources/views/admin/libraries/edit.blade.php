@@ -42,11 +42,11 @@
                         Editing Schedule Template
                     </h3>
                     <div class="text-sm text-blue-700 dark:text-blue-400 space-y-2">
-                        <p><strong>Project Type:</strong> Fixed – cannot be changed after creation</p>
-                        <p><strong>Current:</strong> {{ $schedule->projectType?->name ?? '—' }}</p>
+                        <p><strong>contract Type:</strong> Fixed – cannot be changed after creation</p>
+                        <p><strong>Current:</strong> {{ $schedule->contractType?->name ?? '—' }}</p>
                         <p><strong>Code Format:</strong> A, B, C (parents) or A.1, B.2 (children) or A.1.1
                             (sub-children)</p>
-                        <p><strong>Parent:</strong> Must belong to the same project type</p>
+                        <p><strong>Parent:</strong> Must belong to the same contract type</p>
                     </div>
                 </div>
             </div>
@@ -72,20 +72,20 @@
                         @csrf
                         @method('PUT')
 
-                        <!-- Project Type (read-only) -->
+                        <!-- contract Type (read-only) -->
                         <div
                             class="mb-6 p-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg">
                             <label
                                 class="block text-sm font-bold text-purple-900 dark:text-purple-300 mb-3 uppercase tracking-wide">
-                                🏗️ Project Type
+                                🏗️ contract Type
                             </label>
                             <div
                                 class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 py-2 px-3 border text-base font-medium text-gray-700 dark:text-gray-300">
-                                {{ $schedule->projectType?->name ?? '—' }}
+                                {{ $schedule->contractType?->name ?? '—' }}
                             </div>
-                            <input type="hidden" name="project_type_id" value="{{ $schedule->project_type_id }}">
+                            <input type="hidden" name="contract_type_id" value="{{ $schedule->contract_type_id }}">
                             <p class="mt-2 text-xs text-purple-700 dark:text-purple-400 font-medium">
-                                Project type cannot be changed after creation
+                                contract type cannot be changed after creation
                             </p>
                         </div>
 
@@ -146,7 +146,7 @@
                             <select name="parent_id" id="parent_id"
                                 class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border @error('parent_id') border-red-500 @enderror">
                                 <option value="">-- No Parent (Top Level Activity) --</option>
-                                @foreach ($schedulesByProjectType[$schedule->project_type_id] ?? [] as $opt)
+                                @foreach ($schedulesBycontractType[$schedule->contract_type_id] ?? [] as $opt)
                                     @if ($opt['id'] !== $schedule->id)
                                         <!-- Prevent self-parent -->
                                         <option value="{{ $opt['id'] }}"
@@ -264,7 +264,7 @@
                             Existing Templates
                         </h3>
                         <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            For: {{ $schedule->projectType?->name ?? '—' }} • Drag to reorder
+                            For: {{ $schedule->contractType?->name ?? '—' }} • Drag to reorder
                         </p>
                     </div>
 
@@ -356,15 +356,15 @@
         </style>
 
         <script>
-            // Schedules data by project type (passed from controller)
-            const schedulesByType = @json($schedulesByProjectType ?? []);
+            // Schedules data by contract type (passed from controller)
+            const schedulesByType = @json($schedulesBycontractType ?? []);
             let sortableInstance = null;
 
-            // Load schedules for current project type on page load (edit)
+            // Load schedules for current contract type on page load (edit)
             document.addEventListener('DOMContentLoaded', function() {
-                const projectTypeId = '{{ $schedule->project_type_id }}';
-                if (projectTypeId && schedulesByType[projectTypeId]) {
-                    loadSchedules(projectTypeId);
+                const contractTypeId = '{{ $schedule->contract_type_id }}';
+                if (contractTypeId && schedulesByType[contractTypeId]) {
+                    loadSchedules(contractTypeId);
                 }
             });
 
@@ -390,7 +390,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                       d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
                             </svg>
-                            <p class="text-sm italic">No schedules yet for this project type.</p>
+                            <p class="text-sm italic">No schedules yet for this contract type.</p>
                         </div>`;
                     return;
                 }

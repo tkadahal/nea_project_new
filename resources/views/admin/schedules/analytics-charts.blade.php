@@ -12,7 +12,7 @@
                         @elseif($viewLevel === 'directorate')
                             Directorate Analytics
                         @else
-                            My Projects Analytics
+                            My contracts Analytics
                         @endif
                     </h1>
                     <div class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
@@ -37,7 +37,7 @@
                 </a>
             </div>
 
-            @if ($projects->isEmpty())
+            @if ($contracts->isEmpty())
                 <div
                     class="rounded-2xl bg-white p-12 text-center shadow dark:bg-gray-800/80 ring-1 ring-gray-200 dark:ring-gray-700">
                     <svg class="mx-auto h-20 w-20 text-gray-400" fill="none" stroke="currentColor"
@@ -45,26 +45,26 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                             d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <h3 class="mt-6 text-2xl font-semibold text-gray-900 dark:text-white">No Projects Available</h3>
+                    <h3 class="mt-6 text-2xl font-semibold text-gray-900 dark:text-white">No contracts Available</h3>
                     <p class="mt-3 text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-                        No projects or schedule assignments found under your current access rights.
+                        No contracts or schedule assignments found under your current access rights.
                     </p>
                 </div>
             @else
                 <div class="space-y-10">
 
-                    <!-- 1. All Projects Progress Comparison -->
+                    <!-- 1. All contracts Progress Comparison -->
                     <div
                         class="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800/80 ring-1 ring-gray-200 dark:ring-gray-700/50">
                         <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-700/70">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Project Progress Overview
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">contract Progress Overview
                             </h2>
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Completion percentage — all
-                                accessible projects</p>
+                                accessible contracts</p>
                         </div>
                         <div class="p-6 sm:p-8">
                             <div class="h-80 md:h-[420px]">
-                                <canvas id="projectsComparisonChart"></canvas>
+                                <canvas id="contractsComparisonChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -90,9 +90,10 @@
                         <div
                             class="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800/80 ring-1 ring-gray-200 dark:ring-gray-700/50">
                             <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-700/70">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Project Status Breakdown
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">contract Status
+                                    Breakdown
                                 </h3>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Projects by completion stage
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">contracts by completion stage
                                 </p>
                             </div>
                             <div class="p-6 sm:p-8">
@@ -104,18 +105,18 @@
 
                     </div>
 
-                    <!-- 3. New – At Risk & Delayed Projects -->
+                    <!-- 3. New – At Risk & Delayed contracts -->
                     <div
                         class="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800/80 ring-1 ring-gray-200 dark:ring-gray-700/50">
                         <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-700/70">
-                            <h3 class="text-xl font-semibold text-red-700 dark:text-red-400">Projects Needing Attention
+                            <h3 class="text-xl font-semibold text-red-700 dark:text-red-400">contracts Needing Attention
                             </h3>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Delayed and at-risk projects
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Delayed and at-risk contracts
                                 (count)</p>
                         </div>
                         <div class="p-6 sm:p-8">
                             <div class="h-72 md:h-80">
-                                <canvas id="atRiskProjectsChart"></canvas>
+                                <canvas id="atRiskcontractsChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -125,7 +126,7 @@
                         class="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800/80 ring-1 ring-gray-200 dark:ring-gray-700/50">
                         <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-700/70">
                             <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Progress Distribution</h3>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">How many projects fall into each
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">How many contracts fall into each
                                 10% completion range</p>
                         </div>
                         <div class="p-6 sm:p-8">
@@ -147,7 +148,7 @@
                                         Directorate Summary
                                     @endif
                                 </h3>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Average progress & project
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Average progress & contract
                                     count per directorate</p>
                             </div>
                             <div class="p-6 sm:p-8">
@@ -174,18 +175,18 @@
                         </div>
                     </div>
 
-                    <!-- 7. Top 10 Performing Projects -->
+                    <!-- 7. Top 10 Performing contracts -->
                     <div
                         class="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800/80 ring-1 ring-gray-200 dark:ring-gray-700/50">
                         <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-700/70">
                             <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Top 10 Best Performing
-                                Projects</h3>
+                                contracts</h3>
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Highest overall completion rates
                             </p>
                         </div>
                         <div class="p-6 sm:p-8">
                             <div class="h-96 md:h-[480px]">
-                                <canvas id="topProjectsChart"></canvas>
+                                <canvas id="topcontractsChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -218,18 +219,18 @@
             Chart.defaults.color = document.documentElement.classList.contains('dark') ? '#d1d5db' : '#4b5563';
             Chart.defaults.borderColor = document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb';
 
-            @if ($projects->isNotEmpty())
+            @if ($contracts->isNotEmpty())
 
                 // ────────────────────────────────────────────────
-                // 1. Projects Comparison (existing)
+                // 1. contracts Comparison (existing)
                 // ────────────────────────────────────────────────
-                fetch('{{ route('admin.schedules.api.projects-comparison') }}')
+                fetch('{{ route('admin.schedules.api.contracts-comparison') }}')
                     .then(r => r.json())
                     .then(data => {
-                        new Chart(document.getElementById('projectsComparisonChart'), {
+                        new Chart(document.getElementById('contractsComparisonChart'), {
                             type: 'bar',
                             data: {
-                                labels: data.map(p => p.project),
+                                labels: data.map(p => p.contract),
                                 datasets: [{
                                     label: 'Progress',
                                     data: data.map(p => p.overall_progress),
@@ -275,7 +276,7 @@
                 // ────────────────────────────────────────────────
                 // 2. Phase / Activity Type Average Progress (doughnut)
                 // ────────────────────────────────────────────────
-                fetch('{{ route('admin.schedules.api.projects-comparison') }}')
+                fetch('{{ route('admin.schedules.api.contracts-comparison') }}')
                     .then(r => r.json())
                     .then(data => {
                         const phases = {};
@@ -335,7 +336,7 @@
                 // ────────────────────────────────────────────────
                 // 3. Status Pie (existing + renamed labels)
                 // ────────────────────────────────────────────────
-                fetch('{{ route('admin.schedules.api.projects-comparison') }}')
+                fetch('{{ route('admin.schedules.api.contracts-comparison') }}')
                     .then(r => r.json())
                     .then(data => {
                         const completed = data.filter(p => p.overall_progress >= 100).length;
@@ -375,17 +376,17 @@
 
                 // ────────────────────────────────────────────────
                 // 4. New – At Risk & Delayed (focus chart)
-                // endpoint example: admin.schedules.api.project-attention-counts
+                // endpoint example: admin.schedules.api.contract-attention-counts
                 // ────────────────────────────────────────────────
-                fetch('{{ route('admin.schedules.api.project-attention-counts') }}')
+                fetch('{{ route('admin.schedules.api.contract-attention-counts') }}')
                     .then(r => r.json())
                     .then(data => {
-                        new Chart(document.getElementById('atRiskProjectsChart'), {
+                        new Chart(document.getElementById('atRiskcontractsChart'), {
                             type: 'bar',
                             data: {
                                 labels: ['Delayed', 'At Risk', 'On Track', 'Completed'],
                                 datasets: [{
-                                    label: 'Projects',
+                                    label: 'contracts',
                                     data: [data.delayed ?? 0, data.at_risk ?? 0, data.on_track ?? 0, data
                                         .completed ?? 0
                                     ],
@@ -427,7 +428,7 @@
                             data: {
                                 labels: labels,
                                 datasets: [{
-                                    label: 'Project Count',
+                                    label: 'contract Count',
                                     data: values,
                                     backgroundColor: 'rgba(79,70,229,0.55)',
                                     borderColor: 'rgb(79,70,229)',
@@ -471,8 +472,8 @@
                                             borderRadius: 6
                                         },
                                         {
-                                            label: 'Projects',
-                                            data: data.map(d => d.total_projects),
+                                            label: 'contracts',
+                                            data: data.map(d => d.total_contracts),
                                             backgroundColor: 'rgba(59,130,246,0.55)',
                                             borderColor: 'rgb(59,130,246)',
                                             yAxisID: 'y1',
@@ -556,12 +557,12 @@
                     });
 
                 // ────────────────────────────────────────────────
-                // 7. Top 10 Projects (existing)
+                // 7. Top 10 contracts (existing)
                 // ────────────────────────────────────────────────
-                fetch('{{ route('admin.schedules.api.top-projects') }}')
+                fetch('{{ route('admin.schedules.api.top-contracts') }}')
                     .then(r => r.json())
                     .then(data => {
-                        new Chart(document.getElementById('topProjectsChart'), {
+                        new Chart(document.getElementById('topcontractsChart'), {
                             type: 'bar',
                             data: {
                                 labels: data.map(p => p.title),

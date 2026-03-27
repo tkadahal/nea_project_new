@@ -2,17 +2,17 @@
     <div class="mb-6 flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Project Types {{ trans('global.details') }}
+                contract Types {{ trans('global.details') }}
             </h1>
             <p class="text-gray-600 dark:text-gray-400 mt-1">
                 {{ trans('global.details_for') }} :
                 <span class="font-semibold">
-                    {{ $projectType->name }}
+                    {{ $contractType->name }}
                 </span>
             </p>
         </div>
 
-        <a href="{{ route('admin.projectType.index') }}"
+        <a href="{{ route('admin.contractType.index') }}"
             class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300
                  focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2
                  dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-offset-gray-900">
@@ -24,19 +24,19 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Project Type Name
+                    contract Type Name
                 </p>
                 <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {{ $projectType->name }}
+                    {{ $contractType->name }}
                 </p>
             </div>
 
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Project Type Code
+                    contract Type Code
                 </p>
                 <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {{ $projectType->code ?? '—' }}
+                    {{ $contractType->code ?? '—' }}
                 </p>
             </div>
 
@@ -45,7 +45,7 @@
                     Description
                 </p>
                 <p class="mt-1 text-lg text-gray-900 dark:text-gray-100 whitespace-pre-line">
-                    {{ $projectType->description ?? 'N/A' }}
+                    {{ $contractType->description ?? 'N/A' }}
                 </p>
             </div>
 
@@ -54,7 +54,7 @@
                     Is Active
                 </p>
                 <p class="mt-1">
-                    @if ($projectType->is_active)
+                    @if ($contractType->is_active)
                         <span
                             class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300">
                             Yes
@@ -73,7 +73,7 @@
                     Sort Order
                 </p>
                 <p class="mt-1 text-lg text-gray-900 dark:text-gray-100">
-                    {{ $projectType->sort_order ?? '—' }}
+                    {{ $contractType->sort_order ?? '—' }}
                 </p>
             </div>
 
@@ -82,7 +82,7 @@
                     Created At
                 </p>
                 <p class="mt-1 text-lg text-gray-900 dark:text-gray-100">
-                    {{ $projectType->created_at?->format('M d, Y H:i A') ?? '—' }}
+                    {{ $contractType->created_at?->format('M d, Y H:i A') ?? '—' }}
                 </p>
             </div>
 
@@ -91,31 +91,31 @@
                     Last Updated
                 </p>
                 <p class="mt-1 text-lg text-gray-900 dark:text-gray-100">
-                    {{ $projectType->updated_at?->format('M d, Y H:i A') ?? '—' }}
+                    {{ $contractType->updated_at?->format('M d, Y H:i A') ?? '—' }}
                 </p>
             </div>
         </div>
 
         <div class="mt-8 flex flex-wrap gap-4">
-            @can('projectType_edit')
-                <a href="{{ route('admin.projectType.edit', $projectType) }}"
+            @can('contractType_edit')
+                <a href="{{ route('admin.contractType.edit', $contractType) }}"
                     class="px-5 py-2.5 bg-green-600 text-white font-medium rounded-md hover:bg-green-700
                          focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
                          dark:bg-green-700 dark:hover:bg-green-800 dark:focus:ring-offset-gray-900 transition-colors">
-                    {{ trans('global.edit') }} Project Type
+                    {{ trans('global.edit') }} contract Type
                 </a>
             @endcan
 
-            @can('projectType_delete')
-                <form action="{{ route('admin.projectType.destroy', $projectType) }}" method="POST"
-                    onsubmit="return confirm('Are you sure you want to delete this project type? This action cannot be undone.');">
+            @can('contractType_delete')
+                <form action="{{ route('admin.contractType.destroy', $contractType) }}" method="POST"
+                    onsubmit="return confirm('Are you sure you want to delete this contract type? This action cannot be undone.');">
                     @csrf
                     @method('DELETE')
                     <button type="submit"
                         class="px-5 py-2.5 bg-red-600 text-white font-medium rounded-md hover:bg-red-700
                                   focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
                                   dark:bg-red-700 dark:hover:bg-red-800 dark:focus:ring-offset-gray-900 transition-colors">
-                        {{ trans('global.delete') }} Project Type
+                        {{ trans('global.delete') }} contract Type
                     </button>
                 </form>
             @endcan

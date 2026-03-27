@@ -7,10 +7,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProjectScheduleDateRevision extends Model
+class ContractScheduleDateRevision extends Model
 {
     protected $fillable = [
-        'project_id',
+        'contract_id',
         'schedule_id',
         'actual_start_date',
         'actual_end_date',
@@ -19,14 +19,14 @@ class ProjectScheduleDateRevision extends Model
         'revised_by',
     ];
 
-    public function project(): BelongsTo
+    public function contract(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Contract::class);
     }
 
     public function schedule(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivitySchedule::class, 'schedule_id');
+        return $this->belongsTo(ContractActivitySchedule::class, 'schedule_id');
     }
 
     public function revisedBy(): BelongsTo

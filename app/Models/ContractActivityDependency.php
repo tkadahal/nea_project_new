@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProjectActivityDependency extends Model
+class ContractActivityDependency extends Model
 {
     protected $fillable = [
-        'project_id',
+        'contract_id',
         'predecessor_id',
         'successor_id',
         'type',
@@ -31,11 +31,11 @@ class ProjectActivityDependency extends Model
     */
 
     /**
-     * Project this dependency belongs to
+     * Contract this dependency belongs to
      */
-    public function project(): BelongsTo
+    public function contract(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Contract::class);
     }
 
     /**
@@ -43,7 +43,7 @@ class ProjectActivityDependency extends Model
      */
     public function predecessor(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivitySchedule::class, 'predecessor_id');
+        return $this->belongsTo(ContractActivitySchedule::class, 'predecessor_id');
     }
 
     /**
@@ -51,7 +51,7 @@ class ProjectActivityDependency extends Model
      */
     public function successor(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivitySchedule::class, 'successor_id');
+        return $this->belongsTo(ContractActivitySchedule::class, 'successor_id');
     }
 
     /**
@@ -60,8 +60,8 @@ class ProjectActivityDependency extends Model
     public function predecessorAssignment(): ?object
     {
         return $this->predecessor
-            ->projects()
-            ->where('project_id', $this->project_id)
+            ->contracts()
+            ->where('contract_id', $this->contract_id)
             ->first();
     }
 
@@ -71,8 +71,8 @@ class ProjectActivityDependency extends Model
     public function successorAssignment(): ?object
     {
         return $this->successor
-            ->projects()
-            ->where('project_id', $this->project_id)
+            ->contracts()
+            ->where('contract_id', $this->contract_id)
             ->first();
     }
 
@@ -99,11 +99,11 @@ class ProjectActivityDependency extends Model
     }
 
     /**
-     * Get dependencies for a specific project
+     * Get dependencies for a specific contract
      */
-    public function scopeForProject(Builder $query, int $projectId): Builder
+    public function scopeForContract(Builder $query, int $contractId): Builder
     {
-        return $query->where('project_id', $projectId);
+        return $query->where('contract_id', $contractId);
     }
 
     /**
@@ -184,7 +184,7 @@ class ProjectActivityDependency extends Model
         } elseif ($this->lag_days > 0) {
             return "+{$this->lag_days} days lag";
         } else {
-            return abs($this->lag_days).' days lead';
+            return abs($this->lag_days) . ' days lead';
         }
     }
 
@@ -198,7 +198,7 @@ class ProjectActivityDependency extends Model
      * Check for circular dependency
      */
     public static function wouldCreateCircularDependency(
-        int $projectId,
+        int $contractId,
         int $predecessorId,
         int $successorId
     ): bool {
@@ -209,14 +209,14 @@ class ProjectActivityDependency extends Model
 
         // Check if adding this link would create a cycle
         // by seeing if successor is already an ancestor of predecessor
-        return self::isAncestor($projectId, $successorId, $predecessorId);
+        return self::isAncestor($contractId, $successorId, $predecessorId);
     }
 
     /**
      * Check if scheduleA is ancestor of scheduleB
      */
     private static function isAncestor(
-        int $projectId,
+        int $contractId,
         int $scheduleA,
         int $scheduleB,
         array &$visited = []
@@ -228,7 +228,7 @@ class ProjectActivityDependency extends Model
         $visited[] = $scheduleB;
 
         // Get all predecessors of scheduleB
-        $predecessors = self::where('project_id', $projectId)
+        $predecessors = self::where('contract_id', $contractId)
             ->where('successor_id', $scheduleB)
             ->pluck('predecessor_id');
 
@@ -238,7 +238,7 @@ class ProjectActivityDependency extends Model
             }
 
             // Recursively check
-            if (self::isAncestor($projectId, $scheduleA, $predId, $visited)) {
+            if (self::isAncestor($contractId, $scheduleA, $predId, $visited)) {
                 return true;
             }
         }
@@ -260,7 +260,7 @@ class ProjectActivityDependency extends Model
         static::creating(function ($dependency) {
             // Prevent circular dependencies
             if (self::wouldCreateCircularDependency(
-                $dependency->project_id,
+                $dependency->contract_id,
                 $dependency->predecessor_id,
                 $dependency->successor_id
             )) {

@@ -8,16 +8,16 @@
                 @elseif($viewLevel === 'directorate')
                     {{ $userDirectorate?->title ?? 'Directorate' }} - Schedule Analytics
                 @else
-                    My Projects Schedule Analytics
+                    My contracts Schedule Analytics
                 @endif
             </h1>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 @if ($viewLevel === 'admin')
                     Overview of all schedules across all directorates
                 @elseif($viewLevel === 'directorate')
-                    Overview of all schedules in your directorate ({{ $statistics['total_projects'] }} projects)
+                    Overview of all schedules in your directorate ({{ $statistics['total_contracts'] }} contracts)
                 @else
-                    Overview of all your assigned projects ({{ $statistics['total_projects'] }} projects)
+                    Overview of all your assigned contracts ({{ $statistics['total_contracts'] }} contracts)
                 @endif
             </p>
         </div>
@@ -26,8 +26,8 @@
             @php
                 $stats = [
                     [
-                        'label' => 'Total Projects',
-                        'value' => $statistics['total_projects'],
+                        'label' => 'Total contracts',
+                        'value' => $statistics['total_contracts'],
                         'color' => 'text-blue-600',
                         'icon' =>
                             'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
@@ -99,7 +99,7 @@
                                     </h4>
                                     <div class="flex items-center justify-between mb-2">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                                            {{ $directorate['total_projects'] }} projects
+                                            {{ $directorate['total_contracts'] }} contracts
                                         </span>
                                         <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
                                             {{ number_format($directorate['average_progress'], 1) }}%
@@ -129,7 +129,7 @@
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 relative">
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Projects Overview</h3>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">contracts Overview</h3>
 
                     <div class="flex flex-wrap gap-3">
                         @if ($viewLevel === 'admin')
@@ -142,7 +142,7 @@
                             </select>
                         @endif
 
-                        <input type="text" id="filter-project" placeholder="Search Project Name..."
+                        <input type="text" id="filter-contract" placeholder="Search contract Name..."
                             class="rounded-md border-gray-300 py-1 px-3 text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
 
                         <div id="table-loader" class="hidden self-center">
@@ -158,15 +158,15 @@
                 </div>
             </div>
 
-            <div id="projects-table-container">
-                @include('admin.schedules.partials._projects_table')
+            <div id="contracts-table-container">
+                @include('admin.schedules.partials._contracts_table')
             </div>
         </div>
     </div>
 
     @push('scripts')
         <script>
-            const tableContainer = document.getElementById('projects-table-container');
+            const tableContainer = document.getElementById('contracts-table-container');
             const phaseContainer = document.getElementById('phase-breakdown-container');
             const filesContainer = document.getElementById('recent-files-container');
             const loader = document.getElementById('table-loader');
@@ -177,7 +177,7 @@
 
                 const params = new URLSearchParams({
                     directorate_id: document.getElementById('filter-directorate')?.value || '',
-                    search: document.getElementById('filter-project').value || '',
+                    search: document.getElementById('filter-contract').value || '',
                     is_full_refresh: '1' // Flag to tell controller to return all 3 partials
                 });
 
@@ -201,11 +201,11 @@
 
             // Event Listeners for Filters
             document.getElementById('filter-directorate')?.addEventListener('change', () => refreshDashboard());
-            document.getElementById('filter-project').addEventListener('input', debounce(() => refreshDashboard(), 500));
+            document.getElementById('filter-contract').addEventListener('input', debounce(() => refreshDashboard(), 500));
 
             // Pagination Click Handling
             document.addEventListener('click', function(e) {
-                const link = e.target.closest('#projects-table-container .pagination a');
+                const link = e.target.closest('#contracts-table-container .pagination a');
                 if (link) {
                     e.preventDefault();
                     refreshDashboard(link.href);

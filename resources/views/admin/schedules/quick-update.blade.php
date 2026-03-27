@@ -7,9 +7,9 @@
             <nav class="flex mb-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
+                        <a href="{{ route('admin.contract.index') }}"
                             class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            Projects
+                            contracts
                         </a>
                     </li>
                     <li>
@@ -18,9 +18,9 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2" d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
+                            <a href="{{ route('admin.contract.show', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                {{ Str::limit($project->title, 40) }}
+                                {{ Str::limit($contract->title, 40) }}
                             </a>
                         </div>
                     </li>
@@ -30,7 +30,7 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2" d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
                                 Schedules
                             </a>
@@ -63,7 +63,7 @@
 
                 <!-- Back Button -->
                 <div class="shrink-0 mt-4 md:mt-0">
-                    <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                         class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -144,7 +144,7 @@
                             </p>
                             <p class="mt-1">
                                 Please set dates in the
-                                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                     class="font-medium underline hover:text-indigo-900 dark:hover:text-indigo-100">
                                     Schedules List
                                 </a>
@@ -178,7 +178,7 @@
                             </p>
                             <p class="mt-2">
                                 Please visit the
-                                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                     class="font-medium underline hover:text-yellow-900 dark:hover:text-yellow-100">
                                     Schedules List
                                 </a>
@@ -190,7 +190,7 @@
             </div>
 
             <div class="text-center py-12">
-                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                     class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -202,7 +202,7 @@
 
             {{-- NORMAL STATE: List of activities with dates --}}
         @else
-            <form action="{{ route('admin.projects.schedules.bulk-update', $project) }}" method="POST"
+            <form action="{{ route('admin.contracts.schedules.bulk-update', $contract) }}" method="POST"
                 id="quick-update-form" class="space-y-6">
                 @csrf
 
@@ -440,7 +440,7 @@
                     class="bg-white dark:bg-gray-800 shadow sm:rounded-lg px-4 py-5 sm:p-6 ring-1 ring-gray-900/5 dark:ring-gray-700">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div class="flex space-x-3">
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                                 Cancel
                             </a>

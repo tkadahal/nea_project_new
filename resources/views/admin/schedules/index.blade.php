@@ -6,14 +6,14 @@
         <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold leading-tight text-gray-900 dark:text-gray-100">
-                    {{ $project->title }} - Activity Schedules
+                    {{ $contract->title }} - Activity Schedules
                 </h1>
                 <nav class="flex mt-2" aria-label="Breadcrumb">
                     <ol class="inline-flex items-center space-x-1 md:space-x-3">
                         <li class="inline-flex items-center">
-                            <a href="{{ route('admin.project.index') }}"
+                            <a href="{{ route('admin.contract.index') }}"
                                 class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                                Projects
+                                contracts
                             </a>
                         </li>
                         <li>
@@ -23,9 +23,9 @@
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                         stroke-width="2" d="m1 9 4-4-4-4" />
                                 </svg>
-                                <a href="{{ route('admin.project.show', $project) }}"
+                                <a href="{{ route('admin.contract.show', $contract) }}"
                                     class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                    {{ Str::limit($project->title, 30) }}
+                                    {{ Str::limit($contract->title, 30) }}
                                 </a>
                             </div>
                         </li>
@@ -48,7 +48,7 @@
             <div class="flex flex-wrap items-center gap-3">
 
                 <div class="relative group">
-                    <a href="{{ route('admin.projects.schedules.dashboard', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.dashboard', $contract) }}"
                         class="inline-flex items-center justify-center h-9 w-9 rounded-md border border-transparent bg-cyan-600 text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -63,7 +63,7 @@
                 </div>
 
                 <div class="relative group">
-                    <a href="{{ route('admin.projects.schedules.tree', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.tree', $contract) }}"
                         class="inline-flex items-center justify-center h-9 w-9 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -78,7 +78,7 @@
                 </div>
 
                 <div class="relative group">
-                    <a href="{{ route('admin.projects.schedules.quick-update', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.quick-update', $contract) }}"
                         class="inline-flex items-center justify-center h-9 w-9 rounded-md border border-transparent bg-green-600 text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -93,7 +93,7 @@
                 </div>
 
                 <div class="relative group">
-                    <a href="{{ route('admin.projects.schedules.files', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.files', $contract) }}"
                         class="inline-flex items-center justify-center h-9 w-9 rounded-md border border-transparent bg-teal-600 text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -108,7 +108,8 @@
                 </div>
 
                 <div class="relative group">
-                    <form action="{{ route('admin.projects.schedules.recalculate-timeline', $project) }}" method="POST"
+                    <form action="{{ route('admin.contracts.schedules.recalculate-timeline', $contract) }}"
+                        method="POST"
                         onsubmit="return confirm('Recalculate all dependencies and dates? This will update the timeline based on actual progress.')">
                         @csrf
                         <button type="submit"
@@ -126,7 +127,7 @@
                 </div>
 
                 <div class="relative group">
-                    <a href="{{ route('admin.projects.schedules.critical-path', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.critical-path', $contract) }}"
                         class="inline-flex items-center justify-center h-9 w-9 rounded-md border border-transparent bg-red-600 text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -251,7 +252,7 @@
                                     <li>Generate accurate Gantt charts</li>
                                 </ul>
                                 <div class="flex items-center gap-3">
-                                    <a href="{{ route('admin.projects.schedules.quick-update', $project) }}"
+                                    <a href="{{ route('admin.contracts.schedules.quick-update', $contract) }}"
                                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-800 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-100 dark:hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
                                         <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
@@ -379,10 +380,10 @@
                     </path>
                 </svg>
                 <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Activity Schedules Assigned</h3>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">This project doesn't have any activity
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">This contract doesn't have any activity
                     schedules yet.</p>
                 <div class="mt-6">
-                    <a href="{{ route('admin.projects.schedules.assign-form', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.assign-form', $contract) }}"
                         class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -398,7 +399,7 @@
                 class="mb-6 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden ring-1 ring-gray-900/5 dark:ring-gray-700">
                 <div
                     class="px-4 py-5 sm:px-6 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900">
-                    <h3 class="text-lg leading-6 font-medium text-white">Overall Project Progress</h3>
+                    <h3 class="text-lg leading-6 font-medium text-white">Overall contract Progress</h3>
                 </div>
                 <div class="p-6">
                     <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
@@ -451,7 +452,7 @@
             {{-- Status Breakdown --}}
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 @php
-                    $allSchedules = $project->activitySchedules;
+                    $allSchedules = $contract->activitySchedules;
                     $activeCount = $allSchedules->where('pivot.status', 'active')->count();
                     $notNeededCount = $allSchedules->where('pivot.status', 'not_needed')->count();
                     $completedCount = $allSchedules->where('pivot.status', 'completed')->count();
@@ -722,7 +723,7 @@
                                             @if ($isDisabled)
                                                 <span
                                                     class="ml-2 text-xs text-gray-500 dark:text-gray-500 italic">(Excluded
-                                                    from project)</span>
+                                                    from contract)</span>
                                             @endif
                                         </td>
 
@@ -809,7 +810,7 @@
                                                         d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                                 </svg>
                                             @else
-                                                <a href="{{ route('admin.projects.schedules.dependencies', [$project, $schedule]) }}"
+                                                <a href="{{ route('admin.contracts.schedules.dependencies', [$contract, $schedule]) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
                                                     title="View Dependencies">
                                                     <svg class="h-5 w-5" fill="none" stroke="currentColor"
@@ -828,9 +829,9 @@
                                                 {{-- ✅ REACTIVATE BUTTON - Use pointer-events-auto to override parent --}}
                                                 <div class="pointer-events-auto">
                                                     <form
-                                                        action="{{ route('admin.projects.schedules.mark-active', [$project, $schedule]) }}"
+                                                        action="{{ route('admin.contracts.schedules.mark-active', [$contract, $schedule]) }}"
                                                         method="POST" class="inline"
-                                                        onsubmit="return confirm('Reactivate this activity? It will be included in project calculations again.')">
+                                                        onsubmit="return confirm('Reactivate this activity? It will be included in contract calculations again.')">
                                                         @csrf
                                                         <button type="submit"
                                                             class="inline-flex items-center px-3 py-2 border-2 border-green-600 dark:border-green-500 text-sm font-semibold rounded-md text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm transition-all">
@@ -845,7 +846,7 @@
                                                     </form>
                                                 </div>
                                             @elseif ($isActive && !$schedule->children_count > 0)
-                                                <a href="{{ route('admin.projects.schedules.edit', [$project, $schedule]) }}"
+                                                <a href="{{ route('admin.contracts.schedules.edit', [$contract, $schedule]) }}"
                                                     class="{{ $colors['text'] }} hover:opacity-80 dark:{{ $colors['text_dark'] }} hover:{{ $colors['text_dark'] }}/80 mr-3"
                                                     title="Edit">
                                                     <svg class="h-5 w-5 inline" fill="none" stroke="currentColor"
@@ -857,9 +858,9 @@
                                                 </a>
 
                                                 <form
-                                                    action="{{ route('admin.projects.schedules.mark-not-needed', [$project, $schedule]) }}"
+                                                    action="{{ route('admin.contracts.schedules.mark-not-needed', [$contract, $schedule]) }}"
                                                     method="POST" class="inline"
-                                                    onsubmit="return confirm('Mark as Not Needed? This will exclude it from project calculations and reset its progress.')">
+                                                    onsubmit="return confirm('Mark as Not Needed? This will exclude it from contract calculations and reset its progress.')">
                                                     @csrf
                                                     <button type="submit"
                                                         class="text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:dark:text-gray-200 text-xs hover:underline">
@@ -923,7 +924,7 @@
 
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '{{ route('admin.projects.schedules.bulk-mark-status', $project) }}';
+                form.action = '{{ route('admin.contracts.schedules.bulk-mark-status', $contract) }}';
 
                 form.innerHTML = `
         @csrf

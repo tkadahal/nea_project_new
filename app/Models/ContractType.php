@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class ProjectType extends Model
+class ContractType extends Model
 {
     use HasFactory;
 
@@ -26,15 +26,15 @@ class ProjectType extends Model
     ];
 
     /**
-     * Get projects of this type
+     * Get contracts of this type
      */
-    public function projects(): HasMany
+    public function contracts(): HasMany
     {
-        return $this->hasMany(Project::class);
+        return $this->hasMany(Contract::class);
     }
 
     /**
-     * Scope to get only active project types
+     * Scope to get only active contract types
      */
     public function scopeActive($query)
     {
@@ -50,10 +50,10 @@ class ProjectType extends Model
     }
 
     /**
-     * Get count of projects using this type
+     * Get count of contracts using this type
      */
-    public function getProjectsCountAttribute(): int
+    public function getContractsCountAttribute(): int
     {
-        return $this->projects()->count();
+        return $this->contracts()->count();
     }
 }

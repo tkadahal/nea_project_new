@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class ProjectActivitySchedule extends Model
+class ContractActivitySchedule extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -22,7 +22,7 @@ class ProjectActivitySchedule extends Model
         'description',
         'parent_id',
         'weightage',
-        'project_type_id',
+        'contract_type_id',
         'level',
         'sort_order',
     ];
@@ -31,7 +31,7 @@ class ProjectActivitySchedule extends Model
         'weightage' => 'decimal:2',
         'level' => 'integer',
         'sort_order' => 'integer',
-        'project_type_id' => 'integer',
+        'contract_type_id' => 'integer',
     ];
 
     /*
@@ -40,9 +40,9 @@ class ProjectActivitySchedule extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function projectType(): BelongsTo
+    public function contractType(): BelongsTo
     {
-        return $this->belongsTo(ProjectType::class, 'project_type_id');
+        return $this->belongsTo(ContractType::class, 'contract_type_id');
     }
 
     public function parent(): BelongsTo
@@ -69,13 +69,13 @@ class ProjectActivitySchedule extends Model
     /**
      * Projects linked through pivot table
      */
-    public function projects(): BelongsToMany
+    public function contracts(): BelongsToMany
     {
         return $this->belongsToMany(
-            Project::class,
-            'project_schedule_assignments',
+            Contract::class,
+            'contract_schedule_assignments',
             'schedule_id',
-            'project_id'
+            'contract_id'
         )
             ->withPivot([
                 'progress',
@@ -105,7 +105,7 @@ class ProjectActivitySchedule extends Model
      */
     public function predecessorDependencies(): HasMany
     {
-        return $this->hasMany(ProjectActivityDependency::class, 'successor_id');
+        return $this->hasMany(ContractActivityDependency::class, 'successor_id');
     }
 
     /**
@@ -114,7 +114,7 @@ class ProjectActivitySchedule extends Model
      */
     public function successorDependencies(): HasMany
     {
-        return $this->hasMany(ProjectActivityDependency::class, 'predecessor_id');
+        return $this->hasMany(ContractActivityDependency::class, 'predecessor_id');
     }
 
     /**
@@ -123,11 +123,11 @@ class ProjectActivitySchedule extends Model
     public function predecessors(): BelongsToMany
     {
         return $this->belongsToMany(
-            ProjectActivitySchedule::class,
-            'project_activity_dependencies',
+            ContractActivitySchedule::class,
+            'contract_activity_dependencies',
             'successor_id',
             'predecessor_id'
-        )->withPivot(['type', 'lag_days', 'is_auto', 'project_id'])
+        )->withPivot(['type', 'lag_days', 'is_auto', 'contract_id'])
             ->withTimestamps();
     }
 
@@ -137,11 +137,11 @@ class ProjectActivitySchedule extends Model
     public function successors(): BelongsToMany
     {
         return $this->belongsToMany(
-            ProjectActivitySchedule::class,
-            'project_activity_dependencies',
+            ContractActivitySchedule::class,
+            'contract_activity_dependencies',
             'predecessor_id',
             'successor_id'
-        )->withPivot(['type', 'lag_days', 'is_auto', 'project_id'])
+        )->withPivot(['type', 'lag_days', 'is_auto', 'contract_id'])
             ->withTimestamps();
     }
 
@@ -217,8 +217,8 @@ class ProjectActivitySchedule extends Model
     {
         if (! $this->hasChildren()) {
             if ($projectId !== null) {
-                $pivot = $this->projects()
-                    ->where('project_id', $projectId)
+                $pivot = $this->contracts()
+                    ->where('contract_id', $projectId)
                     ->first()?->pivot;
 
                 if ($pivot && ($pivot->status ?? 'active') === $status) {
@@ -249,8 +249,8 @@ class ProjectActivitySchedule extends Model
     public function calculateProgressForProject(int $projectId): float
     {
         if ($this->isLeaf()) {
-            $pivot = $this->projects()
-                ->where('project_id', $projectId)
+            $pivot = $this->contracts()
+                ->where('contract_id', $projectId)
                 ->first()?->pivot;
 
             return (float) ($pivot->progress ?? 0);
@@ -265,8 +265,8 @@ class ProjectActivitySchedule extends Model
         $total = 0.0;
 
         foreach ($leaves as $leaf) {
-            $pivot = $leaf->projects()
-                ->where('project_id', $projectId)
+            $pivot = $leaf->contracts()
+                ->where('contract_id', $projectId)
                 ->first()?->pivot;
 
             $total += (float) ($pivot->progress ?? 0);
@@ -286,7 +286,7 @@ class ProjectActivitySchedule extends Model
         return cache()->remember(
             "schedule_{$this->id}_project_{$projectId}_progress",
             300,
-            fn () => $this->calculateProgressForProject($projectId)
+            fn() => $this->calculateProgressForProject($projectId)
         );
     }
 
@@ -326,7 +326,7 @@ class ProjectActivitySchedule extends Model
      */
     public function getDependenciesForProject(int $projectId)
     {
-        return ProjectActivityDependency::where('project_id', $projectId)
+        return ContractActivityDependency::where('contract_id', $projectId)
             ->where(function ($q) {
                 $q->where('predecessor_id', $this->id)
                     ->orWhere('successor_id', $this->id);
@@ -340,7 +340,7 @@ class ProjectActivitySchedule extends Model
      */
     public function hasDependenciesInProject(int $projectId): bool
     {
-        return ProjectActivityDependency::where('project_id', $projectId)
+        return ContractActivityDependency::where('contract_id', $projectId)
             ->where(function ($q) {
                 $q->where('predecessor_id', $this->id)
                     ->orWhere('successor_id', $this->id);
@@ -387,13 +387,13 @@ class ProjectActivitySchedule extends Model
         return $query->whereDoesntHave('children');
     }
 
-    public function scopeForProjectType(Builder $query, $projectType): Builder
+    public function scopeForContractType(Builder $query, $contractType): Builder
     {
-        if ($projectType instanceof ProjectType) {
-            return $query->where('project_type_id', $projectType->id);
+        if ($contractType instanceof ContractType) {
+            return $query->where('contract_type_id', $contractType->id);
         }
 
-        return $query->where('project_type_id', $projectType);
+        return $query->where('contract_type_id', $contractType);
     }
 
     public function scopeOrdered(Builder $query): Builder
@@ -411,7 +411,7 @@ class ProjectActivitySchedule extends Model
             'name',
             'description',
             'parent_id',
-            'project_type',
+            'contract_type',
             'level',
             'sort_order',
             'weightage',
@@ -428,41 +428,41 @@ class ProjectActivitySchedule extends Model
             ->withCount('children');
     }
 
-    public function scopeForProject(
+    public function scopeForContract(
         Builder $query,
-        int $projectId
+        int $contractId
     ): Builder {
         return $query
-            ->whereHas('projects', fn ($q) => $q->where('project_id', $projectId))
+            ->whereHas('contracts', fn($q) => $q->where('contract_id', $contractId))
             ->with([
-                'projects' => fn ($q) => $q->where('project_id', $projectId),
+                'contracts' => fn($q) => $q->where('contract_id', $contractId),
             ]);
     }
 
     /**
-     * Scope: Only active schedules for a project
+     * Scope: Only active schedules for a contract
      */
-    public function scopeActiveForProject(Builder $query, int $projectId): Builder
+    public function scopeActiveForContract(Builder $query, int $contractId): Builder
     {
-        return $query->whereHas('projects', function ($q) use ($projectId) {
-            $q->where('project_id', $projectId)
+        return $query->whereHas('contracts', function ($q) use ($contractId) {
+            $q->where('contract_id', $contractId)
                 ->where('status', 'active');
         });
     }
 
     /**
-     * Scope: Not needed schedules for a project
+     * Scope: Not needed schedules for a contract
      */
-    public function scopeNotNeededForProject(Builder $query, int $projectId): Builder
+    public function scopeNotNeededForContract(Builder $query, int $contractId): Builder
     {
-        return $query->whereHas('projects', function ($q) use ($projectId) {
-            $q->where('project_id', $projectId)
+        return $query->whereHas('contracts', function ($q) use ($contractId) {
+            $q->where('contract_id', $contractId)
                 ->where('status', 'not_needed');
         });
     }
 
-    public function getProjectTypeNameAttribute(): ?string
+    public function getContractTypeNameAttribute(): ?string
     {
-        return $this->projectType?->name;
+        return $this->contractType?->name;
     }
 }

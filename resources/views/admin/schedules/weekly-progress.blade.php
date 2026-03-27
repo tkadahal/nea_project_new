@@ -8,13 +8,13 @@
                     Weekly Progress Report
                 </h1>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Project: {{ $project->name }} <span class="mx-2">|</span>
+                    contract: {{ $contract->name }} <span class="mx-2">|</span>
                     <span class="font-medium">{{ now()->startOfWeek()->format('M d') }} -
                         {{ now()->endOfWeek()->format('M d, Y') }}</span>
                 </p>
             </div>
 
-            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                 class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                 Back to Schedules
             </a>

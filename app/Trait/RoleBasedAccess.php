@@ -282,6 +282,49 @@ trait RoleBasedAccess
     }
 
     /**
+     * Get accessible contract IDs for the current user
+     */
+    public static function getAccessibleContractIds(?User $user = null): array
+    {
+        $user = $user ?? Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $roleIds = $user->roles->pluck('id')->toArray();
+
+        // SuperAdmin and Admin can see all contracts
+        if (in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds)) {
+            return \App\Models\Contract::pluck('id')->toArray();
+        }
+
+        // Directorate User can see contracts in their directorate (via projects)
+        if (in_array(Role::DIRECTORATE_USER, $roleIds)) {
+            return \App\Models\Contract::whereHas('project', function ($query) use ($user) {
+                $query->where('directorate_id', $user->directorate_id);
+            })
+                ->pluck('id')
+                ->toArray();
+        }
+
+        // Project User can see contracts from their assigned projects
+        if (in_array(Role::PROJECT_USER, $roleIds)) {
+            $projectIds = $user->projects()->pluck('projects.id')->toArray();
+
+            if (empty($projectIds)) {
+                return [];
+            }
+
+            return \App\Models\Contract::whereIn('project_id', $projectIds)
+                ->pluck('id')
+                ->toArray();
+        }
+
+        return [];
+    }
+
+    /**
      * Get accessible directorate IDs for the current user
      */
     public static function getAccessibleDirectorateIds(?User $user = null): array

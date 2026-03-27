@@ -13,7 +13,7 @@
                 </div>
 
                 <div class="shrink-0">
-                    <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                    <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                         class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -27,9 +27,9 @@
             <nav class="flex mt-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
+                        <a href="{{ route('admin.contract.index') }}"
                             class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            Projects
+                            contracts
                         </a>
                     </li>
                     <li>
@@ -39,9 +39,9 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2" d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
+                            <a href="{{ route('admin.contract.show', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                {{ Str::limit($project->title, 30) }}
+                                {{ Str::limit($contract->title, 30) }}
                             </a>
                         </div>
                     </li>
@@ -52,7 +52,7 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2" d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
                                 Schedules
                             </a>
@@ -84,7 +84,7 @@
                     </div>
 
                     <div class="p-6">
-                        <form action="{{ route('admin.projects.schedules.update', [$project, $schedule]) }}"
+                        <form action="{{ route('admin.contracts.schedules.update', [$contract, $schedule]) }}"
                             method="POST" class="max-w-full">
                             @csrf
                             @method('PUT')
@@ -464,7 +464,7 @@
                             <!-- Action Buttons -->
                             <div
                                 class="flex items-center justify-end gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                     class="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
                                     Cancel
                                 </a>
@@ -505,7 +505,7 @@
 
                     <div class="p-6">
                         @php
-                            $revisions = \App\Models\ProjectScheduleDateRevision::where('project_id', $project->id)
+                            $revisions = \App\Models\ContractScheduleDateRevision::where('contract_id', $contract->id)
                                 ->where('schedule_id', $schedule->id)
                                 ->orderBy('created_at', 'desc')
                                 ->get();
@@ -569,7 +569,7 @@
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <form
-                                                        action="{{ route('admin.projects.schedules.delete-date-revision', [$project, $revision]) }}"
+                                                        action="{{ route('admin.contracts.schedules.delete-date-revision', [$contract, $revision]) }}"
                                                         method="POST" class="inline-block"
                                                         onsubmit="return confirm('Delete this date revision?')">
                                                         @csrf
@@ -649,7 +649,7 @@
                                     id="modal-title">Add Date Revision</h3>
                                 <div class="mt-4">
                                     <form
-                                        action="{{ route('admin.projects.schedules.add-date-revision', [$project, $schedule]) }}"
+                                        action="{{ route('admin.contracts.schedules.add-date-revision', [$contract, $schedule]) }}"
                                         method="POST">
                                         @csrf
                                         <div class="space-y-4">

@@ -27,22 +27,17 @@ class ContractController extends Controller
     {
         abort_if(Gate::denies('contract_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        // 1. Capture project_id from the URL (e.g., ?project_id=5)
         $projectId = request('project_id') ? (int) request('project_id') : null;
 
-        // Check if AJAX request
         if (request()->wantsJson() || request()->ajax()) {
-            // 2. Pass the ID to the JSON handler
             return $this->getContractsJson($projectId);
         }
 
-        // Get filter options
         $filters = $this->contractService->getFiltersData(Auth::user());
         $data = $this->contractService->getIndexData(Auth::user());
 
         return view('admin.contracts.index', array_merge($data, [
             'filters' => $filters,
-            // Pass this to the view so your Javascript can set the dropdown initially if needed
             'preselectedProjectId' => $projectId,
         ]));
     }
@@ -53,9 +48,6 @@ class ContractController extends Controller
             $perPage = (int) request('per_page', 20);
             $directorateId = request('directorate_filter') ? (int) request('directorate_filter') : null;
 
-            // FIX:
-            // If the user manually changes the dropdown, 'project_filter' will exist in the request.
-            // If not (initial load from the Project Card), use the $initialProjectId.
             $projectId = request('project_filter')
                 ? (int) request('project_filter')
                 : $initialProjectId;
@@ -68,7 +60,7 @@ class ContractController extends Controller
                 user: Auth::user(),
                 perPage: $perPage,
                 directorateId: $directorateId,
-                projectId: $projectId, // Now this will actually work!
+                projectId: $projectId,
                 statusId: $statusId,
                 priorityId: $priorityId,
                 search: $search

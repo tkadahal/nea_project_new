@@ -2,7 +2,7 @@
     <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <div>
             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Recent Files</h3>
-            <p class="text-xs text-gray-500 mt-1">Files for selected projects</p>
+            <p class="text-xs text-gray-500 mt-1">Files for selected contracts</p>
         </div>
         <a href="{{ route('admin.schedules.all-files') }}" class="text-xs text-blue-600 hover:underline">View All</a>
     </div>
@@ -21,13 +21,13 @@
                         <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {{ $file->original_name }}
                         </p>
-                        <p class="text-xs text-gray-500 truncate">{{ $file->project->title }}</p>
+                        <p class="text-xs text-gray-500 truncate">{{ $file->contract->title }}</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
                     <span
                         class="text-[10px] text-gray-400 whitespace-nowrap">{{ $file->created_at->diffForHumans() }}</span>
-                    <a href="{{ route('admin.projects.schedules.download-file', [$file->project_id, $file->id]) }}"
+                    <a href="{{ route('admin.contracts.schedules.download-file', [$file->contract_id, $file->id]) }}"
                         class="text-gray-400 hover:text-blue-600">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

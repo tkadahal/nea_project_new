@@ -9,12 +9,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
-class ProjectScheduleFile extends Model
+class ContractScheduleFile extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'project_id',
+        'contract_id',
         'schedule_id',
         'file_name',
         'file_path',
@@ -30,14 +30,14 @@ class ProjectScheduleFile extends Model
     // Relationships
     // ────────────────────────────────────────────────
 
-    public function project(): BelongsTo
+    public function contract(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Contract::class);
     }
 
     public function schedule(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivitySchedule::class, 'schedule_id');
+        return $this->belongsTo(ContractActivitySchedule::class, 'schedule_id');
     }
 
     public function uploadedBy(): BelongsTo
@@ -57,13 +57,13 @@ class ProjectScheduleFile extends Model
         $bytes = $this->file_size;
 
         if ($bytes >= 1073741824) {
-            return number_format($bytes / 1073741824, 2).' GB';
+            return number_format($bytes / 1073741824, 2) . ' GB';
         } elseif ($bytes >= 1048576) {
-            return number_format($bytes / 1048576, 2).' MB';
+            return number_format($bytes / 1048576, 2) . ' MB';
         } elseif ($bytes >= 1024) {
-            return number_format($bytes / 1024, 2).' KB';
+            return number_format($bytes / 1024, 2) . ' KB';
         } else {
-            return $bytes.' bytes';
+            return $bytes . ' bytes';
         }
     }
 

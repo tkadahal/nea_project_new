@@ -10,10 +10,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('project_schedule_files', function (Blueprint $table) {
+        Schema::create('contract_schedule_files', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->constrained()->onDelete('cascade');
-            $table->foreignId('schedule_id')->constrained('project_activity_schedules')->onDelete('cascade');
+            $table->foreignId('contract_id')->constrained()->onDelete('cascade');
+            $table->foreignId('schedule_id')->constrained('contract_activity_schedules')->onDelete('cascade');
             $table->string('file_name');
             $table->string('file_path');
             $table->string('file_type');
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index(['project_id', 'schedule_id']);
+            $table->index(['contract_id', 'schedule_id']);
             $table->index('file_type');
         });
     }

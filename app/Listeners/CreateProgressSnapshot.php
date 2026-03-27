@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use App\Events\ScheduleProgressUpdated;
-use App\Models\ProjectScheduleProgressSnapshot;
+use App\Models\ContractScheduleProgressSnapshot;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -29,8 +29,8 @@ class CreateProgressSnapshot
             return;
         }
 
-        ProjectScheduleProgressSnapshot::create([
-            'project_id' => $event->project->id,
+        ContractScheduleProgressSnapshot::create([
+            'contract_id' => $event->contract->id,
             'schedule_id' => $event->schedule->id,
             'progress' => $newProgress,
             'completed_quantity' => $event->updateData['completed_quantity'] ?? null,

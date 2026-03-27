@@ -8,7 +8,7 @@
         $progress = $schedule->aggregated_progress;
     } else {
         // Direct pivot progress (for leaves)
-        $assignment = $schedule->projects->first();
+        $assignment = $schedule->contracts->first();
         $progress = $assignment ? (float) ($assignment->pivot->progress ?? 0) : 0;
     }
 
@@ -110,7 +110,7 @@
 
                 {{-- Edit Button (only for leaf nodes) --}}
                 @if ($isLeaf)
-                    <a href="{{ route('admin.projects.schedules.edit', [$project, $schedule]) }}"
+                    <a href="{{ route('admin.contracts.schedules.edit', [$contract, $schedule]) }}"
                         class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -131,7 +131,7 @@
                 @foreach ($schedule->children as $child)
                     @include('admin.schedules.partials.tree-node', [
                         'schedule' => $child,
-                        'project' => $project,
+                        'contract' => $contract,
                         'level' => $level + 1,
                     ])
                 @endforeach

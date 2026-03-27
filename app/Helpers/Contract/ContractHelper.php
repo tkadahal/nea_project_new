@@ -26,8 +26,8 @@ class ContractHelper
             'agreement_effective_date' => $contract->agreement_effective_date?->format('Y-m-d') ?? 'N/A',
             'agreement_completion_date' => $contract->agreement_completion_date?->format('Y-m-d') ?? 'N/A',
             'contract_amount' => number_format((float) ($contract->contract_amount ?? 0), 2),
-            'progress' => is_numeric($contract->progress) ? $contract->progress.'%' : 'N/A',
-            'progress_value' => (float) ($contract->progress ?? 0),
+            'progress' => self::getFormattedProgress($contract),
+            'progress_value' => (float) ($contract->getCachedPhysicalProgress() ?? 0),
         ];
     }
 
@@ -41,35 +41,40 @@ class ContractHelper
             'title' => $contract->title ?? 'Untitled',
             'fields' => [
                 [
-                    'title' => trans('global.contract.fields.contract_agreement_date').': '.
+                    'title' => trans('global.contract.fields.contract_agreement_date') . ': ' .
                         ($contract->contract_agreement_date?->format('Y-m-d') ?? 'N/A'),
                     'color' => 'gray',
                 ],
                 [
-                    'title' => trans('global.contract.fields.agreement_completion_date').': '.
+                    'title' => trans('global.contract.fields.agreement_completion_date') . ': ' .
                         ($contract->agreement_completion_date?->format('Y-m-d') ?? 'N/A'),
                     'color' => 'gray',
                 ],
                 [
-                    'title' => trans('global.contract.fields.contract_amount').': '.
+                    'title' => trans('global.contract.fields.contract_amount') . ': ' .
                         number_format((float) ($contract->contract_amount ?? 0), 2),
                     'color' => 'blue',
                 ],
                 [
-                    'title' => trans('global.contract.fields.progress').': '.
-                        (is_numeric($contract->progress) ? $contract->progress.'%' : 'N/A'),
+                    'title' => trans('global.contract.fields.progress') . ': ' .
+                        (is_numeric($contract->getCachedPhysicalProgress())
+                            ? $contract->getCachedPhysicalProgress() . '%'
+                            : 'N/A'),
                     'color' => 'green',
                 ],
                 [
-                    'title' => trans('global.contract.fields.priority_id').': '.$priorityValue,
+                    'title' => trans('global.contract.fields.priority_id') . ': ' . $priorityValue,
                     'color' => $priorityColor,
                 ],
             ],
         ];
     }
 
-    public static function formatContractForCard(Contract $contract, array $directorateColors = [], array $priorityColors = []): array
-    {
+    public static function formatContractForCard(
+        Contract $contract,
+        array $directorateColors = [],
+        array $priorityColors = []
+    ): array {
         $directorateTitle = $contract->directorate?->title ?? 'N/A';
         $directorateId = $contract->directorate?->id;
         $priorityValue = $contract->priority?->title ?? 'N/A';
@@ -109,7 +114,9 @@ class ContractHelper
                 [
                     'label' => trans('global.contract.fields.progress'),
                     'key' => 'progress',
-                    'value' => is_numeric($contract->progress) ? $contract->progress.'%' : 'N/A',
+                    'value' => is_numeric($contract->getCachedPhysicalProgress())
+                        ? $contract->getCachedPhysicalProgress() . '%'
+                        : 'N/A',
                     'color' => 'yellow',
                 ],
                 [
@@ -149,14 +156,86 @@ class ContractHelper
         return config('colors.priority', []);
     }
 
-    public static function ensureAllDirectoratesHaveColors(array $directorateColors, array $allDirectorateIds): array
-    {
+    public static function ensureAllDirectoratesHaveColors(
+        array $directorateColors,
+        array $allDirectorateIds
+    ): array {
         foreach ($allDirectorateIds as $id) {
-            if (! isset($directorateColors[$id])) {
+            if (!isset($directorateColors[$id])) {
                 $directorateColors[$id] = 'gray';
             }
         }
 
         return $directorateColors;
+    }
+
+    /**
+     * Returns formatted progress string (e.g., "75%")
+     */
+    public static function getFormattedProgress(Contract $contract): string
+    {
+        $progress = self::calculateContractProgressFromLoaded($contract);
+        return is_numeric($progress) ? $progress . '%' : 'N/A';
+    }
+
+    /**
+     * Calculate contract progress based on activity schedules and weightage
+     */
+    private static function calculateContractProgressFromLoaded(Contract $contract): float
+    {
+        $allSchedules = $contract->activitySchedules;
+
+        $activeSchedules = $allSchedules->where('pivot.status', 'active');
+        $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
+
+        if ($topLevel->isEmpty()) {
+            return 0.0;
+        }
+
+        $totalWeightedProgress = 0.0;
+        $totalWeightage = 0.0;
+
+        foreach ($topLevel as $schedule) {
+            $weight = (float) $schedule->weightage;
+
+            $leaves = self::collectLeavesFromCollection($schedule, $allSchedules);
+
+            $avgProgress = $leaves->isEmpty()
+                ? 0
+                : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
+
+            $totalWeightedProgress += ($avgProgress * $weight);
+            $totalWeightage += $weight;
+        }
+
+        return $totalWeightage > 0
+            ? round($totalWeightedProgress / $totalWeightage, 2)
+            : 0.0;
+    }
+
+    /**
+     * Recursively collect leaf nodes (activities without children)
+     */
+    private static function collectLeavesFromCollection($current, $allSchedules)
+    {
+        $children = $allSchedules->where('parent_id', $current->id);
+
+        if ($children->isNotEmpty()) {
+            $leaves = collect();
+            foreach ($children as $child) {
+                $leaves = $leaves->merge(
+                    self::collectLeavesFromCollection($child, $allSchedules)
+                );
+            }
+            return $leaves;
+        }
+
+        $validStatuses = ['active', 'completed'];
+
+        if (isset($current->pivot) && in_array($current->pivot->status, $validStatuses)) {
+            return collect([$current]);
+        }
+
+        return collect([]);
     }
 }

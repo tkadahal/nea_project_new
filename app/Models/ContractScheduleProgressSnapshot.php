@@ -7,10 +7,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProjectScheduleProgressSnapshot extends Model
+class ContractScheduleProgressSnapshot extends Model
 {
     protected $fillable = [
-        'project_id',
+        'contract_id',
         'schedule_id',
         'progress',
         'completed_quantity',
@@ -29,14 +29,14 @@ class ProjectScheduleProgressSnapshot extends Model
         'snapshot_date' => 'datetime',
     ];
 
-    public function project(): BelongsTo
+    public function contract(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Contract::class);
     }
 
     public function schedule(): BelongsTo
     {
-        return $this->belongsTo(ProjectActivitySchedule::class, 'schedule_id');
+        return $this->belongsTo(ContractActivitySchedule::class, 'schedule_id');
     }
 
     public function recordedBy(): BelongsTo

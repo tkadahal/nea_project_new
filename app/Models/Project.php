@@ -144,11 +144,6 @@ class Project extends Model
             ->whereNull('parent_id');
     }
 
-    public function projectType(): BelongsTo
-    {
-        return $this->belongsTo(ProjectType::class);
-    }
-
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'project_user');
@@ -162,47 +157,6 @@ class Project extends Model
     public function files(): MorphMany
     {
         return $this->morphMany(File::class, 'fileable');
-    }
-
-    // ────────────────────────────────────────────────
-    // Schedule Relationships
-    // ────────────────────────────────────────────────
-    public function activitySchedules(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            ProjectActivitySchedule::class,
-            'project_schedule_assignments',
-            'project_id',
-            'schedule_id'
-        )
-            ->withPivot([
-                'progress',
-                'start_date',
-                'end_date',
-                'actual_start_date',
-                'actual_end_date',
-                'remarks',
-                'status',
-                'target_quantity',
-                'completed_quantity',
-                'unit',
-                'use_quantity_tracking',
-            ])
-            ->withTimestamps()
-            ->orderBy('sort_order');
-    }
-
-    public function topLevelSchedules(): BelongsToMany
-    {
-        return $this->activitySchedules()
-            ->where('level', 1)
-            ->whereNotNull('weightage');
-    }
-
-    public function leafSchedules(): BelongsToMany
-    {
-        return $this->activitySchedules()
-            ->whereDoesntHave('children');
     }
 
     // ────────────────────────────────────────────────
@@ -237,7 +191,7 @@ class Project extends Model
             if ($totalWeight == 0) {
                 return (float) round($tasks->avg('progress') ?? 0, 2);
             }
-            $weighted = $tasks->sum(fn ($t) => $t->progress * ($t->estimated_hours ?: 1));
+            $weighted = $tasks->sum(fn($t) => $t->progress * ($t->estimated_hours ?: 1));
 
             return (float) round($weighted / $totalWeight, 2);
         }
@@ -249,7 +203,7 @@ class Project extends Model
             if ($totalWeight == 0) {
                 return (float) round($contracts->avg('progress') ?? 0, 2);
             }
-            $weighted = $contracts->sum(fn ($c) => $c->progress * $c->contract_amount);
+            $weighted = $contracts->sum(fn($c) => $c->progress * $c->contract_amount);
 
             return (float) round($weighted / $totalWeight, 2);
         }
@@ -264,40 +218,6 @@ class Project extends Model
     }
 
     // ────────────────────────────────────────────────
-    // NEW: Cached Progress Methods
-    // ────────────────────────────────────────────────
-
-    public function getCachedPhysicalProgress(): float
-    {
-        return cache()->remember(
-            "project_{$this->id}_physical_progress",
-            300,
-            fn () => $this->calculatePhysicalProgress()
-        );
-    }
-
-    public function getCachedScheduleBreakdown(): array
-    {
-        return cache()->remember(
-            "project_{$this->id}_schedule_breakdown",
-            300,
-            fn () => $this->getScheduleProgressBreakdown()
-        );
-    }
-
-    public function clearProgressCache(): void
-    {
-        cache()->forget("project_{$this->id}_physical_progress");
-        cache()->forget("project_{$this->id}_schedule_breakdown");
-
-        if ($this->relationLoaded('activitySchedules')) {
-            $this->activitySchedules->each(function ($schedule) {
-                cache()->forget("schedule_{$schedule->id}_project_{$this->id}_progress");
-            });
-        }
-    }
-
-    // ────────────────────────────────────────────────
     // Schedule Helper Methods
     // ────────────────────────────────────────────────
 
@@ -307,7 +227,7 @@ class Project extends Model
         $topLevelSchedules = $this->topLevelSchedules()
             ->with([
                 'childrenRecursive',
-                'projects' => fn ($q) => $q->where('project_id', $this->id),
+                'projects' => fn($q) => $q->where('project_id', $this->id),
             ])
             ->withCount('children')
             ->get();
@@ -370,7 +290,7 @@ class Project extends Model
     {
         if (! array_key_exists('total_approved_expense', $this->attributes)) {
             $sum = $this->currentProjectExpensesQuery()
-                ->withSum(['quarters' => fn ($q) => $q->finalized()], 'amount')
+                ->withSum(['quarters' => fn($q) => $q->finalized()], 'amount')
                 ->get()
                 ->sum('quarters_sum_amount');
 
@@ -433,13 +353,6 @@ class Project extends Model
         });
     }
 
-    /**
-     * Activity dependencies for this project
-     */
-    public function activityDependencies(): HasMany
-    {
-        return $this->hasMany(ProjectActivityDependency::class);
-    }
 
     public function newEloquentBuilder($query): ModelBuilder
     {

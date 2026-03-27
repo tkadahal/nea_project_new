@@ -7,14 +7,14 @@ namespace App\Http\Controllers\Admin;
 use App\Events\ScheduleProgressUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Directorate;
-use App\Models\Project;
-use App\Models\ProjectActivitySchedule;
-use App\Models\ProjectScheduleDateRevision;
-use App\Models\ProjectScheduleFile;
-use App\Models\ProjectScheduleProgressSnapshot;
-use App\Models\ProjectType;
+use App\Models\Contract;
+use App\Models\ContractActivitySchedule;
+use App\Models\ContractScheduleDateRevision;
+use App\Models\ContractScheduleFile;
+use App\Models\ContractScheduleProgressSnapshot;
+use App\Models\ContractType;
 use App\Models\Role;
-use App\Services\ProjectScheduleService;
+use App\Services\ContractScheduleService;
 use App\Trait\RoleBasedAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,30 +24,30 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
-class ProjectActivityScheduleController extends Controller
+class ContractActivityScheduleController extends Controller
 {
-    protected ProjectScheduleService $scheduleService;
+    protected ContractScheduleService $scheduleService;
 
-    public function __construct(ProjectScheduleService $scheduleService)
+    public function __construct(ContractScheduleService $scheduleService)
     {
         $this->scheduleService = $scheduleService;
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  PROJECT SCHEDULE VIEWS
+    //  contract SCHEDULE VIEWS
     // ─────────────────────────────────────────────────────────────
 
-    public function index(Project $project): View
+    public function index(Contract $contract): View
     {
-        $allSchedules = $project->activitySchedules()
+        $allSchedules = $contract->activitySchedules()
             ->select([
-                'project_activity_schedules.id',
-                'project_activity_schedules.code',
-                'project_activity_schedules.name',
-                'project_activity_schedules.description',
-                'project_activity_schedules.level',
-                'project_activity_schedules.weightage',
-                'project_activity_schedules.parent_id',
+                'contract_activity_schedules.id',
+                'contract_activity_schedules.code',
+                'contract_activity_schedules.name',
+                'contract_activity_schedules.description',
+                'contract_activity_schedules.level',
+                'contract_activity_schedules.weightage',
+                'contract_activity_schedules.parent_id',
             ])
             ->withPivot(['progress', 'start_date', 'end_date', 'actual_start_date', 'actual_end_date', 'remarks', 'status'])
             ->withCount('children')
@@ -61,7 +61,7 @@ class ProjectActivityScheduleController extends Controller
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
             $phaseProgress = $leaves->isEmpty()
                 ? 0
-                : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+                : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
             $breakdown[] = [
                 'code' => $schedule->code,
@@ -80,7 +80,7 @@ class ProjectActivityScheduleController extends Controller
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
             $phaseProgress = $leaves->isEmpty()
                 ? 0
-                : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+                : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
             $totalWeightedProgress += ($phaseProgress * $phaseWeightage);
             $totalWeightage += $phaseWeightage;
@@ -93,51 +93,51 @@ class ProjectActivityScheduleController extends Controller
         $schedules = $allSchedules;
 
         return view('admin.schedules.index', compact(
-            'project',
+            'contract',
             'schedules',
             'breakdown',
             'overallProgress'
         ));
     }
 
-    public function tree(Project $project): View
+    public function tree(Contract $contract): View
     {
         $validStatuses = ['active', 'completed'];
 
-        $topLevelSchedules = $project->topLevelSchedules()
+        $topLevelSchedules = $contract->topLevelSchedules()
             ->wherePivotIn('status', $validStatuses)
             ->with([
-                'children' => function ($q) use ($project, $validStatuses) {
-                    $q->whereHas('projects', function ($pq) use ($project, $validStatuses) {
-                        $pq->where('project_id', $project->id)
-                            ->whereIn('project_schedule_assignments.status', $validStatuses);
+                'children' => function ($q) use ($contract, $validStatuses) {
+                    $q->whereHas('contracts', function ($pq) use ($contract, $validStatuses) {
+                        $pq->where('contract_id', $contract->id)
+                            ->whereIn('contract_schedule_assignments.status', $validStatuses);
                     })
                         ->with([
-                            'children' => function ($q2) use ($project, $validStatuses) {
-                                $q2->whereHas('projects', function ($pq) use ($project, $validStatuses) {
-                                    $pq->where('project_id', $project->id)
-                                        ->whereIn('project_schedule_assignments.status', $validStatuses);
+                            'children' => function ($q2) use ($contract, $validStatuses) {
+                                $q2->whereHas('contracts', function ($pq) use ($contract, $validStatuses) {
+                                    $pq->where('contract_id', $contract->id)
+                                        ->whereIn('contract_schedule_assignments.status', $validStatuses);
                                 })
                                     ->with([
-                                        'children' => function ($q3) use ($project, $validStatuses) {
-                                            $q3->whereHas('projects', function ($pq) use ($project, $validStatuses) {
-                                                $pq->where('project_id', $project->id)
-                                                    ->whereIn('project_schedule_assignments.status', $validStatuses);
+                                        'children' => function ($q3) use ($contract, $validStatuses) {
+                                            $q3->whereHas('contracts', function ($pq) use ($contract, $validStatuses) {
+                                                $pq->where('contract_id', $contract->id)
+                                                    ->whereIn('contract_schedule_assignments.status', $validStatuses);
                                             })
                                                 ->with([
-                                                    'projects' => fn ($qp) => $qp->where('project_id', $project->id),
+                                                    'contracts' => fn($qp) => $qp->where('contract_id', $contract->id),
                                                 ])
                                                 ->withCount('children');
                                         },
-                                        'projects' => fn ($qp) => $qp->where('project_id', $project->id),
+                                        'contracts' => fn($qp) => $qp->where('contract_id', $contract->id),
                                     ])
                                     ->withCount('children');
                             },
-                            'projects' => fn ($qp) => $qp->where('project_id', $project->id),
+                            'contracts' => fn($qp) => $qp->where('contract_id', $contract->id),
                         ])
                         ->withCount('children');
                 },
-                'projects' => fn ($q) => $q->where('project_id', $project->id),
+                'contracts' => fn($q) => $q->where('contract_id', $contract->id),
             ])
             ->withCount('children')
             ->get();
@@ -146,12 +146,12 @@ class ProjectActivityScheduleController extends Controller
             $this->calculateAggregatedProgressForTree($schedule);
         }
 
-        return view('admin.schedules.tree', compact('project', 'topLevelSchedules'));
+        return view('admin.schedules.tree', compact('contract', 'topLevelSchedules'));
     }
 
     private function calculateAggregatedProgressForTree($schedule): ?float
     {
-        $assignment = $schedule->projects->first();
+        $assignment = $schedule->contracts->first();
         $validStatuses = ['active', 'completed'];
 
         if ($schedule->children_count === 0) {
@@ -194,19 +194,19 @@ class ProjectActivityScheduleController extends Controller
         return $aggregatedProgress;
     }
 
-    public function dashboard(Project $project): View
+    public function dashboard(contract $contract): View
     {
         $validStatuses = ['active', 'completed'];
 
-        $allSchedules = $project->activitySchedules()
+        $allSchedules = $contract->activitySchedules()
             ->select([
-                'project_activity_schedules.id',
-                'project_activity_schedules.code',
-                'project_activity_schedules.name',
-                'project_activity_schedules.description',
-                'project_activity_schedules.level',
-                'project_activity_schedules.weightage',
-                'project_activity_schedules.parent_id',
+                'contract_activity_schedules.id',
+                'contract_activity_schedules.code',
+                'contract_activity_schedules.name',
+                'contract_activity_schedules.description',
+                'contract_activity_schedules.level',
+                'contract_activity_schedules.weightage',
+                'contract_activity_schedules.parent_id',
             ])
             ->withPivot([
                 'progress',
@@ -232,7 +232,7 @@ class ProjectActivityScheduleController extends Controller
         $breakdown = [];
         foreach ($topLevel as $schedule) {
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
-            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
             $breakdown[] = [
                 'code' => $schedule->code,
@@ -248,7 +248,7 @@ class ProjectActivityScheduleController extends Controller
         foreach ($topLevel as $schedule) {
             $phaseWeightage = (float) $schedule->weightage;
             $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
-            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+            $phaseProgress = $leaves->isEmpty() ? 0 : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
             $totalWeightedProgress += ($phaseProgress * $phaseWeightage);
             $totalWeightage += $phaseWeightage;
@@ -261,9 +261,9 @@ class ProjectActivityScheduleController extends Controller
         // --- 2. Top Cards Statistics (Active Only) ---
         $validLeafSchedules = $leafSchedules->whereIn('pivot.status', $validStatuses);
 
-        $completed = $validLeafSchedules->filter(fn ($s) => $s->pivot->progress >= 100)->count();
-        $inProgress = $validLeafSchedules->filter(fn ($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
-        $notStarted = $validLeafSchedules->filter(fn ($s) => $s->pivot->progress == 0)->count();
+        $completed = $validLeafSchedules->filter(fn($s) => $s->pivot->progress >= 100)->count();
+        $inProgress = $validLeafSchedules->filter(fn($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
+        $notStarted = $validLeafSchedules->filter(fn($s) => $s->pivot->progress == 0)->count();
 
         $totalLeaves = $validLeafSchedules->count();
         $totalAllSchedules = $allSchedules->whereIn('pivot.status', $validStatuses)->count();
@@ -277,13 +277,13 @@ class ProjectActivityScheduleController extends Controller
             'completion_rate' => $totalLeaves > 0 ? round(($completed / $totalLeaves) * 100, 2) : 0,
         ];
 
-        $chartCompleted = $leafSchedules->filter(fn ($s) => $s->pivot->progress >= 100)->count();
-        $chartInProgress = $leafSchedules->filter(fn ($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
-        $chartNotStarted = $leafSchedules->filter(fn ($s) => $s->pivot->progress == 0)->count();
+        $chartCompleted = $leafSchedules->filter(fn($s) => $s->pivot->progress >= 100)->count();
+        $chartInProgress = $leafSchedules->filter(fn($s) => $s->pivot->progress > 0 && $s->pivot->progress < 100)->count();
+        $chartNotStarted = $leafSchedules->filter(fn($s) => $s->pivot->progress == 0)->count();
         $chartTotal = $leafSchedules->count();
 
         return view('admin.schedules.dashboard', compact(
-            'project',
+            'contract',
             'breakdown',
             'overallProgress',
             'statistics',
@@ -297,31 +297,31 @@ class ProjectActivityScheduleController extends Controller
     //  ASSIGN / EDIT / UPDATE SCHEDULES
     // ─────────────────────────────────────────────────────────────
 
-    public function assignForm(Project $project): View
+    public function assignForm(contract $contract): View
     {
-        $projectTypes = ProjectType::orderBy('sort_order')
+        $contractTypes = ContractType::orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
 
-        $hasSchedules = $project->activitySchedules()->exists();
+        $hasSchedules = $contract->activitySchedules()->exists();
 
-        return view('admin.schedules.assign', compact('project', 'hasSchedules', 'projectTypes'));
+        return view('admin.schedules.assign', compact('contract', 'hasSchedules', 'contractTypes'));
     }
 
-    public function assign(Request $request, Project $project): RedirectResponse
+    public function assign(Request $request, contract $contract): RedirectResponse
     {
         $request->validate([
-            'project_type_id' => 'required|exists:project_types,id',
+            'contract_type_id' => 'required|exists:contract_types,id',
         ]);
 
         DB::beginTransaction();
         try {
-            $schedules = ProjectActivitySchedule::forProjectType($request->project_type_id)
+            $schedules = contractActivitySchedule::forcontractType($request->contract_type_id)
                 ->ordered()
                 ->get();
 
-            $project->activitySchedules()->detach();
+            $contract->activitySchedules()->detach();
 
             $syncData = [];
             foreach ($schedules as $schedule) {
@@ -337,29 +337,29 @@ class ProjectActivityScheduleController extends Controller
                 ];
             }
 
-            $project->activitySchedules()->attach($syncData);
+            $contract->activitySchedules()->attach($syncData);
 
-            $this->scheduleService->syncDependencies($project->id);
+            $this->scheduleService->syncDependencies($contract->id);
 
             DB::commit();
 
             return redirect()
-                ->route('admin.projects.schedules.index', $project)
-                ->with('success', "Successfully assigned {$schedules->count()} schedules to project.");
+                ->route('admin.contracts.schedules.index', $contract)
+                ->with('success', "Successfully assigned {$schedules->count()} schedules to contract.");
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to assign schedules: '.$e->getMessage());
+            return back()->with('error', 'Failed to assign schedules: ' . $e->getMessage());
         }
     }
 
-    public function edit(Project $project, ProjectActivitySchedule $schedule): View
+    public function edit(contract $contract, contractActivitySchedule $schedule): View
     {
-        if (! $project->activitySchedules->contains($schedule->id)) {
-            abort(404, 'Schedule not assigned to this project');
+        if (! $contract->activitySchedules->contains($schedule->id)) {
+            abort(404, 'Schedule not assigned to this contract');
         }
 
-        $assignment = $project->activitySchedules()
+        $assignment = $contract->activitySchedules()
             ->where('schedule_id', $schedule->id)
             ->withPivot([
                 'progress',
@@ -377,19 +377,19 @@ class ProjectActivityScheduleController extends Controller
             ->first();
 
         if (! $assignment) {
-            abort(404, 'Schedule not assigned to this project');
+            abort(404, 'Schedule not assigned to this contract');
         }
 
-        return view('admin.schedules.edit', compact('project', 'schedule', 'assignment'));
+        return view('admin.schedules.edit', compact('contract', 'schedule', 'assignment'));
     }
 
-    public function update(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
+    public function update(Request $request, contract $contract, contractActivitySchedule $schedule): RedirectResponse
     {
-        if (! $project->activitySchedules->contains($schedule->id)) {
-            return redirect()->back()->with('error', 'Schedule not found in this project.');
+        if (! $contract->activitySchedules->contains($schedule->id)) {
+            return redirect()->back()->with('error', 'Schedule not found in this contract.');
         }
 
-        $pivotData = $project->activitySchedules()->where('schedule_id', $schedule->id)->first()->pivot;
+        $pivotData = $contract->activitySchedules()->where('schedule_id', $schedule->id)->first()->pivot;
 
         if (
             $request->filled('progress') &&
@@ -463,18 +463,18 @@ class ProjectActivityScheduleController extends Controller
             $nowCompleted = $updateData['progress'] >= 100;
             $justCompleted = ! $wasCompleted && $nowCompleted;
 
-            $project->activitySchedules()->updateExistingPivot($schedule->id, $updateData);
+            $contract->activitySchedules()->updateExistingPivot($schedule->id, $updateData);
 
             if ((float) $previousProgress != (float) $updateData['progress']) {
-                event(new ScheduleProgressUpdated($project, $schedule, array_merge($updateData, [
+                event(new ScheduleProgressUpdated($contract, $schedule, array_merge($updateData, [
                     'previous_progress' => $previousProgress,
                 ])));
             }
 
-            $project->updatePhysicalProgress();
+            $contract->updatePhysicalProgress();
 
             if ($actualDatesChanged || $justCompleted) {
-                $this->scheduleService->rippleDates($project->id, $schedule->id);
+                $this->scheduleService->rippleDates($contract->id, $schedule->id);
                 $message = 'Schedule updated and timeline recalculated!';
             } else {
                 $message = 'Schedule updated successfully';
@@ -483,20 +483,20 @@ class ProjectActivityScheduleController extends Controller
             DB::commit();
 
             return redirect()
-                ->route('admin.projects.schedules.index', $project)
+                ->route('admin.contracts.schedules.index', $contract)
                 ->with('success', $message);
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->withInput()->with('error', 'Failed to update schedule: '.$e->getMessage());
+            return back()->withInput()->with('error', 'Failed to update schedule: ' . $e->getMessage());
         }
     }
 
-    public function quickUpdate(Project $project): View
+    public function quickUpdate(contract $contract): View
     {
-        $allSchedules = $project->activitySchedules()
+        $allSchedules = $contract->activitySchedules()
             ->select([
-                'project_activity_schedules.id',
+                'contract_activity_schedules.id',
                 'code',
                 'name',
                 'description',
@@ -555,14 +555,14 @@ class ProjectActivityScheduleController extends Controller
         $activeLeafCount = $activeLeaves->count();
         $missingDatesCount = $activeLeafCount - $sortedLeaves->flatten()->count();
 
-        return view('admin.schedules.quick-update', compact('project', 'leafSchedules', 'allSchedules', 'missingDatesCount', 'totalLeafCount', 'activeLeafCount'));
+        return view('admin.schedules.quick-update', compact('contract', 'leafSchedules', 'allSchedules', 'missingDatesCount', 'totalLeafCount', 'activeLeafCount'));
     }
 
-    public function bulkUpdate(Request $request, Project $project): RedirectResponse
+    public function bulkUpdate(Request $request, contract $contract): RedirectResponse
     {
         $request->validate([
             'schedules' => 'required|array',
-            'schedules.*.id' => 'required|exists:project_activity_schedules,id',
+            'schedules.*.id' => 'required|exists:contract_activity_schedules,id',
             'schedules.*.progress' => 'required|numeric|min:0|max:100',
             'schedules.*.use_quantity_tracking' => 'nullable|boolean',
             'schedules.*.target_quantity' => 'nullable|numeric|min:0',
@@ -575,8 +575,8 @@ class ProjectActivityScheduleController extends Controller
             $updatedCount = 0;
 
             foreach ($request->schedules as $scheduleData) {
-                $assignment = DB::table('project_schedule_assignments')
-                    ->where('project_id', $project->id)
+                $assignment = DB::table('contract_schedule_assignments')
+                    ->where('contract_id', $contract->id)
                     ->where('schedule_id', $scheduleData['id'])
                     ->first();
 
@@ -612,15 +612,15 @@ class ProjectActivityScheduleController extends Controller
                     $updateData['status'] = 'completed';
                 }
 
-                $updated = DB::table('project_schedule_assignments')
-                    ->where('project_id', $project->id)
+                $updated = DB::table('contract_schedule_assignments')
+                    ->where('contract_id', $contract->id)
                     ->where('schedule_id', $scheduleData['id'])
                     ->update($updateData);
 
                 if ($updated) {
                     if ((float) $previousProgress != (float) $updateData['progress']) {
-                        $schedule = ProjectActivitySchedule::find($scheduleData['id']);
-                        event(new ScheduleProgressUpdated($project, $schedule, array_merge($updateData, [
+                        $schedule = contractActivitySchedule::find($scheduleData['id']);
+                        event(new ScheduleProgressUpdated($contract, $schedule, array_merge($updateData, [
                             'previous_progress' => $previousProgress,
                         ])));
                     }
@@ -628,47 +628,47 @@ class ProjectActivityScheduleController extends Controller
                 }
             }
 
-            $project->updatePhysicalProgress();
+            $contract->updatePhysicalProgress();
 
             DB::commit();
 
             return redirect()
-                ->route('admin.projects.schedules.index', $project)
+                ->route('admin.contracts.schedules.index', $contract)
                 ->with('success', "Successfully updated {$updatedCount} activities.");
         } catch (\Exception $e) {
             DB::rollBack();
 
             return back()
                 ->withInput()
-                ->with('error', 'Failed to update: '.$e->getMessage());
+                ->with('error', 'Failed to update: ' . $e->getMessage());
         }
     }
 
-    // public function editSchedule(Project $project, ProjectActivitySchedule $schedule): View
+    // public function editSchedule(contract $contract, contractActivitySchedule $schedule): View
     // {
-    //     $assignment = $project->activitySchedules()
+    //     $assignment = $contract->activitySchedules()
     //         ->where('schedule_id', $schedule->id)
     //         ->first();
 
     //     if (!$assignment) {
-    //         abort(404, 'Schedule not assigned to this project');
+    //         abort(404, 'Schedule not assigned to this contract');
     //     }
 
-    //     $parentSchedules = $project->activitySchedules()
+    //     $parentSchedules = $contract->activitySchedules()
     //         ->where('schedule_id', '!=', $schedule->id)
     //         ->orderBy('sort_order')
     //         ->get();
 
-    //     return view('admin.schedules.edit-schedule', compact('project', 'schedule', 'assignment', 'parentSchedules'));
+    //     return view('admin.schedules.edit-schedule', compact('contract', 'schedule', 'assignment', 'parentSchedules'));
     // }
 
-    // public function updateSchedule(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
+    // public function updateSchedule(Request $request, contract $contract, contractActivitySchedule $schedule): RedirectResponse
     // {
     //     $request->validate([
-    //         'code' => 'required|string|max:50|unique:project_activity_schedules,code,' . $schedule->id,
+    //         'code' => 'required|string|max:50|unique:contract_activity_schedules,code,' . $schedule->id,
     //         'name' => 'required|string|max:255',
     //         'description' => 'nullable|string',
-    //         'parent_id' => 'nullable|exists:project_activity_schedules,id',
+    //         'parent_id' => 'nullable|exists:contract_activity_schedules,id',
     //         'weightage' => 'nullable|numeric|min:0|max:100',
     //         'sort_order' => 'nullable|integer',
     //     ]);
@@ -677,7 +677,7 @@ class ProjectActivityScheduleController extends Controller
     //     try {
     //         $level = 1;
     //         if ($request->parent_id) {
-    //             $parent = ProjectActivitySchedule::find($request->parent_id);
+    //             $parent = contractActivitySchedule::find($request->parent_id);
     //             $level = $parent->level + 1;
     //         }
 
@@ -694,7 +694,7 @@ class ProjectActivityScheduleController extends Controller
     //         DB::commit();
 
     //         return redirect()
-    //             ->route('admin.projects.schedules.index', $project)
+    //             ->route('admin.contracts.schedules.index', $contract)
     //             ->with('success', 'Schedule updated successfully');
     //     } catch (\Exception $e) {
     //         DB::rollBack();
@@ -708,7 +708,7 @@ class ProjectActivityScheduleController extends Controller
     // DATE REVISIONS
     // ════════════════════════════════════════════════════════════
 
-    public function addDateRevision(Request $request, Project $project, ProjectActivitySchedule $schedule): RedirectResponse
+    public function addDateRevision(Request $request, contract $contract, contractActivitySchedule $schedule): RedirectResponse
     {
         $request->validate([
             'actual_start_date' => 'nullable|date',
@@ -717,8 +717,8 @@ class ProjectActivityScheduleController extends Controller
             'remarks' => 'nullable|string|max:1000',
         ]);
 
-        ProjectScheduleDateRevision::create([
-            'project_id' => $project->id,
+        contractScheduleDateRevision::create([
+            'contract_id' => $contract->id,
             'schedule_id' => $schedule->id,
             'actual_start_date' => $request->actual_start_date,
             'actual_end_date' => $request->actual_end_date,
@@ -727,18 +727,18 @@ class ProjectActivityScheduleController extends Controller
             'revised_by' => Auth::id(),
         ]);
 
-        $project->activitySchedules()->updateExistingPivot($schedule->id, [
+        $contract->activitySchedules()->updateExistingPivot($schedule->id, [
             'actual_start_date' => $request->actual_start_date,
             'actual_end_date' => $request->actual_end_date,
             'updated_at' => now(),
         ]);
 
-        $project->updatePhysicalProgress();
+        $contract->updatePhysicalProgress();
 
         return back()->with('success', 'Date revision added successfully');
     }
 
-    public function deleteDateRevision(Project $project, ProjectScheduleDateRevision $revision): RedirectResponse
+    public function deleteDateRevision(contract $contract, contractScheduleDateRevision $revision): RedirectResponse
     {
         $revision->delete();
 
@@ -749,14 +749,14 @@ class ProjectActivityScheduleController extends Controller
     // CHARTS
     // ════════════════════════════════════════════════════════════
 
-    public function charts(Project $project): View
+    public function charts(contract $contract): View
     {
-        return view('admin.schedules.charts', compact('project'));
+        return view('admin.schedules.charts', compact('contract'));
     }
 
-    public function burnChartData(Project $project): JsonResponse
+    public function burnChartData(contract $contract): JsonResponse
     {
-        $schedules = $project->leafSchedules()->get();
+        $schedules = $contract->leafSchedules()->get();
 
         $dates = [];
         $plannedProgress = [];
@@ -779,10 +779,10 @@ class ProjectActivityScheduleController extends Controller
         while ($currentDate->lte($endDate)) {
             $dates[] = $currentDate->format('Y-m-d');
 
-            $plannedAtDate = $this->calculatePlannedProgressAtDate($project, $currentDate);
+            $plannedAtDate = $this->calculatePlannedProgressAtDate($contract, $currentDate);
             $plannedProgress[] = $plannedAtDate;
 
-            $actualAtDate = $this->calculateActualProgressAtDate($project, $currentDate);
+            $actualAtDate = $this->calculateActualProgressAtDate($contract, $currentDate);
             $actualProgress[] = $actualAtDate;
 
             $currentDate->addDay();
@@ -795,22 +795,22 @@ class ProjectActivityScheduleController extends Controller
         ]);
     }
 
-    public function sCurveData(Project $project)
+    public function sCurveData(contract $contract)
     {
-        return $this->burnChartData($project);
+        return $this->burnChartData($contract);
     }
 
-    public function activityChartData(Project $project)
+    public function activityChartData(contract $contract)
     {
         try {
-            $allSchedules = $project->activitySchedules()
+            $allSchedules = $contract->activitySchedules()
                 ->with(['parent', 'children'])
                 ->get();
 
-            $leafSchedules = $allSchedules->filter(fn ($s) => $s->isLeaf());
+            $leafSchedules = $allSchedules->filter(fn($s) => $s->isLeaf());
 
-            $data = $leafSchedules->map(function ($schedule) use ($project) {
-                $revisions = ProjectScheduleDateRevision::where('project_id', $project->id)
+            $data = $leafSchedules->map(function ($schedule) use ($contract) {
+                $revisions = contractScheduleDateRevision::where('contract_id', $contract->id)
                     ->where('schedule_id', $schedule->id)
                     ->orderBy('created_at')
                     ->get();
@@ -822,7 +822,7 @@ class ProjectActivityScheduleController extends Controller
                     'parent' => $schedule->parent ? $schedule->parent->name : null,
                     'planned_start' => $schedule->pivot->start_date,
                     'planned_end' => $schedule->pivot->end_date,
-                    'actual_dates' => $revisions->map(fn ($rev) => [
+                    'actual_dates' => $revisions->map(fn($rev) => [
                         'start' => $rev->actual_start_date,
                         'end' => $rev->actual_end_date,
                         'reason' => $rev->revision_reason,
@@ -837,13 +837,13 @@ class ProjectActivityScheduleController extends Controller
         }
     }
 
-    public function ganttData(Project $project)
+    public function ganttData(contract $contract)
     {
         try {
-            $schedules = $project->activitySchedules()
+            $schedules = $contract->activitySchedules()
                 ->with('children')
                 ->get()
-                ->filter(fn ($s) => $s->isLeaf())
+                ->filter(fn($s) => $s->isLeaf())
                 ->sortBy('code');
 
             if ($schedules->isEmpty()) {
@@ -855,7 +855,7 @@ class ProjectActivityScheduleController extends Controller
             $previousPhase = null;
 
             foreach ($schedules as $schedule) {
-                $cleanId = 'task_'.str_replace(['.', ' ', '/', '\\'], '_', (string) $schedule->code);
+                $cleanId = 'task_' . str_replace(['.', ' ', '/', '\\'], '_', (string) $schedule->code);
                 $currentPhase = explode('.', (string) $schedule->code)[0];
 
                 $start = $schedule->pivot->actual_start_date
@@ -900,7 +900,7 @@ class ProjectActivityScheduleController extends Controller
 
                 $tasks[] = [
                     'id' => $cleanId,
-                    'name' => (string) $schedule->code.': '.$schedule->name,
+                    'name' => (string) $schedule->code . ': ' . $schedule->name,
                     'start' => $start,
                     'end' => $end,
                     'progress' => $progress,
@@ -937,9 +937,9 @@ class ProjectActivityScheduleController extends Controller
     // HELPER METHODS
     // ════════════════════════════════════════════════════════════
 
-    private function calculatePlannedProgressAtDate(Project $project, $date)
+    private function calculatePlannedProgressAtDate(contract $contract, $date)
     {
-        $schedules = $project->leafSchedules()->get();
+        $schedules = $contract->leafSchedules()->get();
         $totalWeight = $schedules->count();
 
         if ($totalWeight === 0) {
@@ -969,9 +969,9 @@ class ProjectActivityScheduleController extends Controller
         return round($progressSum / $totalWeight, 2);
     }
 
-    private function calculateActualProgressAtDate(Project $project, $date)
+    private function calculateActualProgressAtDate(contract $contract, $date)
     {
-        $schedules = $project->leafSchedules()->get();
+        $schedules = $contract->leafSchedules()->get();
         $totalWeight = $schedules->count();
 
         if ($totalWeight === 0) {
@@ -980,7 +980,7 @@ class ProjectActivityScheduleController extends Controller
 
         $progressSum = 0;
         foreach ($schedules as $schedule) {
-            $revision = ProjectScheduleDateRevision::where('project_id', $project->id)
+            $revision = contractScheduleDateRevision::where('contract_id', $contract->id)
                 ->where('schedule_id', $schedule->id)
                 ->where('created_at', '<=', $date)
                 ->latest('created_at')
@@ -1019,37 +1019,37 @@ class ProjectActivityScheduleController extends Controller
 
         $roleIds = $user->roles()->pluck('id')->toArray();
 
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
 
         $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return view('admin.schedules.analytics', [
-                'projects' => collect([]),
+                'contracts' => collect([]),
                 'statistics' => $this->getEmptyStatistics(),
-                'projectProgress' => [],
+                'contractProgress' => [],
                 'phaseBreakdown' => collect([]),
                 'directoratePerformance' => [],
                 'recentFiles' => collect([]),
                 'viewLevel' => $this->getUserViewLevel($roleIds),
                 'userDirectorate' => $user->directorate,
-                'projectList' => collect([]),
+                'contractList' => collect([]),
                 'directorates' => collect([]),
             ]);
         }
 
-        $allProjects = Project::whereIn('id', $accessibleProjectIds)
+        $allcontracts = contract::whereIn('id', $accessiblecontractIds)
             ->with([
                 'directorate:id,title',
                 'status:id,title,color',
                 'activitySchedules' => function ($q) {
                     $q->select([
-                        'project_activity_schedules.id',
-                        'project_activity_schedules.code',
-                        'project_activity_schedules.name',
-                        'project_activity_schedules.level',
-                        'project_activity_schedules.weightage',
-                        'project_activity_schedules.parent_id',
+                        'contract_activity_schedules.id',
+                        'contract_activity_schedules.code',
+                        'contract_activity_schedules.name',
+                        'contract_activity_schedules.level',
+                        'contract_activity_schedules.weightage',
+                        'contract_activity_schedules.parent_id',
                     ])
                         ->withPivot(['progress', 'status'])
                         ->withCount('children');
@@ -1057,20 +1057,20 @@ class ProjectActivityScheduleController extends Controller
             ])
             ->get();
 
-        $filteredProjects = $allProjects;
+        $filteredcontracts = $allcontracts;
 
         if ($request->filled('directorate_id')) {
-            $filteredProjects = $filteredProjects->where('directorate_id', $request->directorate_id);
+            $filteredcontracts = $filteredcontracts->where('directorate_id', $request->directorate_id);
         }
 
-        if ($request->filled('project_id')) {
-            $filteredProjects = $filteredProjects->where('id', $request->project_id);
+        if ($request->filled('contract_id')) {
+            $filteredcontracts = $filteredcontracts->where('id', $request->contract_id);
         }
 
         $perPage = 10;
         $currentPage = $request->get('page', 1);
-        $filteredArray = $filteredProjects->values()->all();
-        $paginatedProjects = new \Illuminate\Pagination\LengthAwarePaginator(
+        $filteredArray = $filteredcontracts->values()->all();
+        $paginatedcontracts = new \Illuminate\Pagination\LengthAwarePaginator(
             array_slice($filteredArray, ($currentPage - 1) * $perPage, $perPage),
             count($filteredArray),
             $perPage,
@@ -1078,20 +1078,20 @@ class ProjectActivityScheduleController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        $statistics = $this->calculateStatisticsFromCollection($allProjects);
-        $projectProgress = $this->formatProjectProgressFromCollection($paginatedProjects);
+        $statistics = $this->calculateStatisticsFromCollection($allcontracts);
+        $contractProgress = $this->formatcontractProgressFromCollection($paginatedcontracts);
 
-        $phaseBreakdown = $this->calculatePhaseBreakdownFromCollection($filteredProjects);
+        $phaseBreakdown = $this->calculatePhaseBreakdownFromCollection($filteredcontracts);
 
         $directoratePerformance = $this->calculateDirectoratePerformanceFromCollection(
-            $allProjects,
+            $allcontracts,
             $accessibleDirectorateIds
         );
 
-        $filteredProjectIds = $filteredProjects->pluck('id')->toArray();
-        $recentFiles = ProjectScheduleFile::whereIn('project_id', $filteredProjectIds)
+        $filteredcontractIds = $filteredcontracts->pluck('id')->toArray();
+        $recentFiles = contractScheduleFile::whereIn('contract_id', $filteredcontractIds)
             ->with([
-                'project:id,title',
+                'contract:id,title',
                 'uploadedBy:id,name',
             ])
             ->latest()
@@ -1103,20 +1103,20 @@ class ProjectActivityScheduleController extends Controller
             ->orderBy('title')
             ->get();
 
-        $projectList = $allProjects->map(fn ($p) => [
+        $contractList = $allcontracts->map(fn($p) => [
             'id' => $p->id,
             'title' => $p->title,
             'directorate_id' => $p->directorate_id,
         ]);
 
         $viewData = [
-            'projects' => $paginatedProjects,
-            'projectProgress' => $projectProgress,
+            'contracts' => $paginatedcontracts,
+            'contractProgress' => $contractProgress,
             'phaseBreakdown' => $phaseBreakdown,
             'recentFiles' => $recentFiles,
             'statistics' => $statistics,
             'directoratePerformance' => $directoratePerformance,
-            'projectList' => $projectList,
+            'contractList' => $contractList,
             'directorates' => $directorates,
             'viewLevel' => $this->getUserViewLevel($roleIds),
             'userDirectorate' => $accessibleDirectorateIds,
@@ -1124,7 +1124,7 @@ class ProjectActivityScheduleController extends Controller
 
         if ($request->ajax()) {
             return response()->json([
-                'table' => view('admin.schedules.partials._projects_table', $viewData)->render(),
+                'table' => view('admin.schedules.partials._contracts_table', $viewData)->render(),
                 'phases' => view('admin.schedules.partials._phase_breakdown', $viewData)->render(),
                 'files' => view('admin.schedules.partials._recent_files', $viewData)->render(),
             ]);
@@ -1136,20 +1136,20 @@ class ProjectActivityScheduleController extends Controller
     public function allFiles(Request $request)
     {
         $user = Auth::user();
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return view('admin.schedules.all-files', [
                 'files' => collect([]),
-                'projects' => collect([]),
+                'contracts' => collect([]),
             ]);
         }
 
-        $query = ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
-            ->with(['project.directorate', 'schedule', 'uploadedBy']);
+        $query = contractScheduleFile::whereIn('contract_id', $accessiblecontractIds)
+            ->with(['contract.directorate', 'schedule', 'uploadedBy']);
 
-        if ($request->filled('project_id') && in_array($request->project_id, $accessibleProjectIds)) {
-            $query->where('project_id', $request->project_id);
+        if ($request->filled('contract_id') && in_array($request->contract_id, $accessiblecontractIds)) {
+            $query->where('contract_id', $request->contract_id);
         }
 
         if ($request->filled('file_type')) {
@@ -1158,12 +1158,12 @@ class ProjectActivityScheduleController extends Controller
 
         $files = $query->latest()->paginate(20);
 
-        $projects = Project::whereIn('id', $accessibleProjectIds)
+        $contracts = contract::whereIn('id', $accessiblecontractIds)
             ->with('directorate')
             ->orderBy('title')
             ->get();
 
-        return view('admin.schedules.all-files', compact('files', 'projects'));
+        return view('admin.schedules.all-files', compact('files', 'contracts'));
     }
 
     public function analyticsCharts(Request $request)
@@ -1172,18 +1172,18 @@ class ProjectActivityScheduleController extends Controller
 
         $roleIds = $user->roles()->pluck('id')->toArray();
 
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
         $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return view('admin.schedules.analytics-charts', [
-                'projects' => collect([]),
+                'contracts' => collect([]),
                 'directorates' => collect([]),
                 'viewLevel' => $this->getUserViewLevel($roleIds),
             ]);
         }
 
-        $projects = Project::whereIn('id', $accessibleProjectIds)
+        $contracts = contract::whereIn('id', $accessiblecontractIds)
             ->with(['directorate', 'activitySchedules'])
             ->get();
 
@@ -1192,7 +1192,7 @@ class ProjectActivityScheduleController extends Controller
         $viewLevel = $this->getUserViewLevel($roleIds);
 
         return view('admin.schedules.analytics-charts', compact(
-            'projects',
+            'contracts',
             'directorates',
             'viewLevel'
         ));
@@ -1204,32 +1204,32 @@ class ProjectActivityScheduleController extends Controller
 
         $roleIds = $user->roles()->pluck('id')->toArray();
 
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
         $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return view('admin.schedules.overview', [
-                'projects' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12),
+                'contracts' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12),
                 'statistics' => $this->getEmptyStatistics(),
                 'directorates' => collect([]),
-                'allProjects' => collect([]),
+                'allContracts' => collect([]),
                 'viewLevel' => $this->getUserViewLevel($roleIds),
             ]);
         }
 
-        $allProjects = Project::whereIn('id', $accessibleProjectIds)
+        $allContracts = Contract::whereIn('id', $accessiblecontractIds)
             ->select(['id', 'title', 'directorate_id', 'status_id'])
             ->with([
                 'directorate:id,title',
                 'status:id,title,color',
                 'activitySchedules' => function ($q) {
                     $q->select([
-                        'project_activity_schedules.id',
-                        'project_activity_schedules.code',
-                        'project_activity_schedules.name',
-                        'project_activity_schedules.level',
-                        'project_activity_schedules.weightage',
-                        'project_activity_schedules.parent_id',
+                        'contract_activity_schedules.id',
+                        'contract_activity_schedules.code',
+                        'contract_activity_schedules.name',
+                        'contract_activity_schedules.level',
+                        'contract_activity_schedules.weightage',
+                        'contract_activity_schedules.parent_id',
                     ])
                         ->with([
                             'children:id,parent_id',
@@ -1240,26 +1240,26 @@ class ProjectActivityScheduleController extends Controller
             ])
             ->get();
 
-        $filteredProjects = $allProjects;
+        $filteredContracts = $allContracts;
 
         if ($request->filled('directorate_id')) {
             $directorateId = $request->directorate_id;
             if (in_array($directorateId, $accessibleDirectorateIds)) {
-                $filteredProjects = $filteredProjects->where('directorate_id', $directorateId);
+                $filteredContracts = $filteredContracts->where('directorate_id', $directorateId);
             }
         }
 
-        if ($request->filled('project_id')) {
-            $projectId = $request->project_id;
-            if (in_array($projectId, $accessibleProjectIds)) {
-                $filteredProjects = $filteredProjects->where('id', $projectId);
+        if ($request->filled('contract_id')) {
+            $contractId = $request->contract_id;
+            if (in_array($contractId, $accessiblecontractIds)) {
+                $filteredContracts = $filteredContracts->where('id', $contractId);
             }
         }
 
         if ($request->filled('status')) {
             $status = $request->status;
-            $filteredProjects = $filteredProjects->filter(function ($project) use ($status) {
-                $progress = $this->calculateProjectProgressFromLoaded($project);
+            $filteredContracts = $filteredContracts->filter(function ($contract) use ($status) {
+                $progress = $this->calculatecontractProgressFromLoaded($contract);
 
                 return match ($status) {
                     'completed' => $progress >= 100,
@@ -1272,31 +1272,31 @@ class ProjectActivityScheduleController extends Controller
 
         $perPage = 12;
         $currentPage = $request->get('page', 1);
-        $filteredArray = $filteredProjects->values()->all();
+        $filteredArray = $filteredContracts->values()->all();
         $paginatedArray = array_slice($filteredArray, ($currentPage - 1) * $perPage, $perPage);
 
-        foreach ($paginatedArray as $project) {
-            $project->cached_progress = $this->calculateProjectProgressFromLoaded($project);
+        foreach ($paginatedArray as $contract) {
+            $contract->cached_progress = $this->calculatecontractProgressFromLoaded($contract);
 
-            $allSchedules = $project->activitySchedules;
+            $allSchedules = $contract->activitySchedules;
 
             $validStatuses = ['active', 'completed'];
 
-            $project->cached_total_schedules = $allSchedules
+            $contract->cached_total_schedules = $allSchedules
                 ->whereIn('pivot.status', $validStatuses)
                 ->count();
 
-            $leafSchedules = $allSchedules->filter(fn ($s) => $s->children_count === 0);
+            $leafSchedules = $allSchedules->filter(fn($s) => $s->children_count === 0);
             $validLeafSchedules = $leafSchedules->whereIn('pivot.status', $validStatuses);
 
-            $project->cached_leaf_total = $validLeafSchedules->count();
+            $contract->cached_leaf_total = $validLeafSchedules->count();
 
-            $project->cached_leaf_completed = $validLeafSchedules->filter(
-                fn ($s) => $s->pivot->progress >= 100
+            $contract->cached_leaf_completed = $validLeafSchedules->filter(
+                fn($s) => $s->pivot->progress >= 100
             )->count();
         }
 
-        $paginatedProjects = new \Illuminate\Pagination\LengthAwarePaginator(
+        $paginatedcontracts = new \Illuminate\Pagination\LengthAwarePaginator(
             $paginatedArray,
             count($filteredArray),
             $perPage,
@@ -1304,33 +1304,33 @@ class ProjectActivityScheduleController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        $statistics = $this->calculateOverviewStatisticsFromCollection($allProjects);
+        $statistics = $this->calculateOverviewStatisticsFromCollection($allContracts);
 
         $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
             ->select('id', 'title')
             ->orderBy('title')
             ->get();
 
-        $projectListForFilter = $allProjects;
+        $contractListForFilter = $allContracts;
         if ($request->filled('directorate_id')) {
-            $projectListForFilter = $projectListForFilter->where('directorate_id', $request->directorate_id);
+            $contractListForFilter = $contractListForFilter->where('directorate_id', $request->directorate_id);
         }
 
         return view('admin.schedules.overview', [
-            'projects' => $paginatedProjects,
+            'contracts' => $paginatedcontracts,
             'statistics' => $statistics,
             'directorates' => $directorates,
-            'allProjects' => $projectListForFilter,
+            'allContracts' => $contractListForFilter,
             'viewLevel' => $this->getUserViewLevel($roleIds),
         ]);
     }
 
-    public function apiProjectsByDirectorate(Request $request)
+    public function apicontractsByDirectorate(Request $request)
     {
         $user = Auth::user();
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
 
-        $query = Project::whereIn('id', $accessibleProjectIds)
+        $query = contract::whereIn('id', $accessiblecontractIds)
             ->with('directorate')
             ->orderBy('title');
 
@@ -1343,33 +1343,33 @@ class ProjectActivityScheduleController extends Controller
             }
         }
 
-        $projects = $query->get()->map(function ($project) {
+        $contracts = $query->get()->map(function ($contract) {
             return [
-                'id' => $project->id,
-                'title' => $project->title,
-                'directorate' => $project->directorate?->title,
+                'id' => $contract->id,
+                'title' => $contract->title,
+                'directorate' => $contract->directorate?->title,
             ];
         });
 
-        return response()->json($projects);
+        return response()->json($contracts);
     }
 
-    public function apiProjectsComparison(Request $request)
+    public function apicontractsComparison(Request $request)
     {
         $user = Auth::user();
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
 
-        $projects = Project::whereIn('id', $accessibleProjectIds)
+        $contracts = contract::whereIn('id', $accessiblecontractIds)
             ->with([
                 'directorate',
                 'activitySchedules' => function ($q) {
                     $q->select([
-                        'project_activity_schedules.id',
-                        'project_activity_schedules.code',
-                        'project_activity_schedules.name',
-                        'project_activity_schedules.level',
-                        'project_activity_schedules.weightage',
-                        'project_activity_schedules.parent_id',
+                        'contract_activity_schedules.id',
+                        'contract_activity_schedules.code',
+                        'contract_activity_schedules.name',
+                        'contract_activity_schedules.level',
+                        'contract_activity_schedules.weightage',
+                        'contract_activity_schedules.parent_id',
                     ])
                         ->withPivot(['progress', 'status'])
                         ->withCount('children');
@@ -1377,10 +1377,10 @@ class ProjectActivityScheduleController extends Controller
             ])
             ->get();
 
-        $data = $projects->map(function ($project) {
-            $overallProgress = $this->calculateProjectProgressFromLoaded($project);
+        $data = $contracts->map(function ($contract) {
+            $overallProgress = $this->calculatecontractProgressFromLoaded($contract);
 
-            $allSchedules = $project->activitySchedules;
+            $allSchedules = $contract->activitySchedules;
             $activeSchedules = $allSchedules->where('pivot.status', 'active');
             $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
 
@@ -1389,7 +1389,7 @@ class ProjectActivityScheduleController extends Controller
                 $leaves = $this->collectLeavesFromCollection($schedule, $activeSchedules);
                 $phaseProgress = $leaves->isEmpty()
                     ? 0
-                    : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+                    : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
                 $phases[] = [
                     'code' => $schedule->code,
@@ -1399,8 +1399,8 @@ class ProjectActivityScheduleController extends Controller
             }
 
             return [
-                'project' => $project->title,
-                'directorate' => $project->directorate?->title ?? 'N/A',
+                'contract' => $contract->title,
+                'directorate' => $contract->directorate?->title ?? 'N/A',
                 'overall_progress' => $overallProgress,
                 'phases' => $phases,
             ];
@@ -1426,26 +1426,26 @@ class ProjectActivityScheduleController extends Controller
         $accessibleDirectorateIds = RoleBasedAccess::getAccessibleDirectorateIds($user);
 
         $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
-            ->with(['projects.activitySchedules'])
+            ->with(['contracts.activitySchedules'])
             ->get();
 
         $data = $directorates->map(function ($directorate) {
-            $projects = $directorate->projects;
-            $count = $projects->count();
+            $contracts = $directorate->contracts;
+            $count = $contracts->count();
 
             if ($count === 0) {
                 return [
                     'directorate' => $directorate->title,
-                    'total_projects' => 0,
+                    'total_contracts' => 0,
                     'average_progress' => 0,
                 ];
             }
 
-            $totalProgress = $projects->sum(fn ($p) => $p->calculatePhysicalProgress());
+            $totalProgress = $contracts->sum(fn($p) => $p->calculatePhysicalProgress());
 
             return [
                 'directorate' => $directorate->title,
-                'total_projects' => $count,
+                'total_contracts' => $count,
                 'average_progress' => round($totalProgress / $count, 2),
             ];
         });
@@ -1453,22 +1453,22 @@ class ProjectActivityScheduleController extends Controller
         return response()->json($data);
     }
 
-    public function apiTopProjects(Request $request)
+    public function apiTopcontracts(Request $request)
     {
         $user = Auth::user();
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds($user);
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds($user);
 
-        $projects = Project::whereIn('id', $accessibleProjectIds)
+        $contracts = contract::whereIn('id', $accessiblecontractIds)
             ->with([
                 'directorate',
                 'activitySchedules' => function ($q) {
                     $q->select([
-                        'project_activity_schedules.id',
-                        'project_activity_schedules.code',
-                        'project_activity_schedules.name',
-                        'project_activity_schedules.level',
-                        'project_activity_schedules.weightage',
-                        'project_activity_schedules.parent_id',
+                        'contract_activity_schedules.id',
+                        'contract_activity_schedules.code',
+                        'contract_activity_schedules.name',
+                        'contract_activity_schedules.level',
+                        'contract_activity_schedules.weightage',
+                        'contract_activity_schedules.parent_id',
                     ])
                         ->withPivot(['progress', 'status'])
                         ->withCount('children');
@@ -1476,60 +1476,60 @@ class ProjectActivityScheduleController extends Controller
             ])
             ->get();
 
-        $projectData = $projects->map(function ($project) {
+        $contractData = $contracts->map(function ($contract) {
             return [
-                'id' => $project->id,
-                'title' => $project->title,
-                'directorate' => $project->directorate?->title ?? 'N/A',
-                'progress' => $this->calculateProjectProgressFromLoaded($project),
+                'id' => $contract->id,
+                'title' => $contract->title,
+                'directorate' => $contract->directorate?->title ?? 'N/A',
+                'progress' => $this->calculatecontractProgressFromLoaded($contract),
             ];
         });
 
         return response()->json(
-            $projectData->sortByDesc('progress')->take(10)->values()
+            $contractData->sortByDesc('progress')->take(10)->values()
         );
     }
 
-    private function calculateGlobalPhaseBreakdown(array $projectIds)
+    private function calculateGlobalPhaseBreakdown(array $contractIds)
     {
-        $phases = ProjectActivitySchedule::where('level', 1)
-            ->with(['childrenRecursive.projects' => function ($q) use ($projectIds) {
-                $q->whereIn('projects.id', $projectIds)->withPivot('progress');
+        $phases = contractActivitySchedule::where('level', 1)
+            ->with(['childrenRecursive.contracts' => function ($q) use ($contractIds) {
+                $q->whereIn('contracts.id', $contractIds)->withPivot('progress');
             }])
             ->get();
 
         return $phases->groupBy('code')
-            ->map(function ($groupedSchedules, $code) use ($projectIds) {
+            ->map(function ($groupedSchedules, $code) use ($contractIds) {
                 $firstName = $groupedSchedules->first()->name;
                 $totalPhaseProgress = 0;
-                $activeProjectCount = 0;
+                $activecontractCount = 0;
 
-                foreach ($projectIds as $projectId) {
-                    $projectTotal = 0;
+                foreach ($contractIds as $contractId) {
+                    $contractTotal = 0;
                     $leafCount = 0;
 
                     foreach ($groupedSchedules as $schedule) {
                         $leaves = $schedule->getLeafSchedules();
                         foreach ($leaves as $leaf) {
-                            $assignment = $leaf->projects->firstWhere('id', $projectId);
+                            $assignment = $leaf->contracts->firstWhere('id', $contractId);
                             if ($assignment) {
-                                $projectTotal += (float) $assignment->pivot->progress;
+                                $contractTotal += (float) $assignment->pivot->progress;
                                 $leafCount++;
                             }
                         }
                     }
 
                     if ($leafCount > 0) {
-                        $totalPhaseProgress += ($projectTotal / $leafCount);
-                        $activeProjectCount++;
+                        $totalPhaseProgress += ($contractTotal / $leafCount);
+                        $activecontractCount++;
                     }
                 }
 
                 return [
                     'code' => $code,
                     'name' => $firstName,
-                    'average_progress' => $activeProjectCount > 0
-                        ? round($totalPhaseProgress / $activeProjectCount, 1)
+                    'average_progress' => $activecontractCount > 0
+                        ? round($totalPhaseProgress / $activecontractCount, 1)
                         : 0,
                 ];
             })
@@ -1547,38 +1547,38 @@ class ProjectActivityScheduleController extends Controller
             return 'directorate';
         }
 
-        return 'project';
+        return 'contract';
     }
 
     private function getEmptyStatistics(): array
     {
         return [
-            'total_projects' => 0,
+            'total_contracts' => 0,
             'total_schedules' => 0,
             'average_progress' => 0,
-            'completed_projects' => 0,
+            'completed_contracts' => 0,
             'total_files' => 0,
         ];
     }
 
-    private function formatProjectProgressData($projects): array
+    private function formatcontractProgressData($contracts): array
     {
         $formatted = [];
 
-        foreach ($projects as $project) {
-            $progress = $project->calculatePhysicalProgress();
+        foreach ($contracts as $contract) {
+            $progress = $contract->calculatePhysicalProgress();
 
-            $completedCount = $project->activitySchedules->filter(function ($schedule) {
+            $completedCount = $contract->activitySchedules->filter(function ($schedule) {
                 return (float) $schedule->pivot->progress >= 100;
             })->count();
 
             $formatted[] = [
-                'id' => $project->id,
-                'title' => $project->title,
-                'directorate' => $project->directorate?->title ?? 'N/A',
+                'id' => $contract->id,
+                'title' => $contract->title,
+                'directorate' => $contract->directorate?->title ?? 'N/A',
                 'progress' => $progress,
-                'status' => $project->status?->name ?? 'N/A',
-                'total_schedules' => $project->activitySchedules->count(),
+                'status' => $contract->status?->name ?? 'N/A',
+                'total_schedules' => $contract->activitySchedules->count(),
                 'completed_schedules' => $completedCount,
             ];
         }
@@ -1586,42 +1586,42 @@ class ProjectActivityScheduleController extends Controller
         return $formatted;
     }
 
-    private function getGlobalStats(array $accessibleProjectIds): array
+    private function getGlobalStats(array $accessiblecontractIds): array
     {
         return [
-            'total_projects' => count($accessibleProjectIds),
+            'total_contracts' => count($accessiblecontractIds),
 
-            'total_schedules' => DB::table('project_schedule_assignments')
-                ->whereIn('project_id', $accessibleProjectIds)
+            'total_schedules' => DB::table('contract_schedule_assignments')
+                ->whereIn('contract_id', $accessiblecontractIds)
                 ->count(),
 
-            'average_progress' => DB::table('project_schedule_assignments')
-                ->whereIn('project_id', $accessibleProjectIds)
+            'average_progress' => DB::table('contract_schedule_assignments')
+                ->whereIn('contract_id', $accessiblecontractIds)
                 ->avg('progress') ?? 0,
 
-            'total_files' => \App\Models\ProjectScheduleFile::whereIn('project_id', $accessibleProjectIds)
+            'total_files' => \App\Models\contractScheduleFile::whereIn('contract_id', $accessiblecontractIds)
                 ->count(),
         ];
     }
 
-    private function calculateDirectoratePerformance(array $accessibleDirectorateIds, array $accessibleProjectIds): array
+    private function calculateDirectoratePerformance(array $accessibleDirectorateIds, array $accessiblecontractIds): array
     {
         $performance = [];
         $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)->get();
 
         foreach ($directorates as $dir) {
-            $dirProjectIds = Project::where('directorate_id', $dir->id)
-                ->whereIn('id', $accessibleProjectIds)
+            $dircontractIds = contract::where('directorate_id', $dir->id)
+                ->whereIn('id', $accessiblecontractIds)
                 ->pluck('id');
 
-            if ($dirProjectIds->isNotEmpty()) {
-                $avgProgress = DB::table('project_schedule_assignments')
-                    ->whereIn('project_id', $dirProjectIds)
+            if ($dircontractIds->isNotEmpty()) {
+                $avgProgress = DB::table('contract_schedule_assignments')
+                    ->whereIn('contract_id', $dircontractIds)
                     ->avg('progress') ?? 0;
 
                 $performance[] = [
                     'title' => $dir->title,
-                    'total_projects' => $dirProjectIds->count(),
+                    'total_contracts' => $dircontractIds->count(),
                     'average_progress' => (float) $avgProgress,
                 ];
             }
@@ -1634,14 +1634,14 @@ class ProjectActivityScheduleController extends Controller
     {
         $validated = $request->validate([
             'schedules' => 'required|array',
-            'schedules.*.id' => 'required|exists:project_activity_schedules,id',
+            'schedules.*.id' => 'required|exists:contract_activity_schedules,id',
             'schedules.*.sort_order' => 'required|integer|min:0',
         ]);
 
         DB::beginTransaction();
         try {
             foreach ($validated['schedules'] as $scheduleData) {
-                ProjectActivitySchedule::where('id', $scheduleData['id'])
+                contractActivitySchedule::where('id', $scheduleData['id'])
                     ->update(['sort_order' => $scheduleData['sort_order']]);
             }
 
@@ -1656,7 +1656,7 @@ class ProjectActivityScheduleController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update order: '.$e->getMessage(),
+                'message' => 'Failed to update order: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1664,12 +1664,12 @@ class ProjectActivityScheduleController extends Controller
     public function renumberCodes(Request $request)
     {
         $validated = $request->validate([
-            'project_type' => 'required|in:transmission_line,substation',
+            'contract_type' => 'required|in:transmission_line,substation',
         ]);
 
         DB::beginTransaction();
         try {
-            $schedules = ProjectActivitySchedule::where('project_type', $validated['project_type'])
+            $schedules = contractActivitySchedule::where('contract_type', $validated['contract_type'])
                 ->whereNull('parent_id')
                 ->orderBy('sort_order')
                 ->orderBy('code')
@@ -1698,7 +1698,7 @@ class ProjectActivityScheduleController extends Controller
                 $newCode = $parentLetters[$parentCounter];
 
                 if ($schedule->code !== $newCode) {
-                    $exists = ProjectActivitySchedule::where('project_type', $validated['project_type'])
+                    $exists = contractActivitySchedule::where('contract_type', $validated['contract_type'])
                         ->where('code', $newCode)
                         ->where('id', '!=', $schedule->id)
                         ->exists();
@@ -1731,10 +1731,10 @@ class ProjectActivityScheduleController extends Controller
                 $counter = 1;
 
                 foreach ($phaseSchedules as $schedule) {
-                    $newCode = $phaseLetter.'.'.$counter;
+                    $newCode = $phaseLetter . '.' . $counter;
 
                     if ($schedule->code !== $newCode) {
-                        $exists = ProjectActivitySchedule::where('project_type', $validated['project_type'])
+                        $exists = contractActivitySchedule::where('contract_type', $validated['contract_type'])
                             ->where('code', $newCode)
                             ->where('id', '!=', $schedule->id)
                             ->exists();
@@ -1767,7 +1767,7 @@ class ProjectActivityScheduleController extends Controller
                 'changes' => $changes,
                 'errors' => $errors,
                 'message' => count($changes) > 0
-                    ? 'Successfully renumbered '.count($changes).' activities'
+                    ? 'Successfully renumbered ' . count($changes) . ' activities'
                     : 'No changes needed - codes already match order',
             ]);
         } catch (\Exception $e) {
@@ -1775,7 +1775,7 @@ class ProjectActivityScheduleController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to renumber codes: '.$e->getMessage(),
+                'message' => 'Failed to renumber codes: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1786,7 +1786,7 @@ class ProjectActivityScheduleController extends Controller
         $counter = 1;
 
         foreach ($children as $child) {
-            $newCode = $newParentCode.'.'.$counter;
+            $newCode = $newParentCode . '.' . $counter;
             $child->code = $newCode;
             $child->save();
 
@@ -1857,9 +1857,9 @@ class ProjectActivityScheduleController extends Controller
         return $this->getBreakdownFromCollection($topLevel);
     }
 
-    private function calculateProjectProgressFromLoaded($project): float
+    private function calculatecontractProgressFromLoaded($contract): float
     {
-        $allSchedules = $project->activitySchedules;
+        $allSchedules = $contract->activitySchedules;
 
         $activeSchedules = $allSchedules->where('pivot.status', 'active');
         $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
@@ -1878,7 +1878,7 @@ class ProjectActivityScheduleController extends Controller
 
             $avgProgress = $leaves->isEmpty()
                 ? 0
-                : $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+                : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
             $totalWeightedProgress += ($avgProgress * $weight);
             $totalWeightage += $weight;
@@ -1909,7 +1909,7 @@ class ProjectActivityScheduleController extends Controller
         return collect([]);
     }
 
-    private function calculatePhaseProgressFromLoaded($schedule, $projectId): float
+    private function calculatePhaseProgressFromLoaded($schedule, $contractId): float
     {
         if ($schedule->children_count === 0) {
             return (float) ($schedule->pivot->progress ?? 0);
@@ -1944,47 +1944,47 @@ class ProjectActivityScheduleController extends Controller
         return $leaves;
     }
 
-    private function calculateStatisticsFromCollection($projects): array
+    private function calculateStatisticsFromCollection($contracts): array
     {
         $totalSchedules = 0;
         $progressSum = 0;
-        $projectsWithSchedules = 0;
+        $contractsWithSchedules = 0;
 
-        foreach ($projects as $project) {
-            $scheduleCount = $project->activitySchedules->count();
+        foreach ($contracts as $contract) {
+            $scheduleCount = $contract->activitySchedules->count();
             $totalSchedules += $scheduleCount;
 
             if ($scheduleCount > 0) {
-                $progressSum += $this->calculateProjectProgressFromLoaded($project);
-                $projectsWithSchedules++;
+                $progressSum += $this->calculatecontractProgressFromLoaded($contract);
+                $contractsWithSchedules++;
             }
         }
 
         return [
-            'total_projects' => $projects->count(),
+            'total_contracts' => $contracts->count(),
             'total_schedules' => $totalSchedules,
-            'average_progress' => $projectsWithSchedules > 0
-                ? round($progressSum / $projectsWithSchedules, 2)
+            'average_progress' => $contractsWithSchedules > 0
+                ? round($progressSum / $contractsWithSchedules, 2)
                 : 0,
-            'total_files' => ProjectScheduleFile::whereIn('project_id', $projects->pluck('id'))->count(),
+            'total_files' => contractScheduleFile::whereIn('contract_id', $contracts->pluck('id'))->count(),
         ];
     }
 
-    private function calculateOverviewStatisticsFromCollection($projects): array
+    private function calculateOverviewStatisticsFromCollection($contracts): array
     {
         $progressValues = [];
         $totalSchedules = 0;
 
-        foreach ($projects as $project) {
-            $progressValues[] = $this->calculateProjectProgressFromLoaded($project);
+        foreach ($contracts as $contract) {
+            $progressValues[] = $this->calculatecontractProgressFromLoaded($contract);
 
-            $totalSchedules += $project->activitySchedules
+            $totalSchedules += $contract->activitySchedules
                 ->whereIn('pivot.status', ['active', 'completed'])
                 ->count();
         }
 
         return [
-            'total_projects' => $projects->count(),
+            'total_contracts' => $contracts->count(),
             'total_schedules' => $totalSchedules,
             'average_progress' => count($progressValues) > 0
                 ? round(array_sum($progressValues) / count($progressValues), 2)
@@ -1992,23 +1992,23 @@ class ProjectActivityScheduleController extends Controller
         ];
     }
 
-    private function formatProjectProgressFromCollection($projects): array
+    private function formatcontractProgressFromCollection($contracts): array
     {
         $formatted = [];
 
-        foreach ($projects as $project) {
-            $progress = $this->calculateProjectProgressFromLoaded($project);
+        foreach ($contracts as $contract) {
+            $progress = $this->calculatecontractProgressFromLoaded($contract);
 
-            $leafSchedules = $project->activitySchedules->filter(fn ($s) => $s->children_count === 0);
-            $completedCount = $leafSchedules->filter(fn ($s) => (float) $s->pivot->progress >= 100)->count();
+            $leafSchedules = $contract->activitySchedules->filter(fn($s) => $s->children_count === 0);
+            $completedCount = $leafSchedules->filter(fn($s) => (float) $s->pivot->progress >= 100)->count();
 
             $formatted[] = [
-                'id' => $project->id,
-                'title' => $project->title,
-                'directorate' => $project->directorate?->title ?? 'N/A',
+                'id' => $contract->id,
+                'title' => $contract->title,
+                'directorate' => $contract->directorate?->title ?? 'N/A',
                 'progress' => $progress,
-                'status' => $project->status?->name ?? 'N/A',
-                'total_schedules' => $project->activitySchedules->count(),
+                'status' => $contract->status?->name ?? 'N/A',
+                'total_schedules' => $contract->activitySchedules->count(),
                 'completed_schedules' => $completedCount,
             ];
         }
@@ -2016,12 +2016,12 @@ class ProjectActivityScheduleController extends Controller
         return $formatted;
     }
 
-    private function calculatePhaseBreakdownFromCollection($projects): \Illuminate\Support\Collection
+    private function calculatePhaseBreakdownFromCollection($contracts): \Illuminate\Support\Collection
     {
         $phaseProgress = [];
 
-        foreach ($projects as $project) {
-            $allSchedules = $project->activitySchedules;
+        foreach ($contracts as $contract) {
+            $allSchedules = $contract->activitySchedules;
 
             $topLevel = $allSchedules->where('level', 1)->whereNotNull('weightage');
 
@@ -2040,7 +2040,7 @@ class ProjectActivityScheduleController extends Controller
                 $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
 
                 if ($leaves->isNotEmpty()) {
-                    $avgProgress = $leaves->avg(fn ($l) => (float) ($l->pivot->progress ?? 0));
+                    $avgProgress = $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
                     $phaseProgress[$code]['total'] += $avgProgress;
                     $phaseProgress[$code]['count']++;
                 }
@@ -2077,28 +2077,28 @@ class ProjectActivityScheduleController extends Controller
         return $this->isDescendantOf($parent, $potentialParent, $allSchedules);
     }
 
-    private function calculateDirectoratePerformanceFromCollection($projects, $accessibleDirectorateIds): array
+    private function calculateDirectoratePerformanceFromCollection($contracts, $accessibleDirectorateIds): array
     {
         $performance = [];
-        $projectsByDirectorate = $projects->groupBy('directorate_id');
+        $contractsByDirectorate = $contracts->groupBy('directorate_id');
 
         $directorates = Directorate::whereIn('id', $accessibleDirectorateIds)
             ->select('id', 'title')
             ->get();
 
         foreach ($directorates as $directorate) {
-            $directorateProjects = $projectsByDirectorate->get($directorate->id, collect());
+            $directoratecontracts = $contractsByDirectorate->get($directorate->id, collect());
 
-            if ($directorateProjects->isNotEmpty()) {
+            if ($directoratecontracts->isNotEmpty()) {
                 $progressSum = 0;
-                foreach ($directorateProjects as $project) {
-                    $progressSum += $this->calculateProjectProgressFromLoaded($project);
+                foreach ($directoratecontracts as $contract) {
+                    $progressSum += $this->calculatecontractProgressFromLoaded($contract);
                 }
 
                 $performance[] = [
                     'title' => $directorate->title,
-                    'total_projects' => $directorateProjects->count(),
-                    'average_progress' => round($progressSum / $directorateProjects->count(), 2),
+                    'total_contracts' => $directoratecontracts->count(),
+                    'average_progress' => round($progressSum / $directoratecontracts->count(), 2),
                 ];
             }
         }
@@ -2106,11 +2106,11 @@ class ProjectActivityScheduleController extends Controller
         return $performance;
     }
 
-    public function apiProjectAttentionCounts()
+    public function apicontractAttentionCounts()
     {
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds();
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds();
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return response()->json([
                 'completed' => 0,
                 'on_track' => 0,
@@ -2119,11 +2119,11 @@ class ProjectActivityScheduleController extends Controller
             ]);
         }
 
-        $progressSubquery = DB::table('project_schedule_assignments as psa')
-            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+        $progressSubquery = DB::table('contract_schedule_assignments as psa')
+            ->join('contract_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
             ->where('psa.status', 'active')
             ->select(
-                'psa.project_id',
+                'psa.contract_id',
                 DB::raw('
                 COALESCE(
                     SUM(psa.progress * COALESCE(pas.weightage, 1)) /
@@ -2132,10 +2132,10 @@ class ProjectActivityScheduleController extends Controller
                 ) as overall_progress
             ')
             )
-            ->whereIn('psa.project_id', $accessibleProjectIds)
-            ->groupBy('psa.project_id');
+            ->whereIn('psa.contract_id', $accessiblecontractIds)
+            ->groupBy('psa.contract_id');
 
-        $projectsWithProgress = DB::table(DB::raw("({$progressSubquery->toSql()}) as prog"))
+        $contractsWithProgress = DB::table(DB::raw("({$progressSubquery->toSql()}) as prog"))
             ->mergeBindings($progressSubquery)
             ->select('prog.overall_progress')
             ->get();
@@ -2147,7 +2147,7 @@ class ProjectActivityScheduleController extends Controller
             'delayed' => 0,
         ];
 
-        foreach ($projectsWithProgress as $row) {
+        foreach ($contractsWithProgress as $row) {
             $progress = (float) $row->overall_progress;
 
             if ($progress >= 100) {
@@ -2170,17 +2170,17 @@ class ProjectActivityScheduleController extends Controller
      */
     public function apiProgressBuckets()
     {
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds();
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds();
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return response()->json([]);
         }
 
-        $progressSubquery = DB::table('project_schedule_assignments as psa')
-            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+        $progressSubquery = DB::table('contract_schedule_assignments as psa')
+            ->join('contract_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
             ->where('psa.status', 'active')
             ->select(
-                'psa.project_id',
+                'psa.contract_id',
                 DB::raw('
                 COALESCE(
                     SUM(psa.progress * COALESCE(pas.weightage, 1)) /
@@ -2189,8 +2189,8 @@ class ProjectActivityScheduleController extends Controller
                 ) as overall_progress
             ')
             )
-            ->whereIn('psa.project_id', $accessibleProjectIds)
-            ->groupBy('psa.project_id');
+            ->whereIn('psa.contract_id', $accessiblecontractIds)
+            ->groupBy('psa.contract_id');
 
         $progresses = DB::table(DB::raw("({$progressSubquery->toSql()}) as prog"))
             ->mergeBindings($progressSubquery)
@@ -2220,16 +2220,16 @@ class ProjectActivityScheduleController extends Controller
      */
     public function apiActivityExtremes()
     {
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds();
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds();
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return response()->json(['best' => [], 'worst' => []]);
         }
 
-        $stats = DB::table('project_schedule_assignments as psa')
-            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+        $stats = DB::table('contract_schedule_assignments as psa')
+            ->join('contract_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
             ->where('psa.status', 'active')
-            ->whereIn('psa.project_id', $accessibleProjectIds)
+            ->whereIn('psa.contract_id', $accessiblecontractIds)
             ->select(
                 'pas.name',
                 DB::raw('AVG(psa.progress) as avg_progress'),
@@ -2260,16 +2260,16 @@ class ProjectActivityScheduleController extends Controller
      */
     public function apiSlippages()
     {
-        $accessibleProjectIds = RoleBasedAccess::getAccessibleProjectIds();
+        $accessiblecontractIds = RoleBasedAccess::getAccessiblecontractIds();
 
-        if (empty($accessibleProjectIds)) {
+        if (empty($accessiblecontractIds)) {
             return response()->json([]);
         }
 
-        $results = DB::table('project_schedule_assignments as psa')
-            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+        $results = DB::table('contract_schedule_assignments as psa')
+            ->join('contract_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
             ->where('psa.status', 'active')
-            ->whereIn('psa.project_id', $accessibleProjectIds)
+            ->whereIn('psa.contract_id', $accessiblecontractIds)
             ->whereNotNull('psa.end_date')
             ->whereNotNull('psa.actual_end_date')
             ->select(
@@ -2302,13 +2302,13 @@ class ProjectActivityScheduleController extends Controller
     /**
      * Manually recalculate timeline
      */
-    public function recalculateTimeline(Project $project): RedirectResponse
+    public function recalculateTimeline(contract $contract): RedirectResponse
     {
         try {
             DB::beginTransaction();
 
-            $this->scheduleService->syncDependencies($project->id);
-            $this->scheduleService->rippleDates($project->id);
+            $this->scheduleService->syncDependencies($contract->id);
+            $this->scheduleService->rippleDates($contract->id);
 
             DB::commit();
 
@@ -2316,42 +2316,42 @@ class ProjectActivityScheduleController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to recalculate: '.$e->getMessage());
+            return back()->with('error', 'Failed to recalculate: ' . $e->getMessage());
         }
     }
 
     /**
      * Show dependencies for a schedule
      */
-    public function showDependencies(Project $project, ProjectActivitySchedule $schedule): View
+    public function showDependencies(contract $contract, contractActivitySchedule $schedule): View
     {
         $schedule->load([
-            'predecessors' => function ($q) use ($project) {
-                $q->wherePivot('project_id', $project->id);
+            'predecessors' => function ($q) use ($contract) {
+                $q->wherePivot('contract_id', $contract->id);
             },
-            'successors' => function ($q) use ($project) {
-                $q->wherePivot('project_id', $project->id);
+            'successors' => function ($q) use ($contract) {
+                $q->wherePivot('contract_id', $contract->id);
             },
         ]);
 
-        $assignment = DB::table('project_schedule_assignments')
-            ->where('project_id', $project->id)
+        $assignment = DB::table('contract_schedule_assignments')
+            ->where('contract_id', $contract->id)
             ->where('schedule_id', $schedule->id)
             ->first();
 
-        return view('admin.schedules.dependencies', compact('project', 'schedule', 'assignment'));
+        return view('admin.schedules.dependencies', compact('contract', 'schedule', 'assignment'));
     }
 
     /**
      * Show critical path
      */
-    public function criticalPath(Project $project): View
+    public function criticalPath(contract $contract): View
     {
-        $cpm = $this->scheduleService->calculateCriticalPath($project->id);
+        $cpm = $this->scheduleService->calculateCriticalPath($contract->id);
 
         if (! $cpm['has_data']) {
             return view('admin.schedules.critical-path', [
-                'project' => $project,
+                'contract' => $contract,
                 'cpm' => $cpm,
                 'allSchedules' => collect([]),
                 'hasValidDates' => false,
@@ -2359,7 +2359,7 @@ class ProjectActivityScheduleController extends Controller
             ]);
         }
 
-        $allSchedules = $project->activitySchedules()
+        $allSchedules = $contract->activitySchedules()
             ->where('status', 'active')
             ->whereNotNull('start_date')
             ->whereNotNull('end_date')
@@ -2378,7 +2378,7 @@ class ProjectActivityScheduleController extends Controller
         }
 
         return view('admin.schedules.critical-path', [
-            'project' => $project,
+            'contract' => $contract,
             'cpm' => $cpm,
             'allSchedules' => $allSchedules,
             'hasValidDates' => true,
@@ -2386,54 +2386,54 @@ class ProjectActivityScheduleController extends Controller
     }
 
     /**
-     * Mark schedule as "Not Needed" for this project
+     * Mark schedule as "Not Needed" for this contract
      */
-    public function markAsNotNeeded(Project $project, ProjectActivitySchedule $schedule): RedirectResponse
+    public function markAsNotNeeded(contract $contract, contractActivitySchedule $schedule): RedirectResponse
     {
-        if (! $project->activitySchedules->contains($schedule->id)) {
-            return back()->with('error', 'Schedule not found in this project.');
+        if (! $contract->activitySchedules->contains($schedule->id)) {
+            return back()->with('error', 'Schedule not found in this contract.');
         }
 
         DB::beginTransaction();
         try {
-            $project->activitySchedules()->updateExistingPivot($schedule->id, [
+            $contract->activitySchedules()->updateExistingPivot($schedule->id, [
                 'status' => 'not_needed',
                 'progress' => 0,
                 'updated_at' => now(),
             ]);
 
-            $project->updatePhysicalProgress();
+            $contract->updatePhysicalProgress();
 
-            $this->scheduleService->rippleDates($project->id);
+            $this->scheduleService->rippleDates($contract->id);
 
             DB::commit();
 
-            return back()->with('success', 'Activity marked as "Not Needed" for this project.');
+            return back()->with('success', 'Activity marked as "Not Needed" for this contract.');
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to update: '.$e->getMessage());
+            return back()->with('error', 'Failed to update: ' . $e->getMessage());
         }
     }
 
     /**
      * Reactivate a "Not Needed" schedule
      */
-    public function markAsActive(Project $project, ProjectActivitySchedule $schedule): RedirectResponse
+    public function markAsActive(contract $contract, contractActivitySchedule $schedule): RedirectResponse
     {
-        if (! $project->activitySchedules->contains($schedule->id)) {
-            return back()->with('error', 'Schedule not found in this project.');
+        if (! $contract->activitySchedules->contains($schedule->id)) {
+            return back()->with('error', 'Schedule not found in this contract.');
         }
 
         DB::beginTransaction();
         try {
-            $project->activitySchedules()->updateExistingPivot($schedule->id, [
+            $contract->activitySchedules()->updateExistingPivot($schedule->id, [
                 'status' => 'active',
                 'updated_at' => now(),
             ]);
 
-            $project->updatePhysicalProgress();
-            $this->scheduleService->rippleDates($project->id);
+            $contract->updatePhysicalProgress();
+            $this->scheduleService->rippleDates($contract->id);
 
             DB::commit();
 
@@ -2441,18 +2441,18 @@ class ProjectActivityScheduleController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to reactivate: '.$e->getMessage());
+            return back()->with('error', 'Failed to reactivate: ' . $e->getMessage());
         }
     }
 
     /**
      * Bulk mark schedules as not needed
      */
-    public function bulkMarkStatus(Request $request, Project $project): RedirectResponse
+    public function bulkMarkStatus(Request $request, contract $contract): RedirectResponse
     {
         $request->validate([
             'schedule_ids' => 'required|array',
-            'schedule_ids.*' => 'required|exists:project_activity_schedules,id',
+            'schedule_ids.*' => 'required|exists:contract_activity_schedules,id',
             'status' => 'required|in:active,not_needed,cancelled',
         ]);
 
@@ -2461,8 +2461,8 @@ class ProjectActivityScheduleController extends Controller
             $updatedCount = 0;
 
             foreach ($request->schedule_ids as $scheduleId) {
-                if ($project->activitySchedules()->where('schedule_id', $scheduleId)->exists()) {
-                    $project->activitySchedules()->updateExistingPivot($scheduleId, [
+                if ($contract->activitySchedules()->where('schedule_id', $scheduleId)->exists()) {
+                    $contract->activitySchedules()->updateExistingPivot($scheduleId, [
                         'status' => $request->status,
                         'progress' => $request->status === 'not_needed' ? 0 : null,
                         'updated_at' => now(),
@@ -2471,7 +2471,7 @@ class ProjectActivityScheduleController extends Controller
                 }
             }
 
-            $project->updatePhysicalProgress();
+            $contract->updatePhysicalProgress();
 
             DB::commit();
 
@@ -2479,7 +2479,7 @@ class ProjectActivityScheduleController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed: '.$e->getMessage());
+            return back()->with('error', 'Failed: ' . $e->getMessage());
         }
     }
 
@@ -2488,10 +2488,10 @@ class ProjectActivityScheduleController extends Controller
     // ════════════════════════════════════════════════════════════
 
     // Controller method
-    public function progressHistory(Request $request, Project $project, ProjectActivitySchedule $schedule)
+    public function progressHistory(Request $request, contract $contract, contractActivitySchedule $schedule)
     {
         // Start the query
-        $query = ProjectScheduleProgressSnapshot::where('project_id', $project->id)
+        $query = contractScheduleProgressSnapshot::where('contract_id', $contract->id)
             ->where('schedule_id', $schedule->id)
             ->with('recordedBy');
 
@@ -2502,7 +2502,7 @@ class ProjectActivityScheduleController extends Controller
 
         // Apply End Date Filter (include the whole end day)
         if ($request->filled('end_date')) {
-            $query->where('snapshot_date', '<=', $request->end_date.' 23:59:59');
+            $query->where('snapshot_date', '<=', $request->end_date . ' 23:59:59');
         }
 
         // Execute the query
@@ -2517,7 +2517,7 @@ class ProjectActivityScheduleController extends Controller
         $weeklyVelocity = $this->calculateWeeklyVelocity($snapshots);
 
         return view('admin.schedules.progress-history', compact(
-            'project',
+            'contract',
             'schedule',
             'snapshots',
             'monthlyProgress',
@@ -2564,12 +2564,12 @@ class ProjectActivityScheduleController extends Controller
         ];
     }
 
-    public function weeklyReport(Request $request, Project $project)
+    public function weeklyReport(Request $request, contract $contract)
     {
         $weekStart = now()->startOfWeek();
         $weekEnd = now()->endOfWeek();
 
-        $snapshots = ProjectScheduleProgressSnapshot::where('project_id', $project->id)
+        $snapshots = contractScheduleProgressSnapshot::where('contract_id', $contract->id)
             ->whereBetween('snapshot_date', [$weekStart, $weekEnd])
             ->with('schedule')
             ->get();
@@ -2580,19 +2580,19 @@ class ProjectActivityScheduleController extends Controller
             'completed_this_week' => $snapshots->where('progress', 100)->count(),
         ];
 
-        return view('admin.schedules.weekly-progress', compact('project', 'snapshots', 'summary'));
+        return view('admin.schedules.weekly-progress', compact('contract', 'snapshots', 'summary'));
     }
 
-    public function velocityDashboard(Project $project)
+    public function velocityDashboard(contract $contract)
     {
-        $leafSchedules = $project->activitySchedules()
+        $leafSchedules = $contract->activitySchedules()
             ->whereDoesntHave('children')
             ->get();
 
         $velocityData = [];
 
         foreach ($leafSchedules as $schedule) {
-            $snapshots = ProjectScheduleProgressSnapshot::where('project_id', $project->id)
+            $snapshots = contractScheduleProgressSnapshot::where('contract_id', $contract->id)
                 ->where('schedule_id', $schedule->id)
                 ->orderBy('snapshot_date')
                 ->get();
@@ -2609,33 +2609,33 @@ class ProjectActivityScheduleController extends Controller
         // Sort by velocity (slowest first)
         $velocityData = collect($velocityData)->sortBy('velocity.velocity_per_week');
 
-        return view('admin.schedules.velocity-dashboard', compact('project', 'velocityData'));
+        return view('admin.schedules.velocity-dashboard', compact('contract', 'velocityData'));
     }
 
     /**
      * Show dedicated files management page
      */
-    public function filesPage(Project $project)
+    public function filesPage(contract $contract)
     {
-        $schedules = $project->activitySchedules()
+        $schedules = $contract->activitySchedules()
             ->orderBy('sort_order')
             ->get();
 
-        $files = ProjectScheduleFile::where('project_id', $project->id)
+        $files = contractScheduleFile::where('contract_id', $contract->id)
             ->with(['schedule', 'uploadedBy'])
             ->latest()
             ->get();
 
-        return view('admin.schedules.file', compact('project', 'schedules', 'files'));
+        return view('admin.schedules.file', compact('contract', 'schedules', 'files'));
     }
 
     /**
      * Upload file (from dedicated files page)
      */
-    public function uploadFile(Request $request, Project $project)
+    public function uploadFile(Request $request, contract $contract)
     {
         $request->validate([
-            'schedule_id' => 'nullable|exists:project_activity_schedules,id',
+            'schedule_id' => 'nullable|exists:contract_activity_schedules,id',
             'file' => 'required|max:51200', // Max 50MB
             'description' => 'nullable|string|max:500',
         ]);
@@ -2646,14 +2646,14 @@ class ProjectActivityScheduleController extends Controller
             $extension = $file->getClientOriginalExtension();
 
             // Generate unique filename
-            $fileName = time().'_'.$request->schedule_id.'_'.str_replace(' ', '_', pathinfo($originalName, PATHINFO_FILENAME)).'.'.$extension;
+            $fileName = time() . '_' . $request->schedule_id . '_' . str_replace(' ', '_', pathinfo($originalName, PATHINFO_FILENAME)) . '.' . $extension;
 
             // Store file
-            $path = $file->storeAs('project_schedules/'.$project->id, $fileName, 'public');
+            $path = $file->storeAs('contract_schedules/' . $contract->id, $fileName, 'public');
 
             // Create database record
-            ProjectScheduleFile::create([
-                'project_id' => $project->id,
+            contractScheduleFile::create([
+                'contract_id' => $contract->id,
                 'schedule_id' => $request->schedule_id,
                 'file_name' => $fileName,
                 'file_path' => $path,
@@ -2667,14 +2667,14 @@ class ProjectActivityScheduleController extends Controller
 
             return back()->with('success', 'File uploaded successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to upload file: '.$e->getMessage());
+            return back()->with('error', 'Failed to upload file: ' . $e->getMessage());
         }
     }
 
     /**
      * Download file
      */
-    public function downloadFile(Project $project, ProjectScheduleFile $file)
+    public function downloadFile(contract $contract, contractScheduleFile $file)
     {
         if (! $file->fileExists()) {
             abort(404, 'File not found');
@@ -2686,14 +2686,14 @@ class ProjectActivityScheduleController extends Controller
     /**
      * Delete file
      */
-    public function deleteFile(Project $project, ProjectScheduleFile $file)
+    public function deleteFile(contract $contract, contractScheduleFile $file)
     {
         try {
             $file->delete(); // Will auto-delete file from storage
 
             return back()->with('success', 'File deleted successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to delete file: '.$e->getMessage());
+            return back()->with('error', 'Failed to delete file: ' . $e->getMessage());
         }
     }
 }

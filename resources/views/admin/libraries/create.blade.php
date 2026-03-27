@@ -13,7 +13,7 @@
                         Create Activity Schedule Template
                     </h1>
                     <p class="text-gray-600 dark:text-gray-400 mt-1">
-                        Create reusable schedule templates for different project types
+                        Create reusable schedule templates for different contract types
                     </p>
                 </div>
 
@@ -42,11 +42,11 @@
                         About Schedule Templates
                     </h3>
                     <div class="text-sm text-blue-700 dark:text-blue-400 space-y-2">
-                        <p><strong>Project Type:</strong> Select the type of projects this schedule applies to</p>
+                        <p><strong>contract Type:</strong> Select the type of contracts this schedule applies to</p>
                         <p><strong>Code Format:</strong> A, B, C (parents) or A.1, B.2 (children) or A.1.1
                             (sub-children)</p>
                         <p><strong>Parent Activities:</strong> Select a parent to create sub-activities</p>
-                        <p><strong>Reusability:</strong> Templates can be assigned to multiple projects</p>
+                        <p><strong>Reusability:</strong> Templates can be assigned to multiple contracts</p>
                     </div>
                 </div>
             </div>
@@ -71,28 +71,28 @@
                     <form action="{{ route('admin.library.store') }}" method="POST" class="p-6">
                         @csrf
 
-                        <!-- Project Type Selection -->
+                        <!-- Contract Type Selection -->
                         <div
                             class="mb-6 p-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg">
-                            <label for="project_type_id"
+                            <label for="contract_type_id"
                                 class="block text-sm font-bold text-purple-900 dark:text-purple-300 mb-3 uppercase tracking-wide">
-                                🏗️ Project Type *
+                                🏗️ Contract Type *
                             </label>
-                            <select name="project_type_id" id="project_type_id" required
-                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border @error('project_type_id') border-red-500 @enderror">
-                                <option value="">-- Select Project Type --</option>
-                                @foreach ($projectTypes as $key => $label)
+                            <select name="contract_type_id" id="contract_type_id" required
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border @error('contract_type_id') border-red-500 @enderror">
+                                <option value="">-- Select Contract Type --</option>
+                                @foreach ($contractTypes as $key => $label)
                                     <option value="{{ $key }}"
-                                        {{ old('project_type_id') == $key ? 'selected' : '' }}>
+                                        {{ old('contract_type_id') == $key ? 'selected' : '' }}>
                                         {{ $label }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('project_type_id')
+                            @error('contract_type_id')
                                 <p class="mt-2 text-sm text-red-600 dark:text-red-400 font-medium">{{ $message }}</p>
                             @enderror
                             <p class="mt-2 text-xs text-purple-700 dark:text-purple-400 font-medium">
-                                This schedule will be available for all projects of this type
+                                This schedule will be available for all contracts of this type
                             </p>
                         </div>
 
@@ -151,7 +151,7 @@
                             <select name="parent_id" id="parent_id"
                                 class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border">
                                 <option value="">-- No Parent (Top Level Activity) --</option>
-                                <optgroup label="Schedules for selected project type will appear here">
+                                <optgroup label="Schedules for selected contract type will appear here">
                                     <!-- Populated dynamically via JavaScript -->
                                 </optgroup>
                             </select>
@@ -261,7 +261,7 @@
                             Existing Templates
                         </h3>
                         <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            Select a project type to view • Drag to reorder
+                            Select a contract type to view • Drag to reorder
                         </p>
                     </div>
 
@@ -274,7 +274,7 @@
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
                                 </path>
                             </svg>
-                            <p class="text-sm italic">Select a project type to view existing schedules</p>
+                            <p class="text-sm italic">Select a contract type to view existing schedules</p>
                         </div>
                     </div>
 
@@ -353,27 +353,27 @@
         </style>
 
         <script>
-            // Schedules data by project type (passed from controller)
-            const schedulesByType = @json($schedulesByProjectType);
+            // Schedules data by contract type (passed from controller)
+            const schedulesByType = @json($schedulesByContractType);
             let sortableInstance = null;
 
-            // Auto-select project type from URL parameter
+            // Auto-select contract type from URL parameter
             document.addEventListener('DOMContentLoaded', function() {
                 const urlParams = new URLSearchParams(window.location.search);
-                const projectTypeParam = urlParams.get('project_type');
+                const contractTypeParam = urlParams.get('contract_type');
 
-                if (projectTypeParam) {
-                    const projectTypeSelect = document.getElementById('project_type_id');
-                    projectTypeSelect.value = projectTypeParam;
+                if (contractTypeParam) {
+                    const contractTypeSelect = document.getElementById('contract_type_id');
+                    contractTypeSelect.value = contractTypeParam;
 
                     // Trigger change event to load schedules
-                    projectTypeSelect.dispatchEvent(new Event('change'));
+                    contractTypeSelect.dispatchEvent(new Event('change'));
                 }
             });
 
-            // Load schedules when project type changes
-            document.getElementById('project_type_id').addEventListener('change', function() {
-                const projectType = this.value;
+            // Load schedules when contract type changes
+            document.getElementById('contract_type_id').addEventListener('change', function() {
+                const contractType = this.value;
                 const parentSelect = document.getElementById('parent_id');
                 const schedulesList = document.getElementById('schedules-list');
 
@@ -386,21 +386,21 @@
                 // Clear parent dropdown
                 parentSelect.innerHTML = '<option value="">-- No Parent (Top Level Activity) --</option>';
 
-                if (!projectType) {
+                if (!contractType) {
                     schedulesList.innerHTML = `
                     <div class="text-center py-12 text-gray-400 dark:text-gray-500">
                         <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        <p class="text-sm italic">Select a project type to view existing schedules</p>
+                        <p class="text-sm italic">Select a contract type to view existing schedules</p>
                     </div>
                 `;
                     return;
                 }
 
-                // Get schedules for this project type
-                const schedules = schedulesByType[projectType] || [];
+                // Get schedules for this contract type
+                const schedules = schedulesByType[contractType] || [];
 
                 if (schedules.length === 0) {
                     schedulesList.innerHTML = `
@@ -409,7 +409,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
                         </svg>
-                        <p class="text-sm italic">No schedules yet for this project type.</p>
+                        <p class="text-sm italic">No schedules yet for this contract type.</p>
                         <p class="text-xs mt-2">This will be the first one!</p>
                     </div>
                 `;
@@ -475,7 +475,7 @@
                                 }));
 
                                 // Save to server
-                                saveOrder(updatedSchedules, projectType);
+                                saveOrder(updatedSchedules, contractType);
                             }
                         });
                     }
@@ -483,7 +483,7 @@
             });
 
             // Save order to server
-            function saveOrder(schedules, projectType) {
+            function saveOrder(schedules, contractType) {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
                 if (!csrfToken) {

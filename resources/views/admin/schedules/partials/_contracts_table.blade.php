@@ -4,7 +4,7 @@
             <tr>
                 <th
                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Project</th>
+                    contract</th>
                 @if ($viewLevel === 'admin')
                     <th
                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -25,37 +25,37 @@
             </tr>
         </thead>
         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            @forelse ($projectProgress as $project)
+            @forelse ($contractProgress as $contract)
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ $project['title'] }}</div>
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ $contract['title'] }}</div>
                     </td>
                     @if ($viewLevel === 'admin')
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {{ $project['directorate'] }}
+                            {{ $contract['directorate'] }}
                         </td>
                     @endif
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mr-2">
-                                <div class="h-1.5 rounded-full {{ $project['progress'] >= 100 ? 'bg-green-500' : 'bg-blue-600' }}"
-                                    style="width: {{ $project['progress'] }}%"></div>
+                                <div class="h-1.5 rounded-full {{ $contract['progress'] >= 100 ? 'bg-green-500' : 'bg-blue-600' }}"
+                                    style="width: {{ $contract['progress'] }}%"></div>
                             </div>
                             <span
-                                class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($project['progress'], 0) }}%</span>
+                                class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($contract['progress'], 0) }}%</span>
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {{ $project['completed_schedules'] }}/{{ $project['total_schedules'] }}
+                        {{ $contract['completed_schedules'] }}/{{ $contract['total_schedules'] }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span
-                            class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ strtolower($project['status']) === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' }}">
-                            {{ $project['status'] }}
+                            class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ strtolower($contract['status']) === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' }}">
+                            {{ $contract['status'] }}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{{ route('admin.projects.schedules.index', $project['id']) }}"
+                        <a href="{{ route('admin.contracts.schedules.index', $contract['id']) }}"
                             class="text-blue-600 hover:text-blue-900 dark:text-blue-400">
                             Details
                         </a>
@@ -64,7 +64,7 @@
             @empty
                 <tr>
                     <td colspan="6" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400 italic">
-                        No projects found matching the current criteria.
+                        No contracts found matching the current criteria.
                     </td>
                 </tr>
             @endforelse
@@ -73,5 +73,5 @@
 </div>
 
 <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-    {{ $projects->links() }}
+    {{ $contracts->links() }}
 </div>

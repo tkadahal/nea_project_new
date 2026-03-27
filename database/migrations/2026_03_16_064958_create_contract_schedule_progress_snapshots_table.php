@@ -10,12 +10,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('project_schedule_progress_snapshots', function (Blueprint $table) {
+        Schema::create('contract_schedule_progress_snapshots', function (Blueprint $table) {
             $table->id();
 
             // Relations
-            $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
-            $table->foreignId('schedule_id')->constrained('project_activity_schedules')->onDelete('cascade');
+            $table->foreignId('contract_id')->constrained('contracts')->onDelete('cascade');
+            $table->foreignId('schedule_id')->constrained('contract_activity_schedules')->onDelete('cascade');
 
             // Progress data at this point in time
             $table->decimal('progress', 5, 2)->default(0);
@@ -33,8 +33,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes for fast queries
-            $table->index(['project_id', 'schedule_id', 'snapshot_date']);
-            $table->index(['project_id', 'snapshot_type']);
+            $table->index(['contract_id', 'schedule_id', 'snapshot_date']);
+            $table->index(['contract_id', 'snapshot_type']);
             $table->index('snapshot_date');
         });
     }

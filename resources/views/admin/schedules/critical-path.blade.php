@@ -6,9 +6,9 @@
             <nav class="flex mb-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
+                        <a href="{{ route('admin.contract.index') }}"
                             class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            Projects
+                            contracts
                         </a>
                     </li>
                     <li>
@@ -18,9 +18,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
+                            <a href="{{ route('admin.contract.show', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                {{ Str::limit($project->title, 30) }}
+                                {{ Str::limit($contract->title, 30) }}
                             </a>
                         </div>
                     </li>
@@ -31,7 +31,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
                                 Schedules
                             </a>
@@ -57,11 +57,11 @@
                         Critical Path Analysis
                     </h1>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        {{ $project->title }}
+                        {{ $contract->title }}
                     </p>
                 </div>
 
-                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                     class="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                     <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -118,7 +118,7 @@
                     </div>
 
                     <div class="mt-8 flex items-center justify-center gap-4">
-                        <a href="{{ route('admin.projects.schedules.quick-update', $project) }}"
+                        <a href="{{ route('admin.contracts.schedules.quick-update', $contract) }}"
                             class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm">
                             <svg class="-ml-1 mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -127,7 +127,7 @@
                             Quick Update Dates
                         </a>
 
-                        <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                        <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                             class="inline-flex items-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-base font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 shadow-sm">
                             View Schedules
                         </a>
@@ -137,7 +137,7 @@
         @else
             {{-- ✅ ONLY SHOW THIS SECTION IF WE HAVE VALID DATA --}}
 
-            {{-- Project Summary --}}
+            {{-- contract Summary --}}
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-5">
                     <div class="flex items-center">
@@ -172,10 +172,10 @@
                         <div class="ml-4 w-0 flex-1">
                             <dl>
                                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                                    Project Duration
+                                    contract Duration
                                 </dt>
                                 <dd class="text-2xl font-semibold text-gray-900 dark:text-white">
-                                    {{ $cpm['project_duration'] }} days
+                                    {{ $cpm['contract_duration'] }} days
                                 </dd>
                             </dl>
                         </div>
@@ -240,9 +240,9 @@
                         <h3 class="text-sm font-semibold text-red-900 dark:text-red-200">Critical Path Activities</h3>
                         <p class="mt-1 text-sm text-red-800 dark:text-red-300">
                             Activities on the critical path have <strong>zero slack (float)</strong>. Any delay in these
-                            activities will delay the entire project. Activities not on the critical path have slack
+                            activities will delay the entire contract. Activities not on the critical path have slack
                             time
-                            and can be delayed without affecting the project end date.
+                            and can be delayed without affecting the contract end date.
                         </p>
                     </div>
                 </div>

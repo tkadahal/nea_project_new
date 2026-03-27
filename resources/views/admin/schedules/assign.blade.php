@@ -7,9 +7,9 @@
             <nav class="flex mb-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
+                        <a href="{{ route('admin.contract.index') }}"
                             class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            Projects
+                            contracts
                         </a>
                     </li>
                     <li>
@@ -19,9 +19,9 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2" d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
+                            <a href="{{ route('admin.contract.show', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                {{ Str::limit($project->title, 40) }}
+                                {{ Str::limit($contract->title, 40) }}
                             </a>
                         </div>
                     </li>
@@ -32,7 +32,7 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2" d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
                                 Schedules
                             </a>
@@ -59,7 +59,7 @@
                         Assign Activity Schedules
                     </h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Select a template structure for {{ $project->title }}
+                        Select a template structure for {{ $contract->title }}
                     </p>
                 </div>
             </div>
@@ -73,7 +73,7 @@
                 <div
                     class="px-4 py-5 sm:px-6 bg-blue-600 dark:bg-blue-800 border-b border-blue-700 dark:border-blue-900">
                     <h3 class="text-lg leading-6 font-medium text-white">
-                        Select Project Structure
+                        Select contract Structure
                     </h3>
                 </div>
 
@@ -95,7 +95,7 @@
                                         Warning: Existing Schedules Found
                                     </h3>
                                     <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                                        <p>This project already has schedules assigned. Assigning new schedules will
+                                        <p>This contract already has schedules assigned. Assigning new schedules will
                                             <strong>replace all existing schedules and their progress data</strong>.
                                         </p>
                                     </div>
@@ -104,28 +104,28 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.projects.schedules.assign', $project) }}" method="POST"
+                    <form action="{{ route('admin.contracts.schedules.assign', $contract) }}" method="POST"
                         id="assign-form">
                         @csrf
 
                         <div class="mb-6">
-                            <label for="project_type_id"
+                            <label for="contract_type_id"
                                 class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200">
-                                Select Project Type <span class="text-red-500">*</span>
+                                Select contract Type <span class="text-red-500">*</span>
                             </label>
                             <div class="mt-2">
-                                <select id="project_type_id" name="project_type_id" required
+                                <select id="contract_type_id" name="contract_type_id" required
                                     onchange="showSchedulePreview(this.value)"
                                     class="block w-full rounded-md border-0 py-2.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 bg-white dark:bg-gray-700">
-                                    <option value="">-- Select Project Type --</option>
-                                    @foreach ($projectTypes as $key => $label)
+                                    <option value="">-- Select contract Type --</option>
+                                    @foreach ($contractTypes as $key => $label)
                                         <option value="{{ $key }}"
-                                            {{ old('project_type_id') == $key ? 'selected' : '' }}>
+                                            {{ old('contract_type_id') == $key ? 'selected' : '' }}>
                                             {{ $label }}
                                         </option>
                                     @endforeach
                                 </select>
-                                @error('project_type_id')
+                                @error('contract_type_id')
                                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -141,7 +141,7 @@
                                 <div
                                     class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-5 border border-gray-200 dark:border-gray-700">
                                     <h5 class="text-base font-bold text-blue-700 dark:text-blue-400 mb-4">Transmission
-                                        Line Project Structure</h5>
+                                        Line contract Structure</h5>
                                     <ul class="space-y-4 text-sm">
                                         <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase A:</span>
@@ -191,7 +191,7 @@
                                 <div
                                     class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-5 border border-gray-200 dark:border-gray-700">
                                     <h5 class="text-base font-bold text-blue-700 dark:text-blue-400 mb-4">Substation
-                                        Project Structure</h5>
+                                        contract Structure</h5>
                                     <ul class="space-y-4 text-sm">
                                         <li class="text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">Phase
@@ -239,7 +239,7 @@
 
                         <div
                             class="mt-8 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-6">
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600">
                                 Cancel
                             </a>
@@ -278,11 +278,11 @@
                 </div>
                 <div class="p-6">
                     <ol class="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                        <li>All activities for the selected project type will be assigned to this project</li>
+                        <li>All activities for the selected contract type will be assigned to this contract</li>
                         <li>Each activity will start with 0% progress</li>
                         <li>You can then update progress for individual activities</li>
                         <li>Phase progress will be calculated automatically based on child activities</li>
-                        <li>Overall project progress will be calculated using weighted phases</li>
+                        <li>Overall contract progress will be calculated using weighted phases</li>
                     </ol>
 
                     <div
@@ -343,7 +343,7 @@
             } else if (value === '2') {
                 ssPreview.classList.remove('hidden');
             }
-            // → add more else if (value === '3') ... for future project types
+            // → add more else if (value === '3') ... for future contract types
         }
     </script>
 </x-layouts.app>

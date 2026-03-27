@@ -4,38 +4,38 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Project;
-use App\Models\ProjectActivityDependency;
+use App\Models\Contract;
+use App\Models\ContractActivityDependency;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
-class ProjectScheduleService
+class ContractScheduleService
 {
-    public function syncDependencies(int $projectId): void
+    public function syncDependencies(int $contractId): void
     {
-        DB::transaction(function () use ($projectId) {
-            ProjectActivityDependency::where('project_id', $projectId)
+        DB::transaction(function () use ($contractId) {
+            ContractActivityDependency::where('contract_id', $contractId)
                 ->where('is_auto', true)
                 ->delete();
 
-            $project = Project::with(['activitySchedules' => function ($q) {
+            $contract = Contract::with(['activitySchedules' => function ($q) {
                 $q->select([
-                    'project_activity_schedules.id',
-                    'project_activity_schedules.code',
-                    'project_activity_schedules.level',
-                    'project_activity_schedules.parent_id',
+                    'contract_activity_schedules.id',
+                    'contract_activity_schedules.code',
+                    'contract_activity_schedules.level',
+                    'contract_activity_schedules.parent_id',
                 ])->withCount('children')
                     ->orderBy('code');
-            }])->find($projectId);
+            }])->find($contractId);
 
-            if (! $project || $project->activitySchedules->isEmpty()) {
+            if (! $contract || $contract->activitySchedules->isEmpty()) {
                 return;
             }
 
-            $schedules = $project->activitySchedules;
+            $schedules = $contract->activitySchedules;
             $dependencies = [];
 
-            $phases = $schedules->groupBy(fn ($s) => substr($s->code, 0, 1));
+            $phases = $schedules->groupBy(fn($s) => substr($s->code, 0, 1));
 
             foreach ($phases as $phaseCode => $phaseSchedules) {
                 $topLevelInPhase = $phaseSchedules->where('level', 2)
@@ -44,7 +44,7 @@ class ProjectScheduleService
 
                 for ($i = 0; $i < count($topLevelInPhase) - 1; $i++) {
                     $dependencies[] = [
-                        'project_id' => $projectId,
+                        'contract_id' => $contractId,
                         'predecessor_id' => $topLevelInPhase[$i]->id,
                         'successor_id' => $topLevelInPhase[$i + 1]->id,
                         'type' => 'FS',
@@ -65,7 +65,7 @@ class ProjectScheduleService
                     if ($children->count() > 1) {
                         for ($i = 0; $i < count($children) - 1; $i++) {
                             $dependencies[] = [
-                                'project_id' => $projectId,
+                                'contract_id' => $contractId,
                                 'predecessor_id' => $children[$i]->id,
                                 'successor_id' => $children[$i + 1]->id,
                                 'type' => 'FS',
@@ -91,7 +91,7 @@ class ProjectScheduleService
 
                 if ($lastOfCurrent && $firstOfNext) {
                     $dependencies[] = [
-                        'project_id' => $projectId,
+                        'contract_id' => $contractId,
                         'predecessor_id' => $lastOfCurrent->id,
                         'successor_id' => $firstOfNext->id,
                         'type' => 'FS',
@@ -105,7 +105,7 @@ class ProjectScheduleService
 
             // 5. Bulk insert
             if (! empty($dependencies)) {
-                ProjectActivityDependency::insert($dependencies);
+                ContractActivityDependency::insert($dependencies);
             }
         });
     }
@@ -113,10 +113,10 @@ class ProjectScheduleService
     /**
      * Ripple dates forward from a starting point
      */
-    public function rippleDates(int $projectId, ?int $startFromScheduleId = null): void
+    public function rippleDates(int $contractId, ?int $startFromScheduleId = null): void
     {
-        $assignments = DB::table('project_schedule_assignments')
-            ->where('project_id', $projectId)
+        $assignments = DB::table('contract_schedule_assignments')
+            ->where('contract_id', $contractId)
             ->whereNotNull('start_date')
             ->whereNotNull('end_date')
             ->where('status', 'active')
@@ -128,9 +128,9 @@ class ProjectScheduleService
             return;
         }
 
-        // Get all dependencies for this project
-        $dependencies = DB::table('project_activity_dependencies')
-            ->where('project_id', $projectId)
+        // Get all dependencies for this contract
+        $dependencies = DB::table('contract_activity_dependencies')
+            ->where('contract_id', $contractId)
             ->get();
 
         if ($dependencies->isEmpty()) {
@@ -151,7 +151,7 @@ class ProjectScheduleService
 
         foreach ($dependencies as $dep) {
             if (! isset($assignments[$dep->predecessor_id]) || ! isset($assignments[$dep->successor_id])) {
-                continue; // Skip if either schedule not in project or not active
+                continue; // Skip if either schedule not in contract or not active
             }
 
             $graph[$dep->predecessor_id][] = [
@@ -251,7 +251,7 @@ class ProjectScheduleService
                         $constraintDate = clone $predEnd;
                         $lagDays = (int) $dep->lag_days; // ✅ Cast to int
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
                         }
                         break;
 
@@ -259,7 +259,7 @@ class ProjectScheduleService
                         $constraintDate = clone $predStart;
                         $lagDays = (int) $dep->lag_days;
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
                         }
                         break;
 
@@ -267,11 +267,11 @@ class ProjectScheduleService
                         $constraintDate = clone $predEnd;
                         $lagDays = (int) $dep->lag_days;
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
                         }
                         // For FF, we need to work backwards from finish
                         if ($duration > 0) {
-                            $constraintDate->modify('-'.$duration.' days');
+                            $constraintDate->modify('-' . $duration . ' days');
                         }
                         break;
 
@@ -279,10 +279,10 @@ class ProjectScheduleService
                         $constraintDate = clone $predStart;
                         $lagDays = (int) $dep->lag_days;
                         if ($lagDays !== 0) {
-                            $constraintDate->modify(($lagDays > 0 ? '+' : '').$lagDays.' days');
+                            $constraintDate->modify(($lagDays > 0 ? '+' : '') . $lagDays . ' days');
                         }
                         if ($duration > 0) {
-                            $constraintDate->modify('-'.$duration.' days');
+                            $constraintDate->modify('-' . $duration . ' days');
                         }
                         break;
                 }
@@ -305,12 +305,12 @@ class ProjectScheduleService
 
                         // ✅ Use integer days for modification
                         if ($duration > 0) {
-                            $newEndDate->modify('+'.$duration.' days');
+                            $newEndDate->modify('+' . $duration . ' days');
                         }
 
                         // Update in database
-                        DB::table('project_schedule_assignments')
-                            ->where('project_id', $projectId)
+                        DB::table('contract_schedule_assignments')
+                            ->where('contract_id', $contractId)
                             ->where('schedule_id', $scheduleId)
                             ->update([
                                 'start_date' => $newStartDate->format('Y-m-d'),
@@ -333,11 +333,11 @@ class ProjectScheduleService
     /**
      * Calculate critical path
      */
-    public function calculateCriticalPath(int $projectId): array
+    public function calculateCriticalPath(int $contractId): array
     {
-        $assignments = DB::table('project_schedule_assignments as psa')
-            ->join('project_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
-            ->where('psa.project_id', $projectId)
+        $assignments = DB::table('contract_schedule_assignments as psa')
+            ->join('contract_activity_schedules as pas', 'psa.schedule_id', '=', 'pas.id')
+            ->where('psa.contract_id', $contractId)
             ->where('psa.status', 'active')
             ->whereNotNull('psa.start_date')
             ->whereNotNull('psa.end_date')
@@ -358,12 +358,12 @@ class ProjectScheduleService
                 'message' => 'No activities with planned dates found. Please set start and end dates for activities.',
                 'critical_activities' => [],
                 'slacks' => [],
-                'project_duration' => 0,
+                'contract_duration' => 0,
             ];
         }
 
-        $dependencies = DB::table('project_activity_dependencies')
-            ->where('project_id', $projectId)
+        $dependencies = DB::table('contract_activity_dependencies')
+            ->where('contract_id', $contractId)
             ->get();
 
         $durations = [];
@@ -388,7 +388,7 @@ class ProjectScheduleService
                 'message' => 'Unable to calculate durations. Please check date formats.',
                 'critical_activities' => [],
                 'slacks' => [],
-                'project_duration' => 0,
+                'contract_duration' => 0,
             ];
         }
 
@@ -435,7 +435,7 @@ class ProjectScheduleService
                 'message' => 'Circular dependency detected or no starting activities found.',
                 'critical_activities' => [],
                 'slacks' => [],
-                'project_duration' => 0,
+                'contract_duration' => 0,
             ];
         }
 
@@ -477,17 +477,17 @@ class ProjectScheduleService
             }
         }
 
-        $projectDuration = 0;
+        $contractDuration = 0;
         foreach ($EF as $ef) {
-            $projectDuration = max($projectDuration, $ef);
+            $contractDuration = max($contractDuration, $ef);
         }
 
         $LS = [];
         $LF = [];
 
         foreach ($validScheduleIds as $scheduleId) {
-            $LF[$scheduleId] = $projectDuration;
-            $LS[$scheduleId] = $projectDuration;
+            $LF[$scheduleId] = $contractDuration;
+            $LS[$scheduleId] = $contractDuration;
         }
 
         $visited = [];
@@ -521,7 +521,7 @@ class ProjectScheduleService
                 continue;
             }
 
-            $minSuccLS = $projectDuration;
+            $minSuccLS = $contractDuration;
             foreach ($successors[$current] as $succ) {
                 $minSuccLS = min($minSuccLS, $LS[$succ]);
             }
@@ -554,7 +554,7 @@ class ProjectScheduleService
             'has_data' => true,
             'critical_activities' => $criticalActivities,
             'slacks' => $slacks,
-            'project_duration' => $projectDuration,
+            'contract_duration' => $contractDuration,
             'early_start' => $ES,
             'early_finish' => $EF,
             'late_start' => $LS,

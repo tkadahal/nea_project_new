@@ -10,10 +10,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('project_schedule_assignments', function (Blueprint $table) {
+        Schema::create('contract_schedule_assignments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->constrained()->onDelete('cascade');
-            $table->foreignId('schedule_id')->constrained('project_activity_schedules')->onDelete('cascade');
+            $table->foreignId('contract_id')->constrained()->onDelete('cascade');
+            $table->foreignId('schedule_id')->constrained('contract_activity_schedules')->onDelete('cascade');
             $table->decimal('progress', 5, 2)->default(0.00);
             $table->decimal('target_quantity', 15, 2)->nullable();
             $table->decimal('completed_quantity', 15, 2)->nullable();
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->timestamps();
 
-            $table->unique(['project_id', 'schedule_id']);
+            $table->unique(['contract_id', 'schedule_id']);
 
             $table->index('progress');
         });

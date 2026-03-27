@@ -10,9 +10,9 @@
                 <nav class="flex mt-2" aria-label="Breadcrumb">
                     <ol class="inline-flex items-center space-x-1 md:space-x-3">
                         <li class="inline-flex items-center">
-                            <a href="{{ route('admin.project.index') }}"
+                            <a href="{{ route('admin.contract.index') }}"
                                 class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                                Projects
+                                contracts
                             </a>
                         </li>
                         <li>
@@ -21,9 +21,9 @@
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                         stroke-width="2" d="m1 9 4-4-4-4" />
                                 </svg>
-                                <a href="{{ route('admin.project.show', $project) }}"
+                                <a href="{{ route('admin.contract.show', $contract) }}"
                                     class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                    {{ Str::limit($project->title, 30) }}
+                                    {{ Str::limit($contract->title, 30) }}
                                 </a>
                             </div>
                         </li>
@@ -33,7 +33,7 @@
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                         stroke-width="2" d="m1 9 4-4-4-4" />
                                 </svg>
-                                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                     class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
                                     Schedules
                                 </a>
@@ -55,7 +55,7 @@
             </div>
 
             <div class="flex items-center space-x-3">
-                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                     class="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                     <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -135,7 +135,7 @@
                         </h3>
                     </div>
                     <div class="p-6">
-                        <form action="{{ route('admin.projects.schedules.upload-file', $project) }}" method="POST"
+                        <form action="{{ route('admin.contracts.schedules.upload-file', $contract) }}" method="POST"
                             enctype="multipart/form-data" class="space-y-4">
                             @csrf
 
@@ -232,7 +232,7 @@
                                                 d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
                                                 clip-rule="evenodd" />
                                         </svg>
-                                        <strong>MPP</strong> - Microsoft Project files
+                                        <strong>MPP</strong> - Microsoft contract files
                                     </li>
                                 </ul>
                             </div>
@@ -400,7 +400,7 @@
 
                                             <!-- Actions -->
                                             <div class="flex items-center space-x-2 ml-4">
-                                                <a href="{{ route('admin.projects.schedules.download-file', [$project, $file]) }}"
+                                                <a href="{{ route('admin.contracts.schedules.download-file', [$contract, $file]) }}"
                                                     class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                                                     title="Download">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor"
@@ -412,7 +412,7 @@
                                                     </svg>
                                                 </a>
                                                 <form
-                                                    action="{{ route('admin.projects.schedules.delete-file', [$project, $file]) }}"
+                                                    action="{{ route('admin.contracts.schedules.delete-file', [$contract, $file]) }}"
                                                     method="POST" class="inline"
                                                     onsubmit="return confirm('Are you sure you want to delete this file?')">
                                                     @csrf

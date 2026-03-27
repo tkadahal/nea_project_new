@@ -3,15 +3,15 @@
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Project Types
+                contract Types
             </h1>
             <p class="text-gray-600 dark:text-gray-400 mt-1">
-                {{ trans('global.manage') }} {{ trans('global.project_type.title') }}
+                {{ trans('global.manage') }} {{ trans('global.contract_type.title') }}
             </p>
         </div>
 
-        {{-- @can('projectType_create') --}}
-        <a href="{{ route('admin.projectType.create') }}"
+        {{-- @can('contractType_create') --}}
+        <a href="{{ route('admin.contractType.create') }}"
             class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 
                   text-white font-medium rounded-md shadow-sm
                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
@@ -28,9 +28,9 @@
     <!-- Table Card -->
     <div
         class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        @if ($projectTypes->isEmpty())
+        @if ($contractTypes->isEmpty())
             <div class="p-8 text-center text-gray-500 dark:text-gray-400">
-                No project types found. {{ trans('global.create_new_one') }}?
+                No contract types found. {{ trans('global.create_new_one') }}?
             </div>
         @else
             <div class="overflow-x-auto">
@@ -68,23 +68,23 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        @foreach ($projectTypes as $projectType)
+                        @foreach ($contractTypes as $contractType)
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">
-                                    {{ $projectType->id }}
+                                    {{ $contractType->id }}
                                 </td>
                                 <td
                                     class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ $projectType->name }}
+                                    {{ $contractType->name }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                                    {{ $projectType->code ?? '—' }}
+                                    {{ $contractType->code ?? '—' }}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                    {{ Str::limit($projectType->description ?? '—', 60) }}
+                                    {{ Str::limit($contractType->description ?? '—', 60) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    @if ($projectType->is_active)
+                                    @if ($contractType->is_active)
                                         <span
                                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300">
                                             Yes
@@ -97,13 +97,13 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                                    {{ $projectType->sort_order ?? '—' }}
+                                    {{ $contractType->sort_order ?? '—' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2 flex-wrap">
-                                        @can('projectType_show')
-                                            <!-- or use 'projectType_access' / 'projectType_view' depending on your gates -->
-                                            <a href="{{ route('admin.projectType.show', $projectType) }}"
+                                        @can('contractType_show')
+                                            <!-- or use 'contractType_access' / 'contractType_view' depending on your gates -->
+                                            <a href="{{ route('admin.contractType.show', $contractType) }}"
                                                 class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md
                                                       bg-indigo-50 text-indigo-700 hover:bg-indigo-100
                                                       dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50
@@ -121,8 +121,8 @@
                                             </a>
                                         @endcan
 
-                                        @can('projectType_edit')
-                                            <a href="{{ route('admin.projectType.edit', $projectType) }}"
+                                        @can('contractType_edit')
+                                            <a href="{{ route('admin.contractType.edit', $contractType) }}"
                                                 class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md
                                                       bg-blue-50 text-blue-700 hover:bg-blue-100
                                                       dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50
@@ -138,10 +138,10 @@
                                             </a>
                                         @endcan
 
-                                        @can('projectType_delete')
-                                            <form action="{{ route('admin.projectType.destroy', $projectType) }}"
+                                        @can('contractType_delete')
+                                            <form action="{{ route('admin.contractType.destroy', $contractType) }}"
                                                 method="POST" class="inline"
-                                                onsubmit="return confirm('Are you sure you want to delete this project type?')">
+                                                onsubmit="return confirm('Are you sure you want to delete this contract type?')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
@@ -171,7 +171,7 @@
 
             <!-- Pagination (uncomment when ready) -->
             {{-- <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                {{ $projectTypes->links() }}
+                {{ $contractTypes->links() }}
             </div> --}}
         @endif
     </div>
