@@ -10,17 +10,32 @@
     'uniqueId' => null,
     'id' => null,
     'comment_count' => 0,
+    'progress' => null,
 ])
 
 @php
     $dropdownId = 'dropdown-' . Str::slug($title) . ($uniqueId ? '-' . $uniqueId : '');
     $accordionId = 'accordion-' . Str::slug($title) . ($uniqueId ? '-' . $uniqueId : '');
+
+    $progressValue = is_numeric($progress) ? (float) $progress : null;
+
+    $progressColor = match (true) {
+        $progressValue === null => 'bg-gray-300 dark:bg-gray-600',
+        $progressValue >= 100 => 'bg-green-500',
+        $progressValue >= 60 => 'bg-blue-500',
+        $progressValue >= 30 => 'bg-yellow-500',
+        default => 'bg-red-500',
+    };
+
+    $progressLabel = $progressValue !== null ? round($progressValue, 1) . '%' : 'N/A';
 @endphp
 
 <div
     {{ $attributes->merge(['class' => 'bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md p-6 mb-4 border border-gray-300 dark:border-gray-600']) }}>
+
+    {{-- ── Header ── --}}
     <div class="flex justify-between items-start">
-        <div class="flex-1 min-w-0"> <!-- Added wrapper for proper truncation -->
+        <div class="flex-1 min-w-0">
             <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 truncate">
                 {{ $title }}
             </h3>
@@ -28,15 +43,14 @@
                 {{ $description }}
             </p>
         </div>
-        <div class="relative ml-4"> <!-- Added margin for spacing -->
+        <div class="relative ml-4">
             <button type="button"
                 class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 focus:outline-none dropdown-toggle"
                 data-dropdown="{{ $dropdownId }}" aria-label="Open actions menu" aria-haspopup="true"
                 aria-controls="{{ $dropdownId }}">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 6v.01M12 12v.01M12 18v.01"></path>
+                        d="M12 6v.01M12 12v.01M12 18v.01" />
                 </svg>
             </button>
             <div id="{{ $dropdownId }}"
@@ -78,11 +92,12 @@
         </div>
     </div>
 
-    <!-- Display Directorate directly -->
+    {{-- ── Directorate ── --}}
     @if ($directorate)
         <div class="mt-4">
-            <span
-                class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ trans('global.project.fields.directorate_id') }}:</span>
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ trans('global.project.fields.directorate_id') }}:
+            </span>
             <span class="text-gray-600 dark:text-gray-400 ml-2">
                 @if (isset($directorate['id']) && isset($arrayColumnColor['directorate'][$directorate['id']]))
                     <x-forms.badge :title="$directorate['title']" :color="$arrayColumnColor['directorate'][$directorate['id']] ?? 'gray'" />
@@ -93,6 +108,7 @@
         </div>
     @endif
 
+    {{-- ── Budget Heading ── --}}
     @if ($budget_heading ?? null)
         <div class="mt-4">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -105,7 +121,6 @@
                         $bhId && isset($arrayColumnColor['budget_heading'][$bhId])
                             ? $arrayColumnColor['budget_heading'][$bhId]
                             : null;
-
                     $cleanColor = $bhColor ? ltrim($bhColor, '#') : '6B7280';
                 @endphp
 
@@ -118,7 +133,34 @@
         </div>
     @endif
 
-    <!-- Buttons and Accordion -->
+    {{-- ── Physical Progress Bar ── --}}
+    <div class="mt-4">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                {{ trans('global.project.fields.physical_progress') }}
+            </span>
+            <span
+                class="text-xs font-semibold
+                {{ $progressValue === null
+                    ? 'text-gray-400'
+                    : ($progressValue >= 100
+                        ? 'text-green-600 dark:text-green-400'
+                        : ($progressValue >= 60
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : ($progressValue >= 30
+                                ? 'text-yellow-600 dark:text-yellow-400'
+                                : 'text-red-600 dark:text-red-400'))) }}">
+                {{ $progressLabel }}
+            </span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 overflow-hidden">
+            <div class="{{ $progressColor }} h-2.5 rounded-full transition-all duration-500"
+                style="width: {{ $progressValue !== null ? min(100, $progressValue) : 0 }}%">
+            </div>
+        </div>
+    </div>
+
+    {{-- ── Buttons & Accordion ── --}}
     <div class="mt-6">
         <div class="flex justify-end items-center gap-2">
 
@@ -163,32 +205,30 @@
 
             <a href="{{ route($routePrefix . '.show', $id) }}"
                 class="relative text-blue-500 hover:text-blue-700 dark:hover:text-blue-300" title="Messages">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
-                    </path>
+                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                 </svg>
                 <span
-                    class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center {{ $comment_count == 0 ? 'bg-gray-400' : 'bg-red-500' }}">
+                    class="absolute -top-1 -right-1 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center
+                    {{ $comment_count == 0 ? 'bg-gray-400' : 'bg-red-500' }}">
                     {{ $comment_count }}
                 </span>
             </a>
-
         </div>
 
-
+        {{-- ── Accordion Details ── --}}
         <div id="{{ $accordionId }}" class="hidden mt-4 grid grid-cols-1 gap-2">
-            <!-- Added mt-4 for spacing when open -->
             @foreach ($fields as $field)
                 @if ($field['label'] !== trans('global.project.fields.title'))
                     <div>
-                        <span
-                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $field['label'] }}:</span>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {{ $field['label'] }}:
+                        </span>
                         <span class="text-gray-600 dark:text-gray-400 ml-2">
                             @if (isset($field['color']) && $field['color'])
                                 <x-forms.badge :title="$field['value']" :color="str_replace('#', '', $field['color'])" />
-                            @elseif(isset($arrayColumnColor[$field['key']]) && !is_array($arrayColumnColor[$field['key']]))
+                            @elseif (isset($arrayColumnColor[$field['key']]) && !is_array($arrayColumnColor[$field['key']]))
                                 <x-forms.badge :title="$field['value']" :color="$arrayColumnColor[$field['key']]" />
                             @else
                                 {{ $field['value'] }}

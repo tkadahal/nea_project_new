@@ -32,19 +32,20 @@ class PreBudgetController extends Controller
 
         $user = Auth::user();
 
-        $isSuperAdmin = $user->hasRole(Role::SUPERADMIN);
-        $isAdmin = $user->hasRole(Role::ADMIN);
+        $isSuperAdmin     = $user->hasRole(Role::SUPERADMIN);
+        $isAdmin          = $user->hasRole(Role::ADMIN);
         $isDirectorateUser = $user->hasRole(Role::DIRECTORATE_USER);
+        $isProjectUser    = !$isSuperAdmin && !$isAdmin && !$isDirectorateUser;
 
-        $isProjectUser = ! $isSuperAdmin && ! $isAdmin && ! $isDirectorateUser;
-
-        $projectsQuery = Project::query();
+        // ====================== PROJECTS FILTERING ======================
+        $projectsQuery = Project::with('directorate');
 
         if ($isSuperAdmin || $isAdmin) {
-            $projectsQuery = $projectsQuery;
-        } elseif ($isDirectorateUser) {
+            // Can see all projects
+        } elseif ($isDirectorateUser && $user->directorate_id) {
             $projectsQuery->where('directorate_id', $user->directorate_id);
-        } else {
+        } elseif ($isProjectUser) {
+            // Project user can only see projects they are assigned to
             $projectsQuery->whereHas('users', function ($q) use ($user) {
                 $q->where('users.id', $user->id);
             });
@@ -54,14 +55,15 @@ class PreBudgetController extends Controller
 
         $projectsForJs = $projects->map(function ($p) {
             return [
-                'id' => $p->id,
-                'title' => $p->title,
+                'id'            => $p->id,
+                'title'         => $p->title,
                 'directorate_id' => $p->directorate_id,
             ];
         })->values();
 
+        // ====================== DIRECTORATES FILTERING ======================
         $directorates = collect();
-        if (! $isProjectUser) {
+        if (!$isProjectUser) {
             if ($isSuperAdmin || $isAdmin) {
                 $directorates = \App\Models\Directorate::all();
             } elseif ($isDirectorateUser && $user->directorate_id) {
@@ -69,29 +71,50 @@ class PreBudgetController extends Controller
             }
         }
 
+        // ====================== REQUEST FILTERS ======================
         $directorateId = $request->input('directorate_filter');
-        $projectId = $request->input('project_filter');
-        $fiscalYearId = $request->input('fiscal_year_filter');
-        $search = $request->input('search');
-        $perPage = $request->input('per_page', 20);
+        $projectId     = $request->input('project_filter');
+        $fiscalYearId  = $request->input('fiscal_year_filter');
+        $search        = $request->input('search');
+        $perPage       = (int) $request->input('per_page', 20);
 
-        if (empty($projectId) && $isProjectUser && $projects->count() === 1) {
-            $projectId = $projects->first()->id;
-        }
-
-        if (empty($fiscalYearId)) {
-            $currentFY = FiscalYear::currentFiscalYear();
-            if ($currentFY) {
-                $fiscalYearId = $currentFY->id;
+        // Force project user to only their project
+        if ($isProjectUser) {
+            if ($projects->count() === 1) {
+                $projectId = $projects->first()->id;   // Auto-select single project
+            } else {
+                // If multiple projects, but still restrict to their projects
+                $allowedProjectIds = $projects->pluck('id');
+                if ($projectId && !$allowedProjectIds->contains($projectId)) {
+                    $projectId = null; // Invalid project selected → show none or first
+                }
             }
         }
 
+        // Default fiscal year
+        if (empty($fiscalYearId)) {
+            $currentFY = FiscalYear::currentFiscalYear();
+            if ($currentFY) $fiscalYearId = $currentFY->id;
+        }
+
+        // ====================== MAIN QUERY ======================
         $query = PreBudget::with(['project.directorate', 'fiscalYear']);
 
-        if ($directorateId) {
-            $query->whereHas('project', function ($q) use ($directorateId) {
-                $q->where('directorate_id', $directorateId);
+        // Apply security filters
+        if ($isProjectUser) {
+            $query->whereHas('project.users', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
             });
+        } elseif ($isDirectorateUser && $user->directorate_id) {
+            $query->whereHas('project', function ($q) use ($user) {
+                $q->where('directorate_id', $user->directorate_id);
+            });
+        }
+        // SuperAdmin & Admin have no extra restriction
+
+        // Apply user-selected filters
+        if ($directorateId && !$isProjectUser) {
+            $query->whereHas('project', fn($q) => $q->where('directorate_id', $directorateId));
         }
 
         if ($projectId) {
@@ -103,70 +126,68 @@ class PreBudgetController extends Controller
         }
 
         if ($search) {
-            $query->whereHas('project', function ($q) use ($search) {
-                $q->where('title', 'like', '%'.$search.'%');
-            });
+            $query->whereHas('project', fn($q) => $q->where('title', 'like', "%{$search}%"));
         }
 
         $preBudgets = $query->orderBy('id', 'desc')->paginate($perPage)->withQueryString();
 
+        // ====================== AJAX RESPONSE ======================
         if ($request->wantsJson() || $request->ajax()) {
             $data = $preBudgets->getCollection()->transform(function ($item) {
-                $total = (float) ($item->internal_budget ?? 0) +
-                    (float) ($item->government_share ?? 0) +
-                    (float) ($item->government_loan ?? 0) +
-                    (float) ($item->foreign_loan_budget ?? 0) +
-                    (float) ($item->foreign_subsidy_budget ?? 0) +
-                    (float) ($item->company_budget ?? 0);
+                $total = (float)($item->internal_budget ?? 0) +
+                    (float)($item->government_share ?? 0) +
+                    (float)($item->government_loan ?? 0) +
+                    (float)($item->foreign_loan_budget ?? 0) +
+                    (float)($item->foreign_subsidy_budget ?? 0) +
+                    (float)($item->company_budget ?? 0);
 
                 return [
-                    'id' => $item->id,
-                    'fiscal_year' => $item->fiscalYear ? $item->fiscalYear->title : 'N/A',
-                    'project' => $item->project ? $item->project->title : 'N/A',
-                    'directorate' => ($item->project && $item->project->directorate) ? $item->project->directorate->title : 'Unknown',
-                    'directorate_id' => ($item->project && $item->project->directorate) ? $item->project->directorate->id : null,
-                    'internal_budget' => number_format((float) ($item->internal_budget ?? 0), 2, '.', ''),
-                    'government_share' => number_format((float) ($item->government_share ?? 0), 2, '.', ''),
-                    'government_loan' => number_format((float) ($item->government_loan ?? 0), 2, '.', ''),
-                    'foreign_loan' => number_format((float) ($item->foreign_loan_budget ?? 0), 2, '.', ''),
-                    'foreign_subsidy' => number_format((float) ($item->foreign_subsidy_budget ?? 0), 2, '.', ''),
-                    'company_budget' => number_format((float) ($item->company_budget ?? 0), 2, '.', ''),
-                    'total_budget' => number_format($total, 2, '.', ''),
+                    'id'                => $item->id,
+                    'project'           => $item->project?->title ?? 'N/A',
+                    'directorate'       => $item->project?->directorate?->title ?? 'Unknown',
+                    'directorate_id'    => $item->project?->directorate?->id,
+                    'internal_budget'   => (float)($item->internal_budget ?? 0),
+                    'government_share'  => (float)($item->government_share ?? 0),
+                    'government_loan'   => (float)($item->government_loan ?? 0),
+                    'foreign_loan'      => (float)($item->foreign_loan_budget ?? 0),
+                    'foreign_subsidy'   => (float)($item->foreign_subsidy_budget ?? 0),
+                    'company_budget'    => (float)($item->company_budget ?? 0),
+                    'total_budget'      => $total,
                 ];
             });
 
             return response()->json([
-                'data' => $data,
+                'data'         => $data,
                 'current_page' => $preBudgets->currentPage(),
-                'last_page' => $preBudgets->lastPage(),
-                'total' => $preBudgets->total(),
+                'last_page'    => $preBudgets->lastPage(),
+                'total'        => $preBudgets->total(),
             ]);
         }
 
+        // ====================== BLADE VIEW DATA ======================
         $filters = [
             'directorates' => $directorates,
-            'projects' => $projects,
-            'fiscalYears' => \App\Models\FiscalYear::orderByDesc('id')->get(),
+            'projects'     => $projects,
+            'fiscalYears'  => FiscalYear::orderByDesc('id')->get(),
         ];
 
-        $viewData = array_merge(compact(
-            'filters',
-            'isProjectUser',
-            'projectId',
-            'fiscalYearId',
-            'projectsForJs'
-        ), ['headers' => [
-            'Project',
-            'Internal',
-            'Gov Share',
-            'Gov Loan',
-            'Foreign Loan',
-            'Foreign Subsidy',
-            'Company',
-            'Total',
-        ]]);
-
-        return view('admin.preBudgets.index', $viewData);
+        return view('admin.preBudgets.index', [
+            'filters'       => $filters,
+            'isProjectUser' => $isProjectUser,
+            'projectId'     => $projectId,
+            'fiscalYearId'  => $fiscalYearId,
+            'projectsForJs' => $projectsForJs,
+            'headers'       => [
+                'Project',
+                'Internal',
+                'Gov Share',
+                'Gov Loan',
+                'Foreign Loan',
+                'Foreign Subsidy',
+                'Company',
+                'Total'
+            ],
+        ]);
     }
 
     /*
@@ -180,7 +201,7 @@ class PreBudgetController extends Controller
 
         $user = Auth::user();
 
-        $projects = $user->projects->map(fn ($project) => [
+        $projects = $user->projects->map(fn($project) => [
             'id' => $project->id,
             'title' => $project->title,
         ]);

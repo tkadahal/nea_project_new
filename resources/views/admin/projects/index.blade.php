@@ -372,18 +372,61 @@
             const dropdownId = 'dropdown-' + project.id;
             const accordionId = 'accordion-' + project.id;
 
-            const directorateColor = CONFIG.arrayColumnColor.directorate && CONFIG.arrayColumnColor.directorate[
-                project.directorate && project.directorate.id] || 'gray';
-            const budgetHeadingColor = project.budget_heading_color || '#6B7280';
+            const directorateColor = CONFIG.arrayColumnColor.directorate &&
+                CONFIG.arrayColumnColor.directorate[project.directorate && project.directorate.id] || 'gray';
 
             const specialRoles = [1, 2, 3, 4];
             const isSpecialUser = CONFIG.userRoles.some(role => specialRoles.includes(role));
 
-            return '<div class="bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md p-6 border border-gray-300 dark:border-gray-600">' +
+            // ── Progress bar ──────────────────────────────────────
+            const progressValue = (project.progress !== null && project.progress !== undefined) ?
+                parseFloat(project.progress) :
+                null;
+
+            const progressLabel = progressValue !== null ? progressValue.toFixed(1) + '%' : 'N/A';
+
+            let progressColor = 'bg-gray-300';
+            let progressLabelColor = 'text-gray-400';
+
+            if (progressValue !== null) {
+                if (progressValue >= 100) {
+                    progressColor = 'bg-green-500';
+                    progressLabelColor = 'text-green-600';
+                } else if (progressValue >= 60) {
+                    progressColor = 'bg-blue-500';
+                    progressLabelColor = 'text-blue-600';
+                } else if (progressValue >= 30) {
+                    progressColor = 'bg-yellow-500';
+                    progressLabelColor = 'text-yellow-600';
+                } else {
+                    progressColor = 'bg-red-500';
+                    progressLabelColor = 'text-red-600';
+                }
+            }
+
+            const progressBarWidth = progressValue !== null ? Math.min(100, progressValue) : 0;
+
+            const progressBarHTML =
+                '<div class="mt-4">' +
+                '<div class="flex items-center justify-between mb-1">' +
+                '<span class="text-xs font-medium text-gray-600 dark:text-gray-400">Physical Progress</span>' +
+                '<span class="text-xs font-semibold ' + progressLabelColor + '">' + progressLabel + '</span>' +
+                '</div>' +
+                '<div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 overflow-hidden">' +
+                '<div class="' + progressColor + ' h-2.5 rounded-full transition-all duration-500" style="width: ' +
+                progressBarWidth + '%"></div>' +
+                '</div>' +
+                '</div>';
+            // ─────────────────────────────────────────────────────
+
+            return (
+                '<div class="bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md p-6 border border-gray-300 dark:border-gray-600">' +
+
+                // ── Header ──
                 '<div class="flex justify-between items-start">' +
                 '<div class="flex-1 min-w-0">' +
-                '<h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 truncate">' + escapeHtml(project
-                    .title) + '</h3>' +
+                '<h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 truncate">' + escapeHtml(
+                    project.title) + '</h3>' +
                 '<p class="text-gray-600 dark:text-gray-400 mt-1 text-sm truncate">' + escapeHtml(project
                     .description) + '</p>' +
                 '</div>' +
@@ -395,33 +438,39 @@
                 '<div id="' + dropdownId +
                 '" class="project-dropdown hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border z-20">' +
                 '<a href="/admin/project/' + project.id +
-                '" class="block px-4 py-2 text-sm hover:bg-gray-100">View</a>' +
+                '" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">View</a>' +
                 '<a href="/admin/project/' + project.id +
-                '/edit" class="block px-4 py-2 text-sm hover:bg-gray-100">Edit</a>' +
+                '/edit" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Edit</a>' +
                 '<button type="button" onclick="deleteProject(' + project.id +
-                ')" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Delete</button>' +
+                ')" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">Delete</button>' +
                 '<a href="/admin/budget/create?project_id=' + project.id +
-                '" class="block px-4 py-2 text-sm hover:bg-gray-100">Add Budget</a>' +
+                '" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Add Budget</a>' +
                 '</div>' +
                 '</div>' +
                 '</div>' +
+
+                // ── Directorate ──
                 (project.directorate ?
-                    '<div class="mt-4"><span class="text-sm font-medium">Directorate:</span> <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-' +
-                    directorateColor + '-100 text-' + directorateColor + '-800">' + escapeHtml(project.directorate
-                        .title) + '</span></div>' : '') +
+                    '<div class="mt-4"><span class="text-sm font-medium text-gray-700 dark:text-gray-300">Directorate:</span>' +
+                    ' <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-' +
+                    directorateColor + '-100 text-' + directorateColor + '-800">' +
+                    escapeHtml(project.directorate.title) + '</span></div>' :
+                    '') +
+
+                // ── Physical Progress Bar ──
+                progressBarHTML +
+
+                // ── Buttons & Accordion ──
                 '<div class="mt-6">' +
                 '<div class="flex justify-end items-center gap-2 flex-wrap">' +
 
-                // View Details Button
                 '<button type="button" class="project-accordion-toggle border border-blue-500 text-blue-500 px-2 py-1 rounded text-xs hover:bg-blue-500 hover:text-white transition-colors duration-200" data-accordion="' +
                 accordionId + '">View Details</button>' +
 
-                // Add Task Button
                 '<a href="/admin/task/create?project_id=' + project.id +
                 '" class="border border-blue-500 text-blue-500 px-2 py-1 rounded text-xs hover:bg-blue-500 hover:text-white transition-colors duration-200">Add Task</a>' +
 
-                // --- CONTRACTS SECTION (CLICKABLE) ---
-                (isSpecialUser ? // Wrapped in <a> tag to make it clickable
+                (isSpecialUser ?
                     '<a href="/admin/contract?project_id=' + project.id +
                     '" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">' +
                     '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>' +
@@ -430,15 +479,30 @@
                     '<a href="/admin/contract/create?project_id=' + project.id +
                     '" class="border border-blue-500 text-blue-500 px-2 py-1 rounded text-xs hover:bg-blue-500 hover:text-white transition-colors duration-200">Add Contract</a>'
                 ) +
-                // -------------------------------------
+
+                '<a href="/admin/project/' + project.id +
+                '" class="relative text-blue-500 hover:text-blue-700 dark:hover:text-blue-300" title="Messages">' +
+                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>' +
+                '<span class="absolute -top-1 -right-1 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center ' +
+                ((project.comment_count || 0) == 0 ? 'bg-gray-400' : 'bg-red-500') + '">' +
+                (project.comment_count || 0) +
+                '</span>' +
+                '</a>' +
 
                 '</div>' +
+
                 '<div id="' + accordionId + '" class="project-accordion hidden mt-4 grid grid-cols-1 gap-2">' +
-                (project.fields || []).map(field => '<div><span class="text-sm font-medium">' + field.label +
-                    ':</span> <span class="ml-2">' + escapeHtml(field.value) + '</span></div>').join('') +
+                (project.fields || []).map(function(field) {
+                    return '<div><span class="text-sm font-medium text-gray-700 dark:text-gray-300">' +
+                        escapeHtml(field.label || field.title || '') + ':</span>' +
+                        ' <span class="text-gray-600 dark:text-gray-400 ml-2">' + escapeHtml(field.value ||
+                            '') + '</span></div>';
+                }).join('') +
                 '</div>' +
                 '</div>' +
-                '</div>';
+
+                '</div>'
+            );
         }
 
         function renderTable(projects) {

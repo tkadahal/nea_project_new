@@ -91,7 +91,15 @@ class ProjectService
                 search: $search
             );
 
-            // Transform based on view type
+            // Eager load contracts + schedules so calculateContractProgressFromLoaded()
+            // works without extra queries per project
+            $projects->getCollection()->load([
+                'contracts.activitySchedules' => function ($q) {
+                    $q->withPivot(['progress', 'status'])
+                        ->withCount('children');
+                },
+            ]);
+
             if ($view === 'card') {
                 $transformedData = $projects->getCollection()->map(function ($project) {
                     return $this->transformer->transformProjectForCard($project);
@@ -115,17 +123,17 @@ class ProjectService
     }
 
     /**
-     * Transform projects collection for table view
+     * Transform projects collection for table view.
+     * Uses calculatePhysicalProgress() which averages contract schedule progress,
+     * weighted by contract_amount.
      */
     public function transformForTable($projects): array
     {
-        // Ensure we're working with a collection
         $collection = $projects instanceof \Illuminate\Support\Collection
             ? $projects
             : collect($projects);
 
         return $collection->map(function ($project) {
-            // Handle both array and object
             $directorateTitle = is_array($project)
                 ? ($project['directorate']['title'] ?? 'N/A')
                 : ($project->directorate?->title ?? 'N/A');
@@ -142,22 +150,12 @@ class ProjectService
 
             $priorityColor = config("colors.priority.{$priorityValue}", '#6B7280');
 
-            $projectId = is_array($project) ? $project['id'] : $project->id;
+            $projectId    = is_array($project) ? $project['id'] : $project->id;
             $projectTitle = is_array($project) ? $project['title'] : $project->title;
-            $startDate = is_array($project)
-                ? ($project['start_date'] ?? null)
-                : $project->start_date;
-            $endDate = is_array($project)
-                ? ($project['end_date'] ?? null)
-                : $project->end_date;
-            $progress = is_array($project)
-                ? ($project['progress'] ?? null)
-                : $project->progress;
-            $projectManagerName = is_array($project)
-                ? ($project['projectManager']['name'] ?? 'N/A')
-                : ($project->projectManager?->name ?? 'N/A');
 
-            // Handle date formatting
+            $startDate = is_array($project) ? ($project['start_date'] ?? null) : $project->start_date;
+            $endDate   = is_array($project) ? ($project['end_date'] ?? null)   : $project->end_date;
+
             $startDateFormatted = $startDate
                 ? (is_string($startDate) ? $startDate : $startDate->format('Y-m-d'))
                 : 'N/A';
@@ -166,15 +164,27 @@ class ProjectService
                 ? (is_string($endDate) ? $endDate : $endDate->format('Y-m-d'))
                 : 'N/A';
 
+            $projectManagerName = is_array($project)
+                ? ($project['projectManager']['name'] ?? 'N/A')
+                : ($project->projectManager?->name ?? 'N/A');
+
+            // Use schedule-based physical progress instead of the raw DB column
+            $progress = is_array($project)
+                ? ($project['progress'] ?? 0)          // fallback for plain arrays
+                : $project->calculatePhysicalProgress(); // live calculation from schedules
+
             return [
-                'id' => $projectId,
+                'id'    => $projectId,
                 'title' => $projectTitle,
                 'directorate' => [['title' => $directorateTitle, 'color' => $directorateColor]],
                 'fields' => [
-                    ['title' => trans('global.project.fields.start_date').': '.$startDateFormatted],
-                    ['title' => trans('global.project.fields.end_date').': '.$endDateFormatted],
-                    ['title' => trans('global.project.fields.physical_progress').': '.(is_numeric($progress) ? $progress.'%' : 'N/A')],
-                    ['title' => trans('global.project.fields.project_manager').': '.$projectManagerName],
+                    ['title' => trans('global.project.fields.start_date') . ': ' . $startDateFormatted],
+                    ['title' => trans('global.project.fields.end_date')   . ': ' . $endDateFormatted],
+                    [
+                        'title' => trans('global.project.fields.physical_progress') . ': ' .
+                            (is_numeric($progress) ? round($progress, 2) . '%' : 'N/A'),
+                    ],
+                    ['title' => trans('global.project.fields.project_manager') . ': ' . $projectManagerName],
                 ],
             ];
         })->toArray();
@@ -203,20 +213,29 @@ class ProjectService
             'budgets',
             'comments.user',
             'comments.replies.user',
+            // Load contracts + their schedules so physical progress can be
+            // calculated from loaded data without additional queries
+            'contracts.activitySchedules' => function ($q) {
+                $q->withPivot(['progress', 'status'])
+                    ->withCount('children');
+            },
         ]);
 
         $this->markCommentsAsRead($project);
 
-        $latestBudget = $project->budgets->sortByDesc('id')->first();
-        $totalBudget = $latestBudget ? (float) $latestBudget->total_budget : 0.0;
+        $latestBudget   = $project->budgets->sortByDesc('id')->first();
+        $totalBudget    = $latestBudget ? (float) $latestBudget->total_budget : 0.0;
         $latestBudgetId = $latestBudget?->id;
 
-        return compact('project', 'totalBudget', 'latestBudgetId');
+        // Derive physical progress from the already-loaded schedules
+        $physicalProgress = $project->calculatePhysicalProgress();
+
+        return compact('project', 'totalBudget', 'latestBudgetId', 'physicalProgress');
     }
 
     public function createProject(array $data, ?array $files = null): array
     {
-        $user = Auth::user();
+        $user    = Auth::user();
         $roleIds = $user->roles->pluck('id')->toArray();
         $isAdmin = in_array(Role::SUPERADMIN, $roleIds) || in_array(Role::ADMIN, $roleIds);
 
@@ -227,7 +246,7 @@ class ProjectService
         try {
             DB::beginTransaction();
 
-            $dto = ProjectDTO::fromArray($data);
+            $dto     = ProjectDTO::fromArray($data);
             $project = $this->projectRepository->create($dto->toArray());
 
             if ($files) {
@@ -309,9 +328,14 @@ class ProjectService
         }
     }
 
+    // ────────────────────────────────────────────────
+    // Private Helpers
+    // ────────────────────────────────────────────────
+
     private function markCommentsAsRead(Project $project): void
     {
         $user = Auth::user();
+
         $commentIds = $user->comments()
             ->where('commentable_type', 'App\Models\Project')
             ->where('commentable_id', $project->id)

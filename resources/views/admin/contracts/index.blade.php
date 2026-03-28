@@ -307,7 +307,7 @@
                 </div>
                 <div class="flex justify-between items-center mt-1 text-xs">
                     <span class="font-semibold text-gray-700 dark:text-gray-300">${percent.toFixed(1)}%</span>
-                    <span class="text-gray-500 dark:text-gray-400">Physical Progress</span>
+                    <span class="text-gray-500 dark:text-gray-400">Progress</span>
                 </div>
             `;
         }
@@ -498,7 +498,7 @@
 
                             <!-- Progress -->
                             <div class="mt-7">
-                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">PHYSICAL PROGRESS</div>
+                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">PROGRESS</div>
                                 ${progressHtml}
                             </div>
                         </div>

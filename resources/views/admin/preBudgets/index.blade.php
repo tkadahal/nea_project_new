@@ -173,9 +173,15 @@
                 };
 
                 const tableBody = document.getElementById('tableBody');
-                const projectSelect = document.getElementById('projectFilter');
-                const directorateSelect = document.getElementById('directorateFilter');
-                const perPageSelect = document.getElementById('perPageSelect');
+
+                // ====================== FORMAT CURRENCY WITH COMMAS ======================
+                function formatCurrency(amount) {
+                    if (amount == null || isNaN(amount)) return '0.00';
+                    return parseFloat(amount).toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                }
 
                 async function loadData() {
                     const params = new URLSearchParams({
@@ -194,41 +200,30 @@
                     });
 
                     const data = await response.json();
+
                     renderTable(data.data);
                     state.totalPages = data.last_page;
                     updatePagination(data.total);
                 }
 
                 function updateProjectOptions(directorateId) {
-                    const currentVal = projectSelect.value;
+                    const currentVal = document.getElementById('projectFilter').value;
+                    const filtered = CONFIG.allProjects.filter(p => !directorateId || p.directorate_id == directorateId);
 
-                    const filtered = CONFIG.allProjects.filter(p => {
-                        if (!directorateId) return true;
-                        return p.directorate_id == directorateId;
-                    });
-
+                    const projectSelect = document.getElementById('projectFilter');
                     projectSelect.innerHTML = '<option value="">All</option>';
 
                     filtered.forEach(p => {
-                        const option = document.createElement('option');
-                        option.value = p.id;
-                        option.textContent = p.title;
-                        if (p.id == currentVal) {
-                            option.selected = true;
-                            state.project = p.id;
-                        }
+                        const option = new Option(p.title, p.id);
+                        if (p.id == currentVal) option.selected = true;
                         projectSelect.appendChild(option);
                     });
-
-                    const exists = filtered.some(p => p.id == currentVal);
-                    if (!exists && currentVal) {
-                        state.project = '';
-                    }
                 }
 
                 function renderTable(rows) {
-                    if (!rows.length) {
-                        tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-6">No records found</td></tr>`;
+                    if (!rows || rows.length === 0) {
+                        tableBody.innerHTML =
+                            `<tr><td colspan="10" class="text-center py-8 text-gray-500">No records found</td></tr>`;
                         return;
                     }
 
@@ -244,67 +239,61 @@
                     for (const [dir, items] of Object.entries(grouped)) {
                         const color = CONFIG.directorateColors[items[0].directorate_id] || 'gray';
 
-                        // Calculate total for the header
-                        const total = items.reduce((sum, i) => sum + parseFloat(i.total_budget || 0), 0)
-                            .toLocaleString('en-US', {
-                                minimumFractionDigits: 2
-                            });
+                        const groupTotal = items.reduce((sum, item) => sum + parseFloat(item.total_budget || 0), 0);
 
-                        // Group Header Row (Styled to match table)
+                        // Group Header
                         html += `
-                        <tr class="bg-${color}-100 dark:bg-${color}-900 border-b border-gray-200 dark:border-gray-700">
-                            <td colspan="10" class="py-2 px-6 font-bold uppercase text-gray-800 dark:text-gray-100">
-                                <div class="flex justify-between items-center">
-                                    <span>${dir}</span>
-                                    <span class="text-sm font-normal">Total: ${total}</span>
-                                </div>
-                            </td>
-                        </tr>`;
+                <tr class="bg-${color}-100 dark:bg-${color}-900 border-b border-gray-200 dark:border-gray-700">
+                    <td colspan="10" class="py-3 px-6 font-bold uppercase text-gray-800 dark:text-gray-100">
+                        <div class="flex justify-between items-center">
+                            <span>${dir}</span>
+                            <span class="text-sm font-normal">Total: ${formatCurrency(groupTotal)}</span>
+                        </div>
+                    </td>
+                </tr>`;
 
+                        // Data Rows
                         items.forEach(row => {
                             html += `
-                            <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                <td class="py-3 px-6 text-left font-medium text-gray-800 dark:text-gray-200">${row.project}</td>
-                                <td class="py-3 px-6 text-right">${row.internal_budget}</td>
-                                <td class="py-3 px-6 text-right">${row.government_share}</td>
-                                <td class="py-3 px-6 text-right">${row.government_loan}</td>
-                                <td class="py-3 px-6 text-right">${row.foreign_loan}</td>
-                                <td class="py-3 px-6 text-right">${row.foreign_subsidy}</td>
-                                <td class="py-3 px-6 text-right">${row.company_budget}</td>
-                                <td class="py-3 px-6 text-right font-bold text-gray-800 dark:text-gray-100">${row.total_budget}</td>
-                                <td class="py-3 px-6 text-left">
-                                    <div class="flex flex-wrap gap-2">
-                                        ${CONFIG.permissions.canView ? `
-                                                    <a href="${CONFIG.viewRoute}${row.id}" 
-                                                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-xs font-bold uppercase tracking-wide">
-                                                        View
-                                                    </a>
-                                                ` : ''}
-
-                                        ${CONFIG.permissions.canEdit ? `
-                                                    <a href="${CONFIG.editRoute}${row.id}/edit" 
-                                                        class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-xs font-bold uppercase tracking-wide">
-                                                        Edit
-                                                    </a>
-                                                ` : ''}
-
-                                        ${CONFIG.permissions.canDelete ? `
-                                                    <form action="${CONFIG.deleteRoute}${row.id}" method="POST"
-                                                        onsubmit="return confirm('Are you sure you want to delete this item?');"
-                                                        class="inline">
-                                                        <input type="hidden" name="_token" value="${CONFIG.csrfToken}">
-                                                        <input type="hidden" name="_method" value="DELETE">
-                                                        <button type="submit"
-                                                            class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-xs font-bold uppercase tracking-wide">
-                                                            Delete
-                                                        </button>
-                                                    </form>
-                                                ` : ''}
-                                    </div>
-                                </td>
-                            </tr>`;
+                    <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <td class="py-3 px-6 font-medium">${row.project}</td>
+                        <td class="py-3 px-6 text-right">${formatCurrency(row.internal_budget)}</td>
+                        <td class="py-3 px-6 text-right">${formatCurrency(row.government_share)}</td>
+                        <td class="py-3 px-6 text-right">${formatCurrency(row.government_loan)}</td>
+                        <td class="py-3 px-6 text-right">${formatCurrency(row.foreign_loan)}</td>
+                        <td class="py-3 px-6 text-right">${formatCurrency(row.foreign_subsidy)}</td>
+                        <td class="py-3 px-6 text-right">${formatCurrency(row.company_budget)}</td>
+                        <td class="py-3 px-6 text-right font-bold text-gray-800 dark:text-gray-100">
+                            ${formatCurrency(row.total_budget)}
+                        </td>
+                        <td class="py-3 px-6">
+                            <div class="flex flex-wrap gap-2">
+                                ${CONFIG.permissions.canView ? `
+                                            <a href="${CONFIG.viewRoute}${row.id}" 
+                                               class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700">
+                                                View
+                                            </a>` : ''}
+                                ${CONFIG.permissions.canEdit ? `
+                                            <a href="${CONFIG.editRoute}${row.id}/edit" 
+                                               class="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded hover:bg-emerald-700">
+                                                Edit
+                                            </a>` : ''}
+                                ${CONFIG.permissions.canDelete ? `
+                                            <form action="${CONFIG.deleteRoute}${row.id}" method="POST" class="inline"
+                                                  onsubmit="return confirm('Are you sure you want to delete this?')">
+                                                <input type="hidden" name="_token" value="${CONFIG.csrfToken}">
+                                                <input type="hidden" name="_method" value="DELETE">
+                                                <button type="submit"
+                                                    class="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700">
+                                                    Delete
+                                                </button>
+                                            </form>` : ''}
+                            </div>
+                        </td>
+                    </tr>`;
                         });
                     }
+
                     tableBody.innerHTML = html;
                 }
 
@@ -312,59 +301,51 @@
                     document.getElementById('paginationInfo').textContent =
                         `Page ${state.page} of ${state.totalPages} (Total: ${total} records)`;
 
-                    // Disable buttons logic
-                    document.getElementById('prevPage').disabled = state.page <= 1;
-                    document.getElementById('prevPage').classList.toggle('opacity-50', state.page <= 1);
-                    document.getElementById('prevPage').classList.toggle('cursor-not-allowed', state.page <= 1);
+                    const prevBtn = document.getElementById('prevPage');
+                    const nextBtn = document.getElementById('nextPage');
 
-                    document.getElementById('nextPage').disabled = state.page >= state.totalPages;
-                    document.getElementById('nextPage').classList.toggle('opacity-50', state.page >= state.totalPages);
-                    document.getElementById('nextPage').classList.toggle('cursor-not-allowed', state.page >= state
-                        .totalPages);
+                    prevBtn.disabled = state.page <= 1;
+                    nextBtn.disabled = state.page >= state.totalPages;
 
-                    // Render Page Numbers
-                    const pageNumbersContainer = document.getElementById('pageNumbers');
-                    pageNumbersContainer.innerHTML = '';
+                    // Page numbers logic (simple version)
+                    const container = document.getElementById('pageNumbers');
+                    container.innerHTML = '';
 
-                    // Simple page number logic (can be expanded like the target view if needed)
-                    // For now, keeping it simple to match the logic flow, but using target styles
-                    const maxButtons = 3;
-                    let start = Math.max(1, state.page - 1);
+                    const maxButtons = 5;
+                    let start = Math.max(1, state.page - 2);
                     let end = Math.min(state.totalPages, start + maxButtons - 1);
 
-                    if (end - start < maxButtons - 1) {
-                        start = Math.max(1, end - maxButtons + 1);
-                    }
+                    if (end - start < maxButtons - 1) start = Math.max(1, end - maxButtons + 1);
 
                     for (let i = start; i <= end; i++) {
                         const btn = document.createElement('button');
                         btn.textContent = i;
-                        btn.className =
-                            `px-3 py-1 rounded cursor-pointer font-medium ${i === state.page ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`;
+                        btn.className = `px-3 py-1 rounded font-medium ${i === state.page 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`;
                         btn.onclick = () => {
                             state.page = i;
                             loadData();
                         };
-                        pageNumbersContainer.appendChild(btn);
+                        container.appendChild(btn);
                     }
                 }
 
-                if (directorateSelect) {
-                    directorateSelect.addEventListener('change', e => {
-                        state.directorate = e.target.value;
-                        state.page = 1;
-                        updateProjectOptions(state.directorate);
-                        loadData();
-                    });
-                }
+                // Event Listeners
+                document.getElementById('directorateFilter')?.addEventListener('change', e => {
+                    state.directorate = e.target.value;
+                    state.page = 1;
+                    updateProjectOptions(state.directorate);
+                    loadData();
+                });
 
-                document.getElementById('projectFilter')?.addEventListener('change', e => {
+                document.getElementById('projectFilter').addEventListener('change', e => {
                     state.project = e.target.value;
                     state.page = 1;
                     loadData();
                 });
 
-                document.getElementById('fiscalYearFilter')?.addEventListener('change', e => {
+                document.getElementById('fiscalYearFilter').addEventListener('change', e => {
                     state.fiscalYear = e.target.value;
                     state.page = 1;
                     loadData();
@@ -376,8 +357,8 @@
                     loadData();
                 });
 
-                perPageSelect.addEventListener('change', e => {
-                    state.perPage = e.target.value;
+                document.getElementById('perPageSelect').addEventListener('change', e => {
+                    state.perPage = parseInt(e.target.value);
                     state.page = 1;
                     loadData();
                 });
@@ -396,6 +377,7 @@
                     }
                 });
 
+                // Initial load
                 loadData();
 
             })();

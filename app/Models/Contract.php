@@ -317,4 +317,59 @@ class Contract extends Model
     {
         return $this->hasMany(ContractActivityDependency::class);
     }
+
+    public function calculateContractProgressFromLoaded(): float
+    {
+        $allSchedules = $this->activitySchedules;
+
+        $activeSchedules = $allSchedules->where('pivot.status', 'active');
+        $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
+
+        if ($topLevel->isEmpty()) {
+            return 0.0;
+        }
+
+        $totalWeightedProgress = 0.0;
+        $totalWeightage = 0.0;
+
+        foreach ($topLevel as $schedule) {
+            $weight = (float) $schedule->weightage;
+            $leaves = $this->collectLeavesFromLoaded($schedule, $allSchedules);
+
+            $avgProgress = $leaves->isEmpty()
+                ? 0
+                : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
+
+            $totalWeightedProgress += ($avgProgress * $weight);
+            $totalWeightage += $weight;
+        }
+
+        return $totalWeightage > 0
+            ? round($totalWeightedProgress / $totalWeightage, 2)
+            : 0.0;
+    }
+
+    /**
+     * Recursively collect leaf nodes from an already-loaded collection.
+     */
+    public function collectLeavesFromLoaded($current, $allSchedules): \Illuminate\Support\Collection
+    {
+        $children = $allSchedules->where('parent_id', $current->id);
+
+        if ($children->isNotEmpty()) {
+            $leaves = collect();
+            foreach ($children as $child) {
+                $leaves = $leaves->merge($this->collectLeavesFromLoaded($child, $allSchedules));
+            }
+            return $leaves;
+        }
+
+        $validStatuses = ['active', 'completed'];
+
+        if (isset($current->pivot) && in_array($current->pivot->status, $validStatuses)) {
+            return collect([$current]);
+        }
+
+        return collect([]);
+    }
 }

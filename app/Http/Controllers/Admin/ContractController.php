@@ -104,7 +104,17 @@ class ContractController extends Controller
     {
         abort_if(Gate::denies('contract_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $contract->load(['directorate', 'project', 'status', 'priority']);
+        $contract->load([
+            'activitySchedules' => function ($q) {
+                $q->withPivot(['progress', 'status'])
+                    ->withCount('children');
+            },
+            'directorate',
+            'status',
+            'priority',
+            'project',
+            'extensions',
+        ]);
 
         return view('admin.contracts.show', compact('contract'));
     }

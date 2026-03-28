@@ -1259,7 +1259,7 @@ class ContractActivityScheduleController extends Controller
         if ($request->filled('status')) {
             $status = $request->status;
             $filteredContracts = $filteredContracts->filter(function ($contract) use ($status) {
-                $progress = $this->calculatecontractProgressFromLoaded($contract);
+                $progress = $contract->calculatecontractProgressFromLoaded();
 
                 return match ($status) {
                     'completed' => $progress >= 100,
@@ -1276,7 +1276,7 @@ class ContractActivityScheduleController extends Controller
         $paginatedArray = array_slice($filteredArray, ($currentPage - 1) * $perPage, $perPage);
 
         foreach ($paginatedArray as $contract) {
-            $contract->cached_progress = $this->calculatecontractProgressFromLoaded($contract);
+            $contract->cached_progress = $contract->calculatecontractProgressFromLoaded();
 
             $allSchedules = $contract->activitySchedules;
 
@@ -1378,7 +1378,7 @@ class ContractActivityScheduleController extends Controller
             ->get();
 
         $data = $contracts->map(function ($contract) {
-            $overallProgress = $this->calculatecontractProgressFromLoaded($contract);
+            $overallProgress = $contract->calculatecontractProgressFromLoaded();
 
             $allSchedules = $contract->activitySchedules;
             $activeSchedules = $allSchedules->where('pivot.status', 'active');
@@ -1481,7 +1481,7 @@ class ContractActivityScheduleController extends Controller
                 'id' => $contract->id,
                 'title' => $contract->title,
                 'directorate' => $contract->directorate?->title ?? 'N/A',
-                'progress' => $this->calculatecontractProgressFromLoaded($contract),
+                'progress' => $contract->calculatecontractProgressFromLoaded(),
             ];
         });
 
@@ -1857,35 +1857,35 @@ class ContractActivityScheduleController extends Controller
         return $this->getBreakdownFromCollection($topLevel);
     }
 
-    private function calculatecontractProgressFromLoaded($contract): float
-    {
-        $allSchedules = $contract->activitySchedules;
+    // private function calculatecontractProgressFromLoaded($contract): float
+    // {
+    //     $allSchedules = $contract->activitySchedules;
 
-        $activeSchedules = $allSchedules->where('pivot.status', 'active');
-        $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
+    //     $activeSchedules = $allSchedules->where('pivot.status', 'active');
+    //     $topLevel = $activeSchedules->where('level', 1)->whereNotNull('weightage');
 
-        if ($topLevel->isEmpty()) {
-            return 0.0;
-        }
+    //     if ($topLevel->isEmpty()) {
+    //         return 0.0;
+    //     }
 
-        $totalWeightedProgress = 0.0;
-        $totalWeightage = 0.0;
+    //     $totalWeightedProgress = 0.0;
+    //     $totalWeightage = 0.0;
 
-        foreach ($topLevel as $schedule) {
-            $weight = (float) $schedule->weightage;
+    //     foreach ($topLevel as $schedule) {
+    //         $weight = (float) $schedule->weightage;
 
-            $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
+    //         $leaves = $this->collectLeavesFromCollection($schedule, $allSchedules);
 
-            $avgProgress = $leaves->isEmpty()
-                ? 0
-                : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
+    //         $avgProgress = $leaves->isEmpty()
+    //             ? 0
+    //             : $leaves->avg(fn($l) => (float) ($l->pivot->progress ?? 0));
 
-            $totalWeightedProgress += ($avgProgress * $weight);
-            $totalWeightage += $weight;
-        }
+    //         $totalWeightedProgress += ($avgProgress * $weight);
+    //         $totalWeightage += $weight;
+    //     }
 
-        return $totalWeightage > 0 ? round($totalWeightedProgress / $totalWeightage, 2) : 0.0;
-    }
+    //     return $totalWeightage > 0 ? round($totalWeightedProgress / $totalWeightage, 2) : 0.0;
+    // }
 
     private function collectLeavesFromCollection($current, $allSchedules)
     {
@@ -1955,7 +1955,7 @@ class ContractActivityScheduleController extends Controller
             $totalSchedules += $scheduleCount;
 
             if ($scheduleCount > 0) {
-                $progressSum += $this->calculatecontractProgressFromLoaded($contract);
+                $progressSum += $contract->calculatecontractProgressFromLoaded();
                 $contractsWithSchedules++;
             }
         }
@@ -1976,7 +1976,7 @@ class ContractActivityScheduleController extends Controller
         $totalSchedules = 0;
 
         foreach ($contracts as $contract) {
-            $progressValues[] = $this->calculatecontractProgressFromLoaded($contract);
+            $progressValues[] = $contract->calculatecontractProgressFromLoaded();
 
             $totalSchedules += $contract->activitySchedules
                 ->whereIn('pivot.status', ['active', 'completed'])
@@ -1997,7 +1997,7 @@ class ContractActivityScheduleController extends Controller
         $formatted = [];
 
         foreach ($contracts as $contract) {
-            $progress = $this->calculatecontractProgressFromLoaded($contract);
+            $progress = $contract->calculatecontractProgressFromLoaded();
 
             $leafSchedules = $contract->activitySchedules->filter(fn($s) => $s->children_count === 0);
             $completedCount = $leafSchedules->filter(fn($s) => (float) $s->pivot->progress >= 100)->count();
@@ -2092,7 +2092,7 @@ class ContractActivityScheduleController extends Controller
             if ($directoratecontracts->isNotEmpty()) {
                 $progressSum = 0;
                 foreach ($directoratecontracts as $contract) {
-                    $progressSum += $this->calculatecontractProgressFromLoaded($contract);
+                    $progressSum += $contract->calculatecontractProgressFromLoaded();
                 }
 
                 $performance[] = [
