@@ -644,6 +644,174 @@ class ContractActivityScheduleController extends Controller
         }
     }
 
+    public function quickUpdateDates(Contract $contract)
+    {
+        // ── 1. Load every schedule assigned to this contract ───────────────
+        $allSchedules = $contract->activitySchedules()
+            ->withCount('children')
+            ->withPivot([
+                'start_date',
+                'end_date',
+                'status',
+            ])
+            ->with('parent')
+            ->get();
+
+        // ── 2. Active leaves only ──────────────────────────────────────────
+        $activeLeaves = $allSchedules
+            ->where('children_count', 0)
+            ->where('pivot.status', 'active');
+
+        // ── 3. Count leaves still missing either date ──────────────────────
+        $missingDatesCount = $activeLeaves
+            ->filter(fn($s) => empty($s->pivot->start_date) || empty($s->pivot->end_date))
+            ->count();
+
+        // ── 4. Group by top-level parent code (level 1 with weightage) ─────
+        //    Walk up the parent chain to find the root phase.
+        //    Fall back to 'uncategorized' if none found.
+        $leafSchedules = $activeLeaves
+            ->sortBy(fn($s) => [$this->getRootCode($s, $allSchedules), $s->code])
+            ->groupBy(fn($s) => $this->getRootCode($s, $allSchedules));
+
+        // ── 5. Build a map of top-level schedule objects for the view header
+        //    keyed by code, so the blade can display name + weightage.
+        $topLevelMap = $allSchedules
+            ->where('level', 1)
+            ->whereNotNull('weightage')
+            ->keyBy('code');
+
+        return view('admin.schedules.quick-update-date', compact(
+            'contract',
+            'leafSchedules',
+            'missingDatesCount',
+            'topLevelMap',
+        ));
+    }
+
+    /**
+     * Bulk-save planned start / end dates for leaf activities.
+     *
+     * Expected payload:
+     *   schedules[N][id]            – schedule ID (required)
+     *   schedules[N][planned_start] – date string Y-m-d (nullable)
+     *   schedules[N][planned_end]   – date string Y-m-d (nullable)
+     */
+    public function bulkUpdateDates(Request $request, Contract $contract)
+    {
+        // ── 1. Validate ────────────────────────────────────────────────────
+        $validated = $request->validate([
+            'schedules'               => ['required', 'array'],
+            'schedules.*.id'          => ['required', 'integer', 'exists:contract_activity_schedules,id'],
+            'schedules.*.start_date'  => ['nullable', 'date'],
+            'schedules.*.end_date'    => [
+                'nullable',
+                'date',
+                function ($attribute, $value, $fail) use ($request) {
+                    preg_match('/schedules\.(\d+)\.end_date/', $attribute, $matches);
+                    $index = $matches[1] ?? null;
+
+                    if ($index === null || ! $value) {
+                        return;
+                    }
+
+                    $start = $request->input("schedules.{$index}.start_date");
+
+                    if ($start && $value < $start) {
+                        $fail("End date cannot be before start date (row #{$index}).");
+                    }
+                },
+            ],
+        ]);
+
+        // ── 2. Scope to IDs that actually belong to this contract ──────────
+        $contractScheduleIds = $contract
+            ->activitySchedules()
+            ->pluck('contract_activity_schedules.id')
+            ->flip();
+
+        $rows    = $validated['schedules'];
+        $updated = 0;
+        $skipped = 0;
+
+        // ── 3. Wrap in a transaction ───────────────────────────────────────
+        DB::beginTransaction();
+
+        try {
+            foreach ($rows as $row) {
+                $scheduleId = (int) $row['id'];
+
+                // Security: must belong to this contract
+                if (! $contractScheduleIds->has($scheduleId)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $contract->activitySchedules()->updateExistingPivot($scheduleId, [
+                    'start_date' => $row['start_date'] ?: null,
+                    'end_date'   => $row['end_date']   ?: null,
+                    'updated_at' => now(),
+                ]);
+
+                $updated++;
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return back()
+                ->withInput()
+                ->with('error', 'An unexpected error occurred while saving dates. Please try again.');
+        }
+
+        // ── 4. Redirect with feedback ──────────────────────────────────────
+        $message = "Dates updated for {$updated} " . str('activity')->plural($updated) . '.';
+
+        if ($skipped > 0) {
+            $message .= " {$skipped} " . str('row')->plural($skipped) . ' skipped (not assigned to this contract).';
+        }
+
+        return redirect()
+            ->route('admin.contracts.schedules.index', $contract)
+            ->with('success', $message);
+    }
+
+    /**
+     * Walk up the parent chain (within the already-loaded collection) to find
+     * the top-level schedule (level 1 with weightage) and return its code.
+     * Falls back to 'uncategorized' if the root cannot be determined.
+     */
+    private function getRootCode(
+        ContractActivitySchedule $schedule,
+        \Illuminate\Support\Collection $allSchedules
+    ): string {
+        // If this is already top-level, return its own code
+        if ($schedule->level === 1 && $schedule->weightage !== null) {
+            return $schedule->code;
+        }
+
+        // Walk up via parent_id within the loaded collection
+        $current  = $schedule;
+        $maxDepth = 10; // guard against infinite loops in bad data
+
+        while ($current->parent_id && $maxDepth-- > 0) {
+            $parent = $allSchedules->firstWhere('id', $current->parent_id);
+
+            if (! $parent) {
+                break;
+            }
+
+            if ($parent->level === 1 && $parent->weightage !== null) {
+                return $parent->code;
+            }
+
+            $current = $parent;
+        }
+
+        return 'uncategorized';
+    }
+
     // public function editSchedule(contract $contract, contractActivitySchedule $schedule): View
     // {
     //     $assignment = $contract->activitySchedules()
@@ -2695,5 +2863,10 @@ class ContractActivityScheduleController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete file: ' . $e->getMessage());
         }
+    }
+
+    public function ganttView(Contract $contract): View
+    {
+        return view('admin.schedules.gantt', compact('contract'));
     }
 }

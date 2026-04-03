@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\ContractTypeController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\VoltageLevelController;
 use App\Http\Controllers\Settings\AppearanceController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -141,6 +142,7 @@ Route::middleware(['auth', 'verified', AuthGates::class])->group(function () {
         Route::resource('budgetHeading', BudgetHeadingController::class);
         Route::resource('library', LibraryController::class);
         Route::resource('contractType', ContractTypeController::class);
+        Route::resource('voltageLevel', VoltageLevelController::class);
 
         // Project Activities
         Route::controller(ProjectActivityController::class)->prefix('projectActivity')->name('projectActivity.')->group(function () {

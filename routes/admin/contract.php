@@ -30,7 +30,9 @@ Route::controller(ContractController::class)->prefix('contracts')->name('contrac
         Route::get('{schedule}/edit', 'edit')->name('edit');
         Route::put('{schedule}', 'update')->name('update');
         Route::get('quick-update', 'quickUpdate')->name('quick-update');
+        Route::get('quick-update-date', 'quickUpdateDates')->name('quick-update-date');
         Route::post('bulk-update', 'bulkUpdate')->name('bulk-update');
+        Route::post('bulk-update-date', 'bulkUpdateDates')->name('bulk-update-date');
         Route::post('{schedule}/date-revision', 'addDateRevision')->name('add-date-revision');
         Route::delete('date-revision/{revision}', 'deleteDateRevision')->name('delete-date-revision');
         Route::post('{schedule}/mark-not-needed', 'markAsNotNeeded')->name('mark-not-needed');
@@ -46,6 +48,7 @@ Route::controller(ContractController::class)->prefix('contracts')->name('contrac
         Route::get('progressHistory', 'progressHistory')->name('progressHistory');
         Route::get('weeklyReport', 'weeklyReport')->name('weeklyReport');
         Route::get('velocityDashboard', 'velocityDashboard')->name('velocityDashboard');
+        Route::get('gantt', 'ganttView')->name('gantt');
     });
 });
 

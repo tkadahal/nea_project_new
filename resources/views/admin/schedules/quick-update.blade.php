@@ -49,7 +49,7 @@
                 </ol>
             </nav>
 
-            <!-- Header Row: Title (Left) & Back Button (Right) -->
+            <!-- Header Row -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="min-w-0 flex-1">
                     <h2
@@ -61,7 +61,6 @@
                     </p>
                 </div>
 
-                <!-- Back Button -->
                 <div class="shrink-0 mt-4 md:mt-0">
                     <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                         class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800">
@@ -156,7 +155,6 @@
             </div>
         @endif
 
-        {{-- EMPTY STATE: If NO activities have dates (Replaces the old empty state) --}}
         @if ($leafSchedules->isEmpty())
             <div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-md">
                 <div class="flex">
@@ -199,8 +197,6 @@
                     Go to Schedules List
                 </a>
             </div>
-
-            {{-- NORMAL STATE: List of activities with dates --}}
         @else
             <form action="{{ route('admin.contracts.schedules.bulk-update', $contract) }}" method="POST"
                 id="quick-update-form" class="space-y-6">
@@ -270,14 +266,19 @@
                                             $unit = $schedule->pivot->unit ?? '';
                                             $progress = $schedule->pivot->progress ?? 0;
                                             $targetExists = !is_null($target) && $target > 0;
+                                            $fieldIndex = $loop->parent->index * 100 + $loop->index;
                                         @endphp
 
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                             data-schedule-id="{{ $schedule->id }}">
+
+                                            <!-- Code -->
                                             <td
                                                 class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-100 sm:pl-6">
                                                 {{ $schedule->code }}
                                             </td>
+
+                                            <!-- Name -->
                                             <td class="px-3 py-4 text-sm text-gray-600 dark:text-gray-400">
                                                 <div class="font-medium text-gray-900 dark:text-gray-100">
                                                     {{ $schedule->name }}
@@ -288,46 +289,62 @@
                                                     </div>
                                                 @endif
                                             </td>
+
+                                            <!-- Current Progress Bar (display only, reflects DB value) -->
                                             <td class="px-3 py-4 text-sm text-gray-600 dark:text-gray-400">
                                                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                                                    <div class="progress-bar h-2.5 rounded-full text-xs font-medium text-white text-center leading-2.5 transition-all duration-300"
+                                                    <div class="progress-bar h-2.5 rounded-full transition-all duration-300"
                                                         style="width: {{ $progress }}%">
                                                     </div>
                                                 </div>
                                                 <div class="text-xs text-gray-500 mt-1">
                                                     {{ number_format($progress, 0) }}%
-                                                    @if ($useQuantity)
+                                                    @if ($useQuantity && $targetExists)
                                                         ({{ $completed }} / {{ $target }}
                                                         {{ $unit }})
                                                     @endif
                                                 </div>
                                             </td>
+
+                                            <!-- Update Progress Cell -->
                                             <td class="px-3 py-4 text-sm">
-                                                <input type="hidden"
-                                                    name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][id]"
+
+                                                <!-- Schedule ID -->
+                                                <input type="hidden" name="schedules[{{ $fieldIndex }}][id]"
                                                     value="{{ $schedule->id }}">
 
-                                                {{-- Tracking mode toggle --}}
+                                                {{--
+                                                    ✅ FIX: Single master hidden field — this is the ONLY
+                                                    input with name="schedules[N][progress]".
+                                                    Both the slider and the quantity calculator write
+                                                    their computed value here via JavaScript.
+                                                    The slider no longer has a name attribute.
+                                                --}}
+                                                <input type="hidden" name="schedules[{{ $fieldIndex }}][progress]"
+                                                    class="progress-master" value="{{ $progress }}">
+
+                                                <!-- Tracking mode toggle -->
                                                 <div class="mb-2">
                                                     <label class="inline-flex items-center cursor-pointer">
                                                         <input type="checkbox"
-                                                            name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][use_quantity_tracking]"
+                                                            name="schedules[{{ $fieldIndex }}][use_quantity_tracking]"
                                                             value="1" {{ $useQuantity ? 'checked' : '' }}
                                                             onchange="toggleQuantityMode(this)"
                                                             class="rounded border-gray-300">
-                                                        <span
-                                                            class="ml-2 text-xs text-gray-700 dark:text-gray-300">Track
-                                                            by quantity</span>
+                                                        <span class="ml-2 text-xs text-gray-700 dark:text-gray-300">
+                                                            Track by quantity
+                                                        </span>
                                                     </label>
                                                 </div>
 
+                                                <!-- Quantity Mode -->
                                                 <div class="quantity-mode {{ $useQuantity ? '' : 'hidden' }}">
                                                     <div class="space-y-2">
                                                         <div class="flex items-center space-x-2">
                                                             <label
                                                                 class="text-xs text-gray-600 dark:text-gray-400 w-20">Completed:</label>
                                                             <input type="number"
-                                                                name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][completed_quantity]"
+                                                                name="schedules[{{ $fieldIndex }}][completed_quantity]"
                                                                 value="{{ $completed }}" placeholder="0"
                                                                 min="0" step="0.01"
                                                                 class="flex-1 text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
@@ -344,12 +361,12 @@
                                                                 @endif
                                                             </label>
                                                             <input type="number"
-                                                                name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][target_quantity]"
+                                                                name="schedules[{{ $fieldIndex }}][target_quantity]"
                                                                 value="{{ $target }}" placeholder="100"
                                                                 min="0" step="0.01"
                                                                 {{ $targetExists ? 'readonly' : '' }}
                                                                 class="flex-1 text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700
-                                                                {{ $targetExists ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : '' }}"
+                                                                    {{ $targetExists ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : '' }}"
                                                                 oninput="calculateQuantityProgress(this)">
                                                         </div>
 
@@ -357,31 +374,33 @@
                                                             <label
                                                                 class="text-xs text-gray-600 dark:text-gray-400 w-20">Unit:</label>
                                                             <input type="text"
-                                                                name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][unit]"
+                                                                name="schedules[{{ $fieldIndex }}][unit]"
                                                                 value="{{ $unit }}" placeholder="unit"
                                                                 list="unit-suggestions"
                                                                 class="flex-1 text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                                                         </div>
 
-                                                        {{-- Progress Display --}}
+                                                        <!-- Calculated progress display -->
                                                         <div
                                                             class="text-xs text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
                                                             Progress: <span
-                                                                class="calculated-progress font-semibold text-blue-600">{{ number_format($progress, 1) }}%</span>
+                                                                class="calculated-progress font-semibold text-blue-600">
+                                                                {{ number_format($progress, 1) }}%
+                                                            </span>
                                                         </div>
                                                     </div>
-
-                                                    {{-- Hidden field for calculated progress --}}
-                                                    <input type="hidden"
-                                                        name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][progress]"
-                                                        class="progress-value-hidden" value="{{ $progress }}">
                                                 </div>
 
-                                                {{-- Percentage Mode (Slider) --}}
+                                                <!-- Percentage Mode (Slider) -->
+                                                {{--
+                                                    ✅ FIX: NO name attribute on this range input.
+                                                    It is purely a UI control. Moving it calls
+                                                    updateProgressDisplay() which writes the value
+                                                    into .progress-master above.
+                                                --}}
                                                 <div class="percentage-mode {{ $useQuantity ? 'hidden' : '' }}">
                                                     <input type="range"
                                                         class="progress-slider w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                                        name="schedules[{{ $loop->parent->index * 100 + $loop->index }}][progress]"
                                                         min="0" max="100" step="5"
                                                         value="{{ $progress }}"
                                                         oninput="updateProgressDisplay(this)">
@@ -394,6 +413,8 @@
                                                     </div>
                                                 </div>
                                             </td>
+
+                                            <!-- Quick Set Buttons -->
                                             <td class="px-3 py-4 text-right text-sm font-medium">
                                                 <div class="flex justify-end space-x-1">
                                                     <button type="button"
@@ -421,7 +442,7 @@
                     </div>
                 @endforeach
 
-                {{-- Unit suggestions datalist --}}
+                <!-- Unit suggestions datalist -->
                 <datalist id="unit-suggestions">
                     <option value="poles">
                     <option value="towers">
@@ -471,66 +492,71 @@
     </div>
 
     <script>
-        // Store original values for reset
+        // ─────────────────────────────────────────────
+        // Store original values for the Reset button
+        // ─────────────────────────────────────────────
         const originalValues = {};
+
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.progress-slider, [name*="[completed_quantity]"]').forEach(input => {
-                const row = input.closest('tr');
+            document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
                 const scheduleId = row.dataset.scheduleId;
-                if (!originalValues[scheduleId]) {
-                    originalValues[scheduleId] = {};
-                }
-                if (input.classList.contains('progress-slider')) {
-                    originalValues[scheduleId].progress = input.value;
-                } else if (input.name.includes('completed_quantity')) {
-                    originalValues[scheduleId].completed = input.value;
-                }
+                originalValues[scheduleId] = {};
+
+                const master = row.querySelector('.progress-master');
+                const completedInput = row.querySelector('[name*="[completed_quantity]"]');
+
+                if (master) originalValues[scheduleId].progress = master.value;
+                if (completedInput) originalValues[scheduleId].completed = completedInput.value;
             });
 
-            // Initialize progress bar colors
+            // Colour all current progress bars on load
             document.querySelectorAll('.progress-bar').forEach(bar => {
-                const width = parseFloat(bar.style.width) || 0;
-                updateProgressBarColor(bar, width);
+                updateProgressBarColor(bar, parseFloat(bar.style.width) || 0);
             });
         });
 
+        // ─────────────────────────────────────────────
+        // Toggle between quantity mode and slider mode
+        // ─────────────────────────────────────────────
         function toggleQuantityMode(checkbox) {
             const row = checkbox.closest('tr');
             const quantityMode = row.querySelector('.quantity-mode');
-            const percentageMode = row.querySelector('.percentage-mode');
+            const percentMode = row.querySelector('.percentage-mode');
 
             if (checkbox.checked) {
                 quantityMode.classList.remove('hidden');
-                percentageMode.classList.add('hidden');
+                percentMode.classList.add('hidden');
+                // Recalculate immediately so master field is up to date
+                const completedInput = row.querySelector('[name*="[completed_quantity]"]');
+                if (completedInput) calculateQuantityProgress(completedInput);
             } else {
                 quantityMode.classList.add('hidden');
-                percentageMode.classList.remove('hidden');
+                percentMode.classList.remove('hidden');
+                // Sync slider value into master
+                const slider = row.querySelector('.progress-slider');
+                if (slider) updateProgressDisplay(slider);
             }
         }
 
+        // ─────────────────────────────────────────────
+        // Quantity mode: recalculate progress and write
+        // the result into the master hidden field.
+        // ─────────────────────────────────────────────
         function calculateQuantityProgress(input) {
             const row = input.closest('tr');
             const completedInput = row.querySelector('[name*="[completed_quantity]"]');
             const targetInput = row.querySelector('[name*="[target_quantity]"]');
-            const progressDisplay = row.querySelector('.calculated-progress');
-            const progressHidden = row.querySelector('.progress-value-hidden');
+            const progressLabel = row.querySelector('.calculated-progress');
+            const master = row.querySelector('.progress-master'); // ✅ single field
 
             const completed = parseFloat(completedInput.value) || 0;
             const target = parseFloat(targetInput.value) || 0;
+            const progress = target > 0 ? Math.min(100, Math.max(0, (completed / target) * 100)) : 0;
 
-            let progress = 0;
-            if (target > 0) {
-                progress = Math.min(100, Math.max(0, (completed / target) * 100));
-            }
+            if (progressLabel) progressLabel.textContent = progress.toFixed(1) + '%';
+            if (master) master.value = progress; // ✅ write here only
 
-            if (progressDisplay) {
-                progressDisplay.textContent = progress.toFixed(1) + '%';
-            }
-            if (progressHidden) {
-                progressHidden.value = progress;
-            }
-
-            // Update main progress bar
+            // Update the "Current" progress bar in the same row
             const progressBar = row.querySelector('.progress-bar');
             if (progressBar) {
                 progressBar.style.width = progress + '%';
@@ -538,117 +564,120 @@
             }
         }
 
-        function updateProgressBarColor(element, value) {
-            element.classList.remove('bg-gray-300', 'bg-blue-500', 'bg-green-500', 'bg-gray-500');
-
-            if (value >= 100) {
-                element.classList.add('bg-green-500');
-            } else if (value >= 50) {
-                element.classList.add('bg-blue-500');
-            } else {
-                element.classList.add('bg-gray-400');
-            }
-        }
-
+        // ─────────────────────────────────────────────
+        // Slider mode: sync slider display and write
+        // the result into the master hidden field.
+        // ─────────────────────────────────────────────
         function updateProgressDisplay(slider) {
             const row = slider.closest('tr');
-            const valueDisplay = row.querySelector('.progress-value');
+            const valueLabel = row.querySelector('.progress-value');
             const progressBar = row.querySelector('.progress-bar');
+            const master = row.querySelector('.progress-master'); // ✅ single field
 
-            valueDisplay.textContent = slider.value + '%';
+            if (valueLabel) valueLabel.textContent = slider.value + '%';
+            if (master) master.value = slider.value; // ✅ write here only
             if (progressBar) {
                 progressBar.style.width = slider.value + '%';
-                updateProgressBarColor(progressBar, slider.value);
+                updateProgressBarColor(progressBar, parseFloat(slider.value));
             }
         }
 
+        // ─────────────────────────────────────────────
+        // Progress bar colour helper
+        // ─────────────────────────────────────────────
+        function updateProgressBarColor(element, value) {
+            element.classList.remove('bg-gray-400', 'bg-blue-500', 'bg-green-500');
+            if (value >= 100) element.classList.add('bg-green-500');
+            else if (value >= 50) element.classList.add('bg-blue-500');
+            else element.classList.add('bg-gray-400');
+        }
+
+        // ─────────────────────────────────────────────
+        // Quick-set buttons (0 / 50 / 100)
+        // ─────────────────────────────────────────────
         function setProgress(button, value) {
             const row = button.closest('tr');
             const quantityMode = row.querySelector('.quantity-mode');
-            const isQuantityMode = !quantityMode.classList.contains('hidden');
+            const isQtyMode = !quantityMode.classList.contains('hidden');
 
-            if (isQuantityMode) {
-                // Set quantity based on target
+            if (isQtyMode) {
                 const targetInput = row.querySelector('[name*="[target_quantity]"]');
                 const completedInput = row.querySelector('[name*="[completed_quantity]"]');
                 const target = parseFloat(targetInput.value) || 0;
-
                 if (target > 0) {
                     completedInput.value = (target * value / 100).toFixed(2);
                     calculateQuantityProgress(completedInput);
                 }
             } else {
-                // Set slider
                 const slider = row.querySelector('.progress-slider');
                 slider.value = value;
                 updateProgressDisplay(slider);
             }
         }
 
+        // ─────────────────────────────────────────────
+        // Set all rows at once
+        // ─────────────────────────────────────────────
         function setAllProgress(value) {
-            if (confirm(`Are you sure you want to set ALL activities to ${value}%?`)) {
-                document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
-                    const button = row.querySelector('button');
-                    if (button) {
-                        setProgress(button, value);
-                    }
-                });
-            }
+            if (!confirm(`Are you sure you want to set ALL activities to ${value}%?`)) return;
+            document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
+                // Use any button in the row as the anchor for setProgress()
+                const btn = row.querySelector('button[onclick^="setProgress"]');
+                if (btn) setProgress(btn, value);
+            });
         }
 
+        // ─────────────────────────────────────────────
+        // Reset all rows to their original DB values
+        // ─────────────────────────────────────────────
         function resetAll() {
-            if (confirm('Reset all changes to original values?')) {
-                document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
-                    const scheduleId = row.dataset.scheduleId;
-                    const original = originalValues[scheduleId];
+            if (!confirm('Reset all changes to original values?')) return;
 
-                    if (!original) return;
+            document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
+                const scheduleId = row.dataset.scheduleId;
+                const original = originalValues[scheduleId];
+                if (!original) return;
 
-                    const slider = row.querySelector('.progress-slider');
-                    const completedInput = row.querySelector('[name*="[completed_quantity]"]');
+                const slider = row.querySelector('.progress-slider');
+                const completedInput = row.querySelector('[name*="[completed_quantity]"]');
 
-                    if (slider && original.progress !== undefined) {
-                        slider.value = original.progress;
-                        updateProgressDisplay(slider);
-                    }
+                if (slider && original.progress !== undefined) {
+                    slider.value = original.progress;
+                    updateProgressDisplay(slider);
+                }
 
-                    if (completedInput && original.completed !== undefined) {
-                        completedInput.value = original.completed;
-                        calculateQuantityProgress(completedInput);
-                    }
-                });
-            }
+                if (completedInput && original.completed !== undefined) {
+                    completedInput.value = original.completed;
+                    calculateQuantityProgress(completedInput);
+                }
+            });
         }
 
-        // Confirm before leaving with unsaved changes
+        // ─────────────────────────────────────────────
+        // Warn before leaving with unsaved changes
+        // ─────────────────────────────────────────────
         let formSubmitted = false;
-        document.getElementById('quick-update-form')?.addEventListener('submit', function() {
+        document.getElementById('quick-update-form')?.addEventListener('submit', () => {
             formSubmitted = true;
         });
 
         window.addEventListener('beforeunload', function(e) {
-            if (!formSubmitted) {
-                let hasChanges = false;
-                document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
-                    const scheduleId = row.dataset.scheduleId;
-                    const original = originalValues[scheduleId];
+            if (formSubmitted) return;
 
-                    const slider = row.querySelector('.progress-slider');
-                    const completedInput = row.querySelector('[name*="[completed_quantity]"]');
+            let hasChanges = false;
+            document.querySelectorAll('tr[data-schedule-id]').forEach(row => {
+                const scheduleId = row.dataset.scheduleId;
+                const original = originalValues[scheduleId];
+                const master = row.querySelector('.progress-master');
 
-                    if (slider && original?.progress && slider.value != original.progress) {
-                        hasChanges = true;
-                    }
-                    if (completedInput && original?.completed && completedInput.value != original
-                        .completed) {
-                        hasChanges = true;
-                    }
-                });
-
-                if (hasChanges) {
-                    e.preventDefault();
-                    e.returnValue = '';
+                if (master && original?.progress && master.value != original.progress) {
+                    hasChanges = true;
                 }
+            });
+
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = '';
             }
         });
     </script>

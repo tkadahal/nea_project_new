@@ -8,7 +8,7 @@
                     <li class="inline-flex items-center">
                         <a href="{{ route('admin.contract.index') }}"
                             class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            contracts
+                            Contracts
                         </a>
                     </li>
                     <li>
@@ -58,14 +58,53 @@
                         Progress Dashboard
                     </h2>
                 </div>
-                <div class="mt-4 flex md:mt-0 md:ml-4">
+                <div class="flex gap-3">
+                    <!-- All Schedules -->
                     <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
-                        class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        class="inline-flex items-center gap-x-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                         </svg>
-                        View All Schedules
+                        All Schedules
+                    </a>
+
+                    <!-- Velocity Dashboard -->
+                    <a href="{{ route('admin.contracts.schedules.velocityDashboard', $contract) }}"
+                        class="inline-flex items-center gap-x-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-9 9-4-4-6 6" />
+                        </svg>
+                        Velocity Dashboard
+                    </a>
+
+                    <!-- Progress Snapshot -->
+                    <a href="{{ route('admin.contracts.schedules.weeklyReport', $contract) }}"
+                        class="inline-flex items-center gap-x-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2" />
+                        </svg>
+                        Progress Snapshot
+                    </a>
+
+                    <a href="{{ route('admin.schedules.overview') }}"
+                        class="inline-flex items-center px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-medium 
+                                text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 
+                                dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700 
+                                transition-all duration-200">
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="-ml-1 mr-2 h-5 w-5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7" />
+                        </svg>
+
+                        Back To Overview
                     </a>
                 </div>
             </div>
@@ -122,7 +161,8 @@
                                 </dt>
                                 <dd>
                                     <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                                        {{ $statistics['completed'] }} <span class="text-sm text-gray-500 font-normal">/
+                                        {{ $statistics['completed'] }} <span
+                                            class="text-sm text-gray-500 font-normal">/
                                             {{ $statistics['total_leaf_schedules'] }}</span>
                                     </div>
                                 </dd>
@@ -137,7 +177,8 @@
                 <div class="p-5">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <div class="p-3 rounded-md bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                            <div
+                                class="p-3 rounded-md bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
                                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">

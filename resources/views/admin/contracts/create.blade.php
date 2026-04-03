@@ -21,7 +21,7 @@
         @endcan
     </div>
 
-    {{-- Context Card: Shows fixed Project/Directorate info --}}
+    {{-- Context Card --}}
     @if ($selectedProject)
         <div
             class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -55,7 +55,6 @@
         <form class="w-full" action="{{ route('admin.contract.store') }}" method="POST" id="contract-form">
             @csrf
 
-            {{-- Hidden Inputs: Project and Directorate are fixed --}}
             <input type="hidden" name="project_id" value="{{ $selectedProject['id'] ?? '' }}">
             <input type="hidden" name="directorate_id" value="{{ $selectedProject['directorate_id'] ?? '' }}">
 
@@ -92,52 +91,38 @@
                     </h3>
 
                     <div class="grid grid-cols-1 gap-6">
-
-                        <!-- Project Selection Section -->
+                        <!-- Project Selection -->
                         <div class="mb-4">
                             @if ($selectedProject)
-                                {{-- CASE: Project is Pre-selected (Single Project OR passed via URL) --}}
-
                                 <div
                                     class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                                     <label class="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">
                                         Creating contract for:
                                     </label>
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex items-center gap-3">
-                                            {{-- Project Icon --}}
-                                            <div
-                                                class="bg-blue-100 dark:bg-blue-800 p-2 rounded-full text-blue-600 dark:text-blue-300">
-                                                <svg class="w-6 h-6" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
-                                                    </path>
-                                                </svg>
-                                            </div>
-                                            <div>
-                                                <span class="block text-lg font-semibold text-gray-800 dark:text-white">
-                                                    {{ $selectedProject['title'] ?? 'Unknown Project' }}
-                                                </span>
-                                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                                    Budget: {{ $selectedProject['total_budget_formatted'] ?? 'N/A' }} |
-                                                    Remaining:
-                                                    {{ $selectedProject['remaining_budget_formatted'] ?? 'N/A' }}
-                                                </span>
-                                            </div>
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="bg-blue-100 dark:bg-blue-800 p-2 rounded-full text-blue-600 dark:text-blue-300">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                                                </path>
+                                            </svg>
                                         </div>
-
-                                        {{-- Optional: Button to clear selection (advanced, but useful) --}}
-                                        {{-- <a href="{{ route('admin.contract.create') }}" class="text-sm text-red-500 hover:underline">Change Project</a> --}}
+                                        <div>
+                                            <span class="block text-lg font-semibold text-gray-800 dark:text-white">
+                                                {{ $selectedProject['title'] ?? 'Unknown Project' }}
+                                            </span>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                                Budget: {{ $selectedProject['total_budget_formatted'] ?? 'N/A' }} |
+                                                Remaining:
+                                                {{ $selectedProject['remaining_budget_formatted'] ?? 'N/A' }}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-
-                                {{-- Hidden Input: Submits the ID automatically --}}
                                 <input type="hidden" name="project_id" value="{{ $selectedProject['id'] }}" required>
                             @else
-                                {{-- CASE: Multiple Projects - Show Dropdown --}}
-
                                 <label for="project_id"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Project <span class="text-red-500">*</span>
@@ -147,18 +132,11 @@
                                     required onchange="loadProjectBudget(this.value)">
                                     <option value="">Select a Project</option>
                                     @foreach ($projects as $project)
-                                        <option value="{{ $project['id'] }}">
-                                            {{ $project['title'] }}
-                                        </option>
+                                        <option value="{{ $project['id'] }}">{{ $project['title'] }}</option>
                                     @endforeach
                                 </select>
-
-                                <!-- THIS IS THE MISSING CONTAINER -->
                                 <div id="budget-info-container" class="mt-2"></div>
-                                <!-- ---------------------------- -->
-
                                 <p class="mt-1 text-xs text-gray-500">Select the project this contract belongs to.</p>
-
                             @endif
                         </div>
 
@@ -196,6 +174,61 @@
 
                 {{-- Right Column --}}
                 <div class="space-y-6">
+
+                    {{-- Salient Features Card - Improved Grouping --}}
+                    <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <h3
+                            class="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4 pb-2 border-b border-gray-200 dark:border-gray-600">
+                            Salient Features
+                        </h3>
+
+                        <div class="space-y-6">
+                            <!-- Voltage Level - Full Width on Top -->
+                            <div>
+                                <x-forms.select label="Voltage Level" name="voltage_level" id="voltage_level"
+                                    :options="[
+                                        ['value' => '', 'label' => 'Select Voltage Level'],
+                                        ['value' => '11kV', 'label' => '11 kV'],
+                                        ['value' => '33kV', 'label' => '33 kV'],
+                                        ['value' => '66kV', 'label' => '66 kV'],
+                                        ['value' => '132kV', 'label' => '132 kV'],
+                                        ['value' => '220kV', 'label' => '220 kV'],
+                                        ['value' => '400kV', 'label' => '400 kV'],
+                                    ]" :selected="old('voltage_level')" placeholder="Select Voltage Level"
+                                    :error="$errors->first('voltage_level')" class="js-single-select" />
+                            </div>
+
+                            <!-- Two Columns: Performance Guarantee | Advance Guarantee -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Performance Guarantee Group -->
+                                <div class="space-y-4">
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-1">
+                                        Performance Guarantee
+                                    </h4>
+                                    <x-forms.input label="Performance Guarantee No" name="performance_guarantee_no"
+                                        type="text" :value="old('performance_guarantee_no')" placeholder="Enter PG Number"
+                                        :error="$errors->first('performance_guarantee_no')" />
+
+                                    <x-forms.date-input label="PG Valid Date" name="pg_valid_date" :value="old('pg_valid_date')"
+                                        :error="$errors->first('pg_valid_date')" />
+                                </div>
+
+                                <!-- Advance Guarantee Group -->
+                                <div class="space-y-4">
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-1">
+                                        Advance Guarantee
+                                    </h4>
+                                    <x-forms.input label="Advance Guarantee No" name="advance_guarantee_no"
+                                        type="text" :value="old('advance_guarantee_no')" placeholder="Enter AG Number"
+                                        :error="$errors->first('advance_guarantee_no')" />
+
+                                    <x-forms.date-input label="AG Valid Date" name="ag_valid_date" :value="old('ag_valid_date')"
+                                        :error="$errors->first('ag_valid_date')" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- Status & Priority --}}
                     <div
                         class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -302,7 +335,6 @@
                     const completionDateInput = $('input[name="agreement_completion_date"]');
                     const initialPeriodInput = $('input[name="initial_contract_period"]');
 
-                    // 1. Calculate Initial Contract Period automatically
                     function calculateInitialPeriod() {
                         const effectiveDate = effectiveDateInput.val();
                         const completionDate = completionDateInput.val();
@@ -331,27 +363,20 @@
                         }
                     }
 
-                    // Trigger on change
                     effectiveDateInput.on('change', calculateInitialPeriod);
                     completionDateInput.on('change', calculateInitialPeriod);
-
-                    // Trigger on load if pre-filled
                     calculateInitialPeriod();
 
-                    // 2. Handle Form Submission
                     contractForm.on('submit', function(e) {
-                        // Basic validation
                         if (!effectiveDateInput.val() || !completionDateInput.val()) {
                             e.preventDefault();
                             errorMessage.removeClass('hidden');
                             errorText.text('Please ensure both effective and completion dates are filled.');
                             return;
                         }
-
                         submitButton.prop('disabled', true).text('Saving...');
                     });
 
-                    // 3. Close error message
                     $('#close-error').on('click', function() {
                         errorMessage.addClass('hidden');
                         errorText.text('');
@@ -361,11 +386,11 @@
 
             async function loadProjectBudget(projectId) {
                 const container = document.getElementById('budget-info-container');
-                const directorateInput = document.querySelector('input[name="directorate_id"]'); // 1. Select hidden input
+                const directorateInput = document.querySelector('input[name="directorate_id"]');
 
                 if (!projectId) {
                     container.innerHTML = '';
-                    directorateInput.value = ''; // Clear directorate if no project
+                    if (directorateInput) directorateInput.value = '';
                     return;
                 }
 
@@ -384,25 +409,16 @@
 
                     const data = await response.json();
 
-                    // --- DEBUGGING: Open browser console (F12) and check this log ---
-                    console.log("Server Response:", data);
-                    console.log("Directorate ID found:", data.directorate_id);
-                    // ---------------------------------------------------------
-
-                    // 2. UPDATE THE HIDDEN DIRECTORATE INPUT
                     if (data.directorate_id) {
                         directorateInput.value = data.directorate_id;
                     }
 
-                    // 3. Render the budget info
                     container.innerHTML = `
                         <div class="flex items-center gap-4 mt-2 text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
-                            <div>
-                                <span class="text-gray-500 dark:text-gray-400">Total:</span>
+                            <div><span class="text-gray-500 dark:text-gray-400">Total:</span> 
                                 <span class="font-semibold text-gray-800 dark:text-white ml-1">${data.total_budget}</span>
                             </div>
-                            <div>
-                                <span class="text-gray-500 dark:text-gray-400">Remaining:</span>
+                            <div><span class="text-gray-500 dark:text-gray-400">Remaining:</span> 
                                 <span class="font-semibold text-blue-600 dark:text-blue-400 ml-1">${data.remaining_budget}</span>
                             </div>
                         </div>

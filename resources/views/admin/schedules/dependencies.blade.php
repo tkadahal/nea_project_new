@@ -6,9 +6,9 @@
             <nav class="flex mb-4" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
-                        <a href="{{ route('admin.project.index') }}"
+                        <a href="{{ route('admin.contract.index') }}"
                             class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                            Projects
+                            Contracts
                         </a>
                     </li>
                     <li>
@@ -18,9 +18,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.project.show', $project) }}"
+                            <a href="{{ route('admin.contract.show', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
-                                {{ Str::limit($project->title, 30) }}
+                                {{ Str::limit($contract->title, 30) }}
                             </a>
                         </div>
                     </li>
@@ -31,7 +31,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="m1 9 4-4-4-4" />
                             </svg>
-                            <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                            <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                                 class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">
                                 Schedules
                             </a>
@@ -61,7 +61,7 @@
                     </p>
                 </div>
 
-                <a href="{{ route('admin.projects.schedules.index', $project) }}"
+                <a href="{{ route('admin.contracts.schedules.index', $contract) }}"
                     class="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                     <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -159,8 +159,8 @@
                         <div class="space-y-3">
                             @foreach ($schedule->predecessors as $predecessor)
                                 @php
-                                    $predAssignment = DB::table('project_schedule_assignments')
-                                        ->where('project_id', $project->id)
+                                    $predAssignment = DB::table('contract_schedule_assignments')
+                                        ->where('contract_id', $contract->id)
                                         ->where('schedule_id', $predecessor->id)
                                         ->first();
                                 @endphp
@@ -282,8 +282,8 @@
                         <div class="space-y-3">
                             @foreach ($schedule->successors as $successor)
                                 @php
-                                    $succAssignment = DB::table('project_schedule_assignments')
-                                        ->where('project_id', $project->id)
+                                    $succAssignment = DB::table('contract_schedule_assignments')
+                                        ->where('contract_id', $contract->id)
                                         ->where('schedule_id', $successor->id)
                                         ->first();
                                 @endphp
